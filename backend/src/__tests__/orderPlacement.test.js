@@ -20,12 +20,12 @@ function fakeConnection({ customers = [1], products = {} } = {}) {
             }
             if (sql.includes("INSERT INTO orders")) return [{ insertId: 501 }];
             if (sql.includes("INSERT INTO order_items")) return [{ affectedRows: 1 }];
-            if (sql.includes("UPDATE products")) {
-                const [quantity, id] = params;
-                if (stock[id] < quantity) return [{ affectedRows: 0 }];
-                stock[id] -= quantity;
+            if (sql.includes("UPDATE products SET stock = ?")) {
+                const [balance, id] = params;
+                stock[id] = balance;
                 return [{ affectedRows: 1 }];
             }
+            if (sql.includes("INSERT INTO stock_movements")) return [{ insertId: 1 }];
             throw new Error(`Unexpected query: ${sql}`);
         }
     };
@@ -46,6 +46,13 @@ describe("placeOrder", () => {
         expect(result.orderId).toBe(501);
         expect(result.total).toBe("1700.50"); // 2 × 850.10 + 3 × 0.10, no float drift
         expect(connection.stock).toMatchObject({ 3: 8, 1: 97 });
+
+        // Every stock change is written to the ledger with its balance.
+        const movements = connection.calls.filter((c) => c.sql.includes("INSERT INTO stock_movements"));
+        expect(movements.map((m) => [m.params[0], m.params[1], m.params[2], m.params[4], m.params[5]])).toEqual([
+            [1, -3, "sale", 97, 501],
+            [3, -2, "sale", 8, 501]
+        ]);
     });
 
     test("locks products in id order to avoid deadlocks", async () => {
@@ -53,8 +60,10 @@ describe("placeOrder", () => {
 
         await placeOrder(connection, 1, new Map([[3, { quantity: 1 }], [1, { quantity: 1 }]]));
 
+        // First acquisition order is what matters; re-locking a row the
+        // transaction already holds (the ledger does) is a no-op in MySQL.
         const locked = connection.calls.filter((c) => c.sql.includes("FOR UPDATE")).map((c) => c.params[0]);
-        expect(locked).toEqual([1, 3]);
+        expect([...new Set(locked)]).toEqual([1, 3]);
     });
 
     test("uses quoted unit prices when given", async () => {

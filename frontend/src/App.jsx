@@ -20,6 +20,9 @@ const Receivables = lazy(() => import("./pages/Receivables"));
 const Users = lazy(() => import("./pages/Users"));
 const Invoice = lazy(() => import("./pages/Invoice"));
 const QuoteDocument = lazy(() => import("./pages/QuoteDocument"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const PurchaseOrders = lazy(() => import("./pages/PurchaseOrders"));
+const Suppliers = lazy(() => import("./pages/Suppliers"));
 
 export default function App() {
     return (
@@ -44,6 +47,9 @@ export default function App() {
                                     <Route path="/orders" element={<Orders />} />
                                     <Route path="/receivables" element={<Receivables />} />
                                     <Route path="/quotes" element={<Quotes />} />
+                                    <Route path="/inventory" element={<Inventory />} />
+                                    <Route path="/purchase-orders" element={<PurchaseOrders />} />
+                                    <Route path="/suppliers" element={<Suppliers />} />
                                     <Route
                                         path="/users"
                                         element={<ProtectedRoute roles={["Admin"]} />}

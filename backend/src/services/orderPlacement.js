@@ -1,3 +1,5 @@
+const { recordMovement } = require("./inventory");
+
 // Creates an order inside the caller's transaction: locks products, checks
 // they are active and in stock, prices the lines, writes the order, and
 // decrements inventory. Used by POST /orders and by quote conversion.
@@ -14,8 +16,9 @@ class OrderPlacementError extends Error {
  * @param customerId  existing customer id
  * @param lines       Map(productId → { quantity, unitPrice? }). unitPrice
  *                    overrides the catalog price (used for quoted prices).
+ * @param options     { userId } recorded on the stock movements.
  */
-async function placeOrder(connection, customerId, lines) {
+async function placeOrder(connection, customerId, lines, { userId = null } = {}) {
     const [customers] = await connection.query(
         "SELECT id FROM customers WHERE id = ?",
         [customerId]
@@ -96,18 +99,15 @@ async function placeOrder(connection, customerId, lines) {
             [orderId, item.product_id, item.quantity, item.unit_price.toFixed(2)]
         );
 
-        const [updateResult] = await connection.query(
-            `UPDATE products
-             SET stock = stock - ?
-             WHERE id = ?
-               AND is_active = 1
-               AND stock >= ?`,
-            [item.quantity, item.product_id, item.quantity]
-        );
-
-        if (updateResult.affectedRows !== 1) {
-            throw new Error(`Inventory update failed for product ${item.product_id}`);
-        }
+        // Stock was checked under lock above; the ledger records the sale.
+        await recordMovement(connection, {
+            productId: item.product_id,
+            quantity: -item.quantity,
+            type: "sale",
+            reason: `Order #${orderId}`,
+            orderId,
+            userId
+        });
     }
 
     return { orderId, total, items: orderItems };

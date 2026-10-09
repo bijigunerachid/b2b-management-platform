@@ -3,6 +3,7 @@ const pool = require("../config/database");
 const { withBilling } = require("../billing/billing");
 const { ORDER_BILLING_COLUMNS, PAID_JOIN } = require("../billing/queries");
 const { OrderPlacementError, placeOrder } = require("../services/orderPlacement");
+const { recordMovement } = require("../services/inventory");
 
 // GET /api/orders
 const getOrders = async (req, res) => {
@@ -173,7 +174,7 @@ const createOrder = async (req, res) => {
         let placed;
 
         try {
-            placed = await placeOrder(connection, customerId, lines);
+            placed = await placeOrder(connection, customerId, lines, { userId: req.user.userId });
         } catch (error) {
             if (error instanceof OrderPlacementError) {
                 await connection.rollback();
@@ -337,19 +338,18 @@ const updateOrderStatus = async (req, res) => {
                 [orderId]
             );
 
-            for (const item of items) {
-                const [updateResult] = await connection.query(
-                    `UPDATE products
-                     SET stock = stock + ?
-                     WHERE id = ?`,
-                    [item.quantity, item.product_id]
-                );
+            // Lock in id order (as placement does) and record each return.
+            items.sort((a, b) => a.product_id - b.product_id);
 
-                if (updateResult.affectedRows !== 1) {
-                    throw new Error(
-                        `Could not restore stock for product ${item.product_id}`
-                    );
-                }
+            for (const item of items) {
+                await recordMovement(connection, {
+                    productId: item.product_id,
+                    quantity: item.quantity,
+                    type: "sale_cancelled",
+                    reason: `Order #${orderId} cancelled`,
+                    orderId,
+                    userId: req.user.userId
+                });
             }
         }
 

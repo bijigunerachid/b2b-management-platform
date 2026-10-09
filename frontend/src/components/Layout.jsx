@@ -32,6 +32,14 @@ const sections = [
     ],
   },
   {
+    title: "Inventory",
+    links: [
+      { label: "Stock", path: "/inventory", icon: "box", roles: ["Admin", "Manager", "Employee"] },
+      { label: "Purchase orders", path: "/purchase-orders", icon: "truck", roles: ["Admin", "Manager", "Employee"] },
+      { label: "Suppliers", path: "/suppliers", icon: "building", roles: ["Admin", "Manager", "Employee"] },
+    ],
+  },
+  {
     title: "Administration",
     links: [{ label: "Users", path: "/users", icon: "users", roles: ["Admin"] }],
   },

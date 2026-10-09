@@ -226,6 +226,9 @@ const permissions = {
   "orders.write": ["Admin", "Manager"],
   "payments.write": ["Admin", "Manager"],
   "quotes.write": ["Admin", "Manager"],
+  "purchasing.write": ["Admin", "Manager"],
+  "inventory.adjust": ["Admin", "Manager"],
+  "suppliers.delete": ["Admin"],
   "payments.void": ["Admin"],
   "users.manage": ["Admin"],
 };

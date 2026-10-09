@@ -27,7 +27,7 @@ function buildNotifications(stats) {
       icon: out ? "ban" : "alert",
       title: out ? `${product.name} is out of stock` : `${product.name} is running low`,
       body: out ? "Restock to accept new orders." : `Only ${product.stock} units left.`,
-      to: `/products?q=${encodeURIComponent(product.name)}`,
+      to: "/inventory",
     });
   }
 
@@ -53,6 +53,18 @@ function buildNotifications(stats) {
       title: `Quote for ${quote.company_name} ${days === 0 ? "expires today" : `expires in ${days} day${days === 1 ? "" : "s"}`}`,
       body: "Follow up before the offer lapses.",
       to: `/quotes?view=${quote.id}`,
+    });
+  }
+
+  const lateDeliveries = stats.purchasing?.lateOrders ?? 0;
+  if (lateDeliveries > 0) {
+    items.push({
+      id: `po-late-${lateDeliveries}`,
+      tone: "danger",
+      icon: "truck",
+      title: `${lateDeliveries} supplier deliver${lateDeliveries === 1 ? "y is" : "ies are"} overdue`,
+      body: "Follow up with the supplier before you run out.",
+      to: "/purchase-orders?status=late",
     });
   }
 

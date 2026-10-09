@@ -5,6 +5,7 @@ const bcrypt = require("bcrypt");
 const pool = require("../config/database");
 const { generateDataset } = require("../seed/generate");
 const { seedQuotes } = require("../seed/quotes");
+const { seedPurchasing } = require("../seed/purchasing");
 
 /*
  * Seeds the database with a large, realistic demo dataset.
@@ -16,7 +17,8 @@ const { seedQuotes } = require("../seed/quotes");
  * Options: --customers --products --orders --users --months --seed --reset
  *
  * Everything runs in one transaction: it either all lands or nothing does.
- * --reset deletes ALL customers, products, categories, orders, payments, and quotes, plus
+ * --reset deletes ALL customers, products, categories, orders, payments, quotes,
+ * suppliers, purchase orders, and stock movements, plus
  * previously seeded users (@seed.b2b.local). Real user accounts are kept.
  */
 
@@ -83,13 +85,17 @@ async function seed() {
 
         if (options.reset) {
             console.log("Resetting business data…");
+            // Children before parents, following the foreign keys.
             await connection.query("DELETE FROM quotes");
             await connection.query("DELETE FROM payments");
+            await connection.query("DELETE FROM stock_movements");
+            await connection.query("DELETE FROM purchase_orders");
             await connection.query("DELETE FROM order_items");
             await connection.query("DELETE FROM orders");
             await connection.query("DELETE FROM products");
             await connection.query("DELETE FROM customers");
             await connection.query("DELETE FROM categories");
+            await connection.query("DELETE FROM suppliers");
             await connection.query("DELETE FROM users WHERE email LIKE '%@seed.b2b.local'");
         }
 
@@ -140,6 +146,16 @@ async function seed() {
                 product.stock,
                 product.is_active
             ])
+        );
+
+        // Every product's stock starts in the ledger as an opening balance.
+        const openingRows = data.products
+            .map((product, index) => [firstProductId + index, product.stock, "opening", "Opening balance", product.stock])
+            .filter((row) => row[1] > 0);
+        await insertChunks(
+            connection,
+            "INSERT INTO stock_movements (product_id, quantity, type, reason, balance_after) VALUES ?",
+            openingRows
         );
 
         const firstOrderId = await nextId(connection, "orders");
@@ -222,6 +238,8 @@ async function seed() {
         }
 
         const quoteCount = await seedQuotes(connection, { now: new Date() });
+        const purchasing = await seedPurchasing(connection, { now: new Date() });
+        if (purchasing) console.log(`Inserted ${purchasing.suppliers} suppliers and purchase orders…`);
         if (quoteCount > 0) console.log(`Inserted ${quoteCount} quotes…`);
 
         await connection.commit();
@@ -238,6 +256,7 @@ async function seed() {
         console.log(`  Orders:      ${data.orders.length} (${itemRows.length} line items, ${options.months} months)`);
         console.log(`  Payments:    ${paymentRows.length}`);
         console.log(`  Quotes:      ${quoteCount}${quoteCount === 0 ? " (existing quotes kept)" : ""}`);
+        console.log(`  Purchasing:  ${purchasing ? `${purchasing.suppliers} suppliers, ${purchasing.received + purchasing.ordered + purchasing.drafts + purchasing.cancelled} purchase orders` : "existing suppliers kept"}`);
         console.log(`  Revenue:     ${revenue.toLocaleString("en", { maximumFractionDigits: 0 })} MAD completed`);
 
         if (seededPassword) {
