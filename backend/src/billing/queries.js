@@ -10,7 +10,7 @@ const BILLING_JOINS = `
         GROUP BY order_id
     ) paid ON paid.order_id = o.id
     LEFT JOIN (
-        SELECT order_id, SUM(total) AS amount_credited, SUM(refund_amount) AS amount_refunded
+        SELECT order_id, SUM(total) AS amount_credited, SUM(subtotal) AS credited_subtotal, SUM(refund_amount) AS amount_refunded
         FROM credit_notes
         GROUP BY order_id
     ) credit ON credit.order_id = o.id`;
@@ -24,7 +24,8 @@ const ORDER_BILLING_COLUMNS = `
     o.created_at,
     COALESCE(paid.amount_paid, 0) AS amount_paid,
     COALESCE(credit.amount_credited, 0) AS amount_credited,
-    COALESCE(credit.amount_refunded, 0) AS amount_refunded`;
+    COALESCE(credit.amount_refunded, 0) AS amount_refunded,
+    COALESCE(credit.credited_subtotal, 0) AS credited_subtotal`;
 
 /** Billing for one order, read inside the caller's transaction (lock the order row first). */
 async function loadOrderBilling(connection, order, now = new Date()) {

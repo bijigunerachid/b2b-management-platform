@@ -94,7 +94,7 @@ describe("placeOrder", () => {
 
     test("applies the customer's pricing rules and records them on each line", async () => {
         const connection = fakeConnection({
-            products: { 3: { ...catalog[3], category_id: 2 }, 1: { ...catalog[1], category_id: 5 } },
+            products: { 3: { ...catalog[3], category_id: 2 }, 1: { ...catalog[1], category_id: 5, average_cost: "0.04" } },
             priceList: { price_list_id: 4, price_list_name: "Gold", discount_percent: "10.00" },
             contracts: [{ product_id: 1, unit_price: "0.05" }],
             breaks: [{ category_id: 2, min_quantity: 2, discount_percent: "5.00" }]
@@ -104,8 +104,8 @@ describe("placeOrder", () => {
 
         // Chair: 850.10 × 0.9 × 0.95 = 726.84; mouse: contract price.
         expect(result.items).toEqual([
-            { product_id: 1, quantity: 3, unit_price: 0.05, list_price: 0.1, price_source: "contract" },
-            { product_id: 3, quantity: 2, unit_price: 726.84, list_price: 850.1, price_source: "volume" }
+            { product_id: 1, quantity: 3, unit_price: 0.05, list_price: 0.1, price_source: "contract", unit_cost: 0.04 },
+            { product_id: 3, quantity: 2, unit_price: 726.84, list_price: 850.1, price_source: "volume", unit_cost: null }
         ]);
         expect(result.total).toBe("1453.83");
     });

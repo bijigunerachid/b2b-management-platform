@@ -616,7 +616,7 @@ export default function Orders() {
   const table = useTable(filtered, { accessors, initialSort: { key: "date", direction: "desc" } });
 
   const completedOrders = inPeriod.filter((order) => order.status === "Completed");
-  const revenue = completedOrders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+  const revenue = completedOrders.reduce((sum, order) => sum + Number(order.total_amount || 0) - Number(order.credited_subtotal || 0), 0);
   const average = completedOrders.length ? revenue / completedOrders.length : 0;
 
   async function changeStatus(order, nextStatus) {
@@ -684,7 +684,7 @@ export default function Orders() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Completed revenue" value={compactMoney(revenue)} hint={periods[period.key].label} icon="revenue" tone="success" loading={loading && !data} />
+        <StatCard label="Completed revenue" value={compactMoney(revenue)} hint={`${periods[period.key].label}, net of returns`} icon="revenue" tone="success" loading={loading && !data} />
         <StatCard label="Average order" value={money(average)} hint="Across completed orders" icon="orders" tone="primary" loading={loading && !data} />
         <StatCard label="Pending" value={number(counts.Pending)} hint="Awaiting review" icon="clock" tone="warning" loading={loading && !data} onClick={() => setStatus("Pending")} />
         <StatCard label="Processing" value={number(counts.Processing)} hint="Being prepared" icon="truck" tone="info" loading={loading && !data} onClick={() => setStatus("Processing")} />

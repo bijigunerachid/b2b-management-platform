@@ -37,7 +37,7 @@ async function placeOrder(connection, customerId, lines, { userId = null } = {})
         const { quantity, unitPrice } = lines.get(productId);
 
         const [products] = await connection.query(
-            `SELECT id, name, price, category_id, stock, is_active
+            `SELECT id, name, price, category_id, stock, is_active, average_cost
              FROM products
              WHERE id = ?
              FOR UPDATE`,
@@ -80,7 +80,8 @@ async function placeOrder(connection, customerId, lines, { userId = null } = {})
             quantity,
             unit_price: priceCents / 100,
             list_price: Number(resolved.listPrice),
-            price_source: resolved.source
+            price_source: resolved.source,
+            unit_cost: product.average_cost === null || product.average_cost === undefined ? null : Number(product.average_cost)
         });
     }
 
@@ -98,9 +99,9 @@ async function placeOrder(connection, customerId, lines, { userId = null } = {})
     for (const item of orderItems) {
         await connection.query(
             `INSERT INTO order_items
-                (order_id, product_id, quantity, unit_price, list_price, price_source)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [orderId, item.product_id, item.quantity, item.unit_price.toFixed(2), item.list_price.toFixed(2), item.price_source]
+                (order_id, product_id, quantity, unit_price, list_price, price_source, unit_cost)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [orderId, item.product_id, item.quantity, item.unit_price.toFixed(2), item.list_price.toFixed(2), item.price_source, item.unit_cost]
         );
 
         // Stock was checked under lock above; the ledger records the sale.

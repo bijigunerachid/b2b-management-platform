@@ -98,7 +98,7 @@ const getProducts = async (req, res, next) => {
             `SELECT
                 p.id, p.name, p.description, p.price, p.stock,
                 p.category_id, p.is_active, p.created_at,
-                p.reorder_point, p.supplier_id,
+                p.reorder_point, p.supplier_id, p.average_cost,
                 c.name AS category_name,
                 s.name AS supplier_name,
                 COALESCE(oo.on_order, 0) AS on_order
@@ -122,7 +122,8 @@ const getProducts = async (req, res, next) => {
 
         return res.status(200).json({
             success: true,
-            data: products,
+            // Costs are management information.
+            data: req.user.role === "Employee" ? products.map((product) => ({ ...product, average_cost: undefined })) : products,
             pagination: {
                 page,
                 limit,
@@ -164,7 +165,7 @@ const getProductById = async (req, res) => {
 
         res.json({
             success: true,
-            data: products[0]
+            data: req.user.role === "Employee" ? { ...products[0], average_cost: undefined } : products[0]
         });
     } catch (error) {
         console.error(error);
@@ -264,8 +265,8 @@ const createProduct = async (req, res) => {
 
             [result] = await connection.query(
                 `INSERT INTO products
-                 (name, description, price, stock, category_id, is_active, reorder_point, supplier_id)
-                 VALUES (?, ?, ?, 0, ?, ?, ?, ?)`,
+                 (name, description, price, stock, category_id, is_active, reorder_point, supplier_id, average_cost)
+                 VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)`,
                 [
                     name.trim(),
                     description || null,
@@ -273,7 +274,8 @@ const createProduct = async (req, res) => {
                     parsedCategoryId,
                     is_active === false || is_active === 0 ? 0 : 1,
                     reorder_point ?? 5,
-                    supplier_id ?? null
+                    supplier_id ?? null,
+                    req.body.average_cost ?? null
                 ]
             );
 
@@ -380,7 +382,8 @@ const updateProduct = async (req, res) => {
                  category_id = ?,
                  is_active = COALESCE(?, is_active),
                  reorder_point = COALESCE(?, reorder_point),
-                 supplier_id = ?
+                 supplier_id = ?,
+                 average_cost = IF(?, ?, average_cost)
              WHERE id = ?`,
             [
                 name.trim(),
@@ -391,6 +394,9 @@ const updateProduct = async (req, res) => {
                 reorder_point ?? null,
                 // Omitted keeps the current supplier; null clears it.
                 supplier_id === undefined ? existing[0].supplier_id : supplier_id,
+                // Omitted keeps the current cost; receipts keep it up to date.
+                req.body.average_cost !== undefined,
+                req.body.average_cost ?? null,
                 id
             ]
         );
