@@ -45,7 +45,7 @@ export function InvoiceSheet({ order, customer, payments }) {
         />
       </section>
 
-      <LineTable lines={invoice.lines} />
+      <LineTable lines={invoice.lines} showDiscount={invoice.lines.some((line) => line.listPrice > line.unitPrice + 0.004)} />
 
       <section className="mt-6 flex flex-wrap items-start justify-between gap-8" style={{ breakInside: "avoid" }}>
         <div className="max-w-xs text-[12px] leading-5" style={{ color: paper.muted }}>

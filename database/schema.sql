@@ -29,6 +29,17 @@ CREATE TABLE IF NOT EXISTS users (
         FOREIGN KEY (role_id) REFERENCES roles(id)
 );
 
+-- 3a. Price lists (referenced by customers)
+CREATE TABLE IF NOT EXISTS price_lists (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description VARCHAR(255),
+    discount_percent DECIMAL(5,2) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_price_lists_discount CHECK (discount_percent > 0 AND discount_percent <= 50)
+);
+
 -- 3. Customers
 CREATE TABLE IF NOT EXISTS customers (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -39,7 +50,10 @@ CREATE TABLE IF NOT EXISTS customers (
     address VARCHAR(255),
     city VARCHAR(100),
     country VARCHAR(100) NOT NULL DEFAULT 'Morocco',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    price_list_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_customers_price_list
+        FOREIGN KEY (price_list_id) REFERENCES price_lists(id)
 );
 
 -- users.customer_id can only reference customers once that table exists.
@@ -99,6 +113,38 @@ CREATE TABLE IF NOT EXISTS products (
     CONSTRAINT chk_products_stock CHECK (stock >= 0)
 );
 
+-- 5b. Pricing rules
+CREATE TABLE IF NOT EXISTS volume_discounts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    category_id INT NULL,
+    min_quantity INT NOT NULL,
+    discount_percent DECIMAL(5,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_volume_discounts_category
+        FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
+    CONSTRAINT chk_volume_discounts_quantity CHECK (min_quantity >= 2),
+    CONSTRAINT chk_volume_discounts_discount CHECK (discount_percent > 0 AND discount_percent <= 50)
+);
+
+CREATE TABLE IF NOT EXISTS customer_prices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    product_id INT NOT NULL,
+    unit_price DECIMAL(10,2) NOT NULL,
+    note VARCHAR(255),
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_customer_prices UNIQUE (customer_id, product_id),
+    CONSTRAINT fk_customer_prices_customer
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    CONSTRAINT fk_customer_prices_product
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    CONSTRAINT fk_customer_prices_created_by
+        FOREIGN KEY (created_by) REFERENCES users(id),
+    CONSTRAINT chk_customer_prices_price CHECK (unit_price >= 0)
+);
+
 -- 6. Orders
 CREATE TABLE IF NOT EXISTS orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -123,6 +169,8 @@ CREATE TABLE IF NOT EXISTS order_items (
     product_id INT NOT NULL,
     quantity INT NOT NULL,
     unit_price DECIMAL(10,2) NOT NULL,
+    list_price DECIMAL(10,2) NULL,
+    price_source ENUM('list', 'price_list', 'volume', 'contract', 'quote') NULL,
     CONSTRAINT fk_order_items_order
         FOREIGN KEY (order_id) REFERENCES orders(id),
     CONSTRAINT fk_order_items_product

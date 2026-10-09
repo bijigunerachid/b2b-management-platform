@@ -1,8 +1,10 @@
 const { recordMovement } = require("./inventory");
+const { loadPricingContext } = require("../pricing/pricing");
+const { resolvePrice } = require("../pricing/pricingRules");
 
 // Creates an order inside the caller's transaction: locks products, checks
-// they are active and in stock, prices the lines, writes the order, and
-// decrements inventory. Used by POST /orders and by quote conversion.
+// they are active and in stock, prices the lines with the customer's pricing
+// rules, writes the order, and decrements inventory. Used by POST /orders and by quote conversion.
 
 class OrderPlacementError extends Error {
     constructor(status, message) {
@@ -15,16 +17,13 @@ class OrderPlacementError extends Error {
  * @param connection  a connection with an open transaction
  * @param customerId  existing customer id
  * @param lines       Map(productId → { quantity, unitPrice? }). unitPrice
- *                    overrides the catalog price (used for quoted prices).
+ *                    overrides the pricing rules (used for quoted prices).
  * @param options     { userId } recorded on the stock movements.
  */
 async function placeOrder(connection, customerId, lines, { userId = null } = {}) {
-    const [customers] = await connection.query(
-        "SELECT id FROM customers WHERE id = ?",
-        [customerId]
-    );
+    const pricing = await loadPricingContext(connection, customerId);
 
-    if (customers.length === 0) {
+    if (!pricing) {
         throw new OrderPlacementError(404, "Customer not found");
     }
 
@@ -38,7 +37,7 @@ async function placeOrder(connection, customerId, lines, { userId = null } = {})
         const { quantity, unitPrice } = lines.get(productId);
 
         const [products] = await connection.query(
-            `SELECT id, name, price, stock, is_active
+            `SELECT id, name, price, category_id, stock, is_active
              FROM products
              WHERE id = ?
              FOR UPDATE`,
@@ -59,7 +58,10 @@ async function placeOrder(connection, customerId, lines, { userId = null } = {})
             throw new OrderPlacementError(409, `Insufficient stock for ${product.name}`);
         }
 
-        const price = Number(unitPrice ?? product.price);
+        const resolved = unitPrice === undefined || unitPrice === null
+            ? resolvePrice(pricing, product, quantity)
+            : { unitPrice: Number(unitPrice), listPrice: Number(product.price), source: "quote" };
+        const price = resolved.unitPrice;
 
         if (!Number.isFinite(price) || price < 0) {
             throw new Error(`Invalid price for product ${product.id}`);
@@ -76,7 +78,9 @@ async function placeOrder(connection, customerId, lines, { userId = null } = {})
         orderItems.push({
             product_id: product.id,
             quantity,
-            unit_price: priceCents / 100
+            unit_price: priceCents / 100,
+            list_price: Number(resolved.listPrice),
+            price_source: resolved.source
         });
     }
 
@@ -94,9 +98,9 @@ async function placeOrder(connection, customerId, lines, { userId = null } = {})
     for (const item of orderItems) {
         await connection.query(
             `INSERT INTO order_items
-                (order_id, product_id, quantity, unit_price)
-             VALUES (?, ?, ?, ?)`,
-            [orderId, item.product_id, item.quantity, item.unit_price.toFixed(2)]
+                (order_id, product_id, quantity, unit_price, list_price, price_source)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [orderId, item.product_id, item.quantity, item.unit_price.toFixed(2), item.list_price.toFixed(2), item.price_source]
         );
 
         // Stock was checked under lock above; the ledger records the sale.

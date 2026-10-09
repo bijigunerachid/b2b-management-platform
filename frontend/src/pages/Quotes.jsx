@@ -27,6 +27,7 @@ import {
 } from "../components/ui/primitives";
 import { api, can, compactMoney, exportCsv, formatDate, initials, money, number, timeAgo, toList, useActiveProducts, useResource } from "../lib/api";
 import { localDateInput } from "../lib/billing";
+import { usePrices } from "../lib/pricing";
 import { QUOTE_STATUS, QUOTE_STATUS_ORDER, validityLabel } from "../lib/quoteStatus";
 import company from "../config/company";
 import useTable from "../lib/useTable";
@@ -96,13 +97,15 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
 
   const productById = new Map(products.map((product) => [String(product.id), product]));
   const chosen = new Set(lines.map((line) => line.product_id).filter(Boolean));
+  const { prices } = usePrices("/pricing/preview", form.customer_id, lines);
+  const customerPrice = (product) => prices.get(product.id)?.unit_price ?? Number(product.price);
 
   const summary = lines.reduce(
     (acc, line) => {
       const product = productById.get(line.product_id);
       if (!product) return acc;
       const quantity = Number(line.quantity) || 0;
-      const price = line.unit_price === "" ? Number(product.price) : Number(line.unit_price) || 0;
+      const price = line.unit_price === "" ? customerPrice(product) : Number(line.unit_price) || 0;
       acc.list += Number(product.price) * quantity;
       acc.subtotal += price * quantity;
       return acc;
@@ -160,7 +163,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
       icon="fileText"
       eyebrow={editing ? editing.number : "New quote"}
       title={editing ? "Edit draft quote" : "Create a quote"}
-      description="Lines start at the catalog price."
+      description="Leave a price empty to use the customer's price."
       footer={
         <>
           <Button onClick={onClose} disabled={saving}>
@@ -230,7 +233,8 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                 {lines.map((line, index) => {
                   const product = productById.get(line.product_id);
                   const listPrice = product ? Number(product.price) : null;
-                  const price = line.unit_price === "" ? listPrice : Number(line.unit_price);
+                  const rule = product ? prices.get(product.id) : null;
+                  const price = line.unit_price === "" ? (product ? customerPrice(product) : null) : Number(line.unit_price);
                   const discount = listPrice > 0 && price !== null ? 1 - price / listPrice : 0;
 
                   return (
@@ -243,8 +247,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                         <select
                           value={line.product_id}
                           onChange={(event) => {
-                            const next = productById.get(event.target.value);
-                            updateLine(line.key, { product_id: event.target.value, unit_price: next ? String(Number(next.price)) : "" });
+                            updateLine(line.key, { product_id: event.target.value, unit_price: "" });
                           }}
                           aria-label={`Product for line ${index + 1}`}
                           className="app-input"
@@ -264,6 +267,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                                 −{Math.round(discount * 1000) / 10}% discount
                               </span>
                             )}
+                            {line.unit_price === "" && rule?.label && <span className="ml-1.5">({rule.label})</span>}
                             {discount < -0.0005 && (
                               <span className="ml-1.5 font-semibold" style={{ color: "var(--warning)" }}>
                                 above list price
@@ -290,7 +294,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                           step="0.01"
                           value={line.unit_price}
                           onChange={(event) => updateLine(line.key, { unit_price: event.target.value })}
-                          placeholder={listPrice !== null ? String(listPrice) : "Price"}
+                          placeholder={product ? String(customerPrice(product)) : "Price"}
                           aria-label={`Unit price for line ${index + 1}`}
                           disabled={!product}
                           className="app-input pr-11 text-right tabular-nums"

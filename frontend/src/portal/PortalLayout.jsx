@@ -10,6 +10,7 @@ import { Avatar, InlineAlert, Popover } from "../components/ui/primitives";
 import { PageFallback } from "../components/PageFallback";
 import { api, initials, money } from "../lib/api";
 import company from "../config/company";
+import { hasDiscount, usePrices } from "../lib/pricing";
 import { CartProvider, useCart } from "./CartContext";
 
 const links = [
@@ -26,7 +27,10 @@ function CartDrawer() {
   const navigate = useNavigate();
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState("");
-  const vat = Math.round(cart.subtotal * company.vatRate * 100) / 100;
+  const { prices, loading: pricing } = usePrices("/portal/cart/price", null, cart.open ? cart.lines : []);
+  const priceOf = (line) => prices.get(line.product_id)?.unit_price ?? line.price;
+  const subtotal = Math.round(cart.lines.reduce((sum, line) => sum + priceOf(line) * line.quantity, 0) * 100) / 100;
+  const vat = Math.round(subtotal * company.vatRate * 100) / 100;
 
   async function placeOrder() {
     setError("");
@@ -52,7 +56,7 @@ function CartDrawer() {
       open={cart.open}
       onClose={() => !placing && cart.setOpen(false)}
       title={cart.lines.length ? `${cart.units} item${cart.units === 1 ? "" : "s"}` : "Your cart is empty"}
-      description="Prices are confirmed when the order is placed."
+      description="Your prices, including your discounts."
       icon="orders"
       footer={
         cart.lines.length > 0 && (
@@ -61,7 +65,7 @@ function CartDrawer() {
               Empty cart
             </Button>
             <Button variant="primary" icon="check" loading={placing} onClick={placeOrder}>
-              Place order · {money(cart.subtotal + vat)}
+              Place order · {money(subtotal + vat)}
             </Button>
           </>
         )
@@ -86,11 +90,22 @@ function CartDrawer() {
       ) : (
         <div className="space-y-4">
           <ul className="divide-y overflow-hidden rounded-xl border" style={{ borderColor: "var(--border-color)" }}>
-            {cart.lines.map((line) => (
-              <li key={line.product_id} className="flex items-center gap-3 px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
+            {cart.lines.map((line) => {
+              const price = prices.get(line.product_id);
+              return (
+              <li key={line.product_id} className="flex flex-wrap items-center gap-3 px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold app-text">{line.name}</p>
-                  <p className="text-xs app-text-muted">{money(line.price)} each</p>
+                  <p className="text-xs app-text-muted">
+                    {hasDiscount(price) && <span className="mr-1 line-through">{money(price.list_price)}</span>}
+                    {money(priceOf(line))} each
+                    {price?.label && ` · ${price.label}`}
+                  </p>
+                  {price?.next_break && (
+                    <p className="text-xs font-medium" style={{ color: "var(--success)" }}>
+                      Order {price.next_break.min_quantity - line.quantity} more for a {price.next_break.discount_percent}% volume discount
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <Button size="icon-sm" icon="minus" aria-label={`Fewer ${line.name}`} onClick={() => cart.setQuantity(line.product_id, line.quantity - 1)} />
@@ -104,22 +119,23 @@ function CartDrawer() {
                   />
                   <Button size="icon-sm" icon="plus" aria-label={`More ${line.name}`} onClick={() => cart.setQuantity(line.product_id, line.quantity + 1)} />
                 </div>
-                <p className="w-24 text-right text-sm font-semibold tabular-nums app-text">{money(line.price * line.quantity)}</p>
+                <p className="w-24 text-right text-sm font-semibold tabular-nums app-text">{money(priceOf(line) * line.quantity)}</p>
               </li>
-            ))}
+              );
+            })}
           </ul>
-          <dl className="space-y-1.5 rounded-xl p-4 text-sm app-muted">
+          <dl className={`space-y-1.5 rounded-xl p-4 text-sm app-muted transition-opacity ${pricing ? "opacity-60" : ""}`}>
             <div className="flex justify-between">
               <dt className="app-text-secondary">Subtotal (HT)</dt>
-              <dd className="tabular-nums app-text">{money(cart.subtotal)}</dd>
+              <dd className="tabular-nums app-text">{money(subtotal)}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="app-text-secondary">VAT {Math.round(company.vatRate * 100)}%</dt>
               <dd className="tabular-nums app-text">{money(vat)}</dd>
             </div>
             <div className="flex justify-between pt-1 text-base">
-              <dt className="font-semibold app-text">Estimated total</dt>
-              <dd className="font-bold tabular-nums app-text">{money(cart.subtotal + vat)}</dd>
+              <dt className="font-semibold app-text">Total</dt>
+              <dd className="font-bold tabular-nums app-text">{money(subtotal + vat)}</dd>
             </div>
           </dl>
           <p className="text-xs app-text-muted">

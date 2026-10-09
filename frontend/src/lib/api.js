@@ -206,6 +206,7 @@ const permissions = {
   "orders.write": ["Admin", "Manager"],
   "payments.write": ["Admin", "Manager"],
   "returns.write": ["Admin", "Manager"],
+  "pricing.write": ["Admin", "Manager"],
   "quotes.write": ["Admin", "Manager"],
   "purchasing.write": ["Admin", "Manager"],
   "inventory.adjust": ["Admin", "Manager"],

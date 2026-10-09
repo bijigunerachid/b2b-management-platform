@@ -30,5 +30,6 @@ router.delete("/:id", authorize("Admin"), deleteCustomer);
 
 // Portal access for this customer's contacts.
 require("./portalRoutes").mountCustomerAccessRoutes(router);
+require("./pricingRoutes").mountCustomerPricingRoutes(router);
 
 module.exports = router;

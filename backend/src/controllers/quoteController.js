@@ -1,6 +1,8 @@
 const pool = require("../config/database");
 const { invoiceTotals } = require("../billing/billing");
 const { OrderPlacementError, placeOrder } = require("../services/orderPlacement");
+const { loadPricingContext } = require("../pricing/pricing");
+const { resolvePrice } = require("../pricing/pricingRules");
 const {
     DEFAULT_VALIDITY_DAYS,
     addDays,
@@ -94,14 +96,14 @@ function requireAction(quote, action) {
     }
 }
 
-/** Checks products and prices lines. Unpriced lines get the catalog price. */
+/** Checks products and prices lines. Unpriced lines get the customer's price. */
 async function priceLines(connection, customerId, lines) {
-    const [customers] = await connection.query("SELECT id FROM customers WHERE id = ?", [customerId]);
-    if (customers.length === 0) throw new QuoteError(404, "Customer not found");
+    const pricing = await loadPricingContext(connection, customerId);
+    if (!pricing) throw new QuoteError(404, "Customer not found");
 
     const ids = [...lines.keys()];
     const [products] = await connection.query(
-        "SELECT id, name, price, is_active FROM products WHERE id IN (?)",
+        "SELECT id, name, price, category_id, is_active FROM products WHERE id IN (?)",
         [ids]
     );
     const byId = new Map(products.map((product) => [product.id, product]));
@@ -115,7 +117,7 @@ async function priceLines(connection, customerId, lines) {
         if (!product.is_active) throw new QuoteError(400, `${product.name} is inactive and can't be quoted.`);
 
         const listPrice = Number(product.price);
-        const price = unitPrice ?? listPrice;
+        const price = unitPrice ?? resolvePrice(pricing, product, quantity).unitPrice;
         totalCents += Math.round(price * 100) * quantity;
 
         priced.push({ productId, quantity, unitPrice: price, listPrice });

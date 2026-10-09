@@ -164,7 +164,10 @@ function OrderDrawer({ orderId, open, onClose }) {
                     <tr key={item.product_id} className="border-t" style={{ borderColor: "var(--border-color)" }}>
                       <td className="px-4 py-3">
                         <p className="font-medium app-text">{item.product_name}</p>
-                        <p className="text-xs app-text-muted">{money(item.unit_price)} each</p>
+                        <p className="text-xs app-text-muted">
+                          {Number(item.list_price) > Number(item.unit_price) + 0.004 && <span className="mr-1 line-through">{money(item.list_price)}</span>}
+                          {money(item.unit_price)} each
+                        </p>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums app-text">×{item.quantity}</td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums app-text">{money(item.subtotal)}</td>

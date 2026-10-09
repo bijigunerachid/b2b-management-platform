@@ -30,6 +30,7 @@ const sections = [
     links: [
       { label: "Products", path: "/products", icon: "products", roles: ["Admin", "Manager", "Employee"] },
       { label: "Categories", path: "/categories", icon: "categories", roles: ["Admin", "Manager", "Employee"] },
+      { label: "Pricing", path: "/pricing", icon: "receipt", roles: ["Admin", "Manager", "Employee"] },
     ],
   },
   {

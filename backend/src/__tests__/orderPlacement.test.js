@@ -1,7 +1,7 @@
 const { OrderPlacementError, placeOrder } = require("../services/orderPlacement");
 
 /** Minimal in-memory stand-in for a MySQL connection. */
-function fakeConnection({ customers = [1], products = {} } = {}) {
+function fakeConnection({ customers = [1], products = {}, contracts = [], breaks = [], priceList = null } = {}) {
     const calls = [];
     const stock = Object.fromEntries(Object.entries(products).map(([id, p]) => [id, p.stock]));
 
@@ -12,8 +12,10 @@ function fakeConnection({ customers = [1], products = {} } = {}) {
             calls.push({ sql: sql.replace(/\s+/g, " ").trim(), params });
 
             if (sql.includes("FROM customers")) {
-                return [customers.includes(params[0]) ? [{ id: params[0] }] : []];
+                return [customers.includes(params[0]) ? [{ id: params[0], ...(priceList ?? {}) }] : []];
             }
+            if (sql.includes("FROM customer_prices")) return [contracts];
+            if (sql.includes("FROM volume_discounts")) return [breaks];
             if (sql.includes("FROM products") && sql.includes("FOR UPDATE")) {
                 const product = products[params[0]];
                 return [product ? [{ id: params[0], stock: stock[params[0]], ...product }] : []];
@@ -88,5 +90,29 @@ describe("placeOrder", () => {
         await expect(attempt).rejects.toBeInstanceOf(OrderPlacementError);
         await expect(attempt).rejects.toMatchObject({ status, message });
         expect(connection.calls.some((c) => c.sql.includes("INSERT INTO orders"))).toBe(false);
+    });
+
+    test("applies the customer's pricing rules and records them on each line", async () => {
+        const connection = fakeConnection({
+            products: { 3: { ...catalog[3], category_id: 2 }, 1: { ...catalog[1], category_id: 5 } },
+            priceList: { price_list_id: 4, price_list_name: "Gold", discount_percent: "10.00" },
+            contracts: [{ product_id: 1, unit_price: "0.05" }],
+            breaks: [{ category_id: 2, min_quantity: 2, discount_percent: "5.00" }]
+        });
+
+        const result = await placeOrder(connection, 1, new Map([[3, { quantity: 2 }], [1, { quantity: 3 }]]));
+
+        // Chair: 850.10 × 0.9 × 0.95 = 726.84; mouse: contract price.
+        expect(result.items).toEqual([
+            { product_id: 1, quantity: 3, unit_price: 0.05, list_price: 0.1, price_source: "contract" },
+            { product_id: 3, quantity: 2, unit_price: 726.84, list_price: 850.1, price_source: "volume" }
+        ]);
+        expect(result.total).toBe("1453.83");
+    });
+
+    test("quoted prices override the rules", async () => {
+        const connection = fakeConnection({ products: catalog, priceList: { price_list_id: 4, price_list_name: "Gold", discount_percent: "10.00" } });
+        const result = await placeOrder(connection, 1, new Map([[3, { quantity: 1, unitPrice: 800 }]]));
+        expect(result.items[0]).toMatchObject({ unit_price: 800, list_price: 850.1, price_source: "quote" });
     });
 });

@@ -29,6 +29,7 @@ import { api, can, exportCsv, formatDate, initials, money, number, toList, useRe
 import { ORDER_STATUS } from "../lib/orderStatus";
 import { paymentBadge } from "../lib/billing";
 import PortalAccessPanel from "../components/PortalAccessPanel";
+import CustomerPricingPanel from "../components/CustomerPricingPanel";
 import useTable from "../lib/useTable";
 
 const emptyForm = {
@@ -54,7 +55,7 @@ function isThisMonth(value) {
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 }
 
-function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
+function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, user }) {
   const navigate = useNavigate();
   const { data, loading } = useResource(open && customer ? "/orders" : null);
 
@@ -160,6 +161,8 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
             </div>
           </div>
 
+          <CustomerPricingPanel customer={customer} canManage={can(user, "pricing.write")} onChanged={onChanged} />
+
           <PortalAccessPanel customer={customer} canManage={can(user, "customers.write")} />
 
           <div>
@@ -251,9 +254,11 @@ export default function Customers() {
     [customers]
   );
 
+  const priceListFilter = params.get("price_list");
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return customers.filter((customer) => {
+      if (priceListFilter && String(customer.price_list_id) !== priceListFilter) return false;
       const matchesCountry = country === "all" || customer.country === country;
       const matchesSearch =
         !term ||
@@ -264,7 +269,7 @@ export default function Customers() {
           .includes(term);
       return matchesCountry && matchesSearch;
     });
-  }, [customers, search, country]);
+  }, [customers, search, country, priceListFilter]);
 
   const table = useTable(filtered, {
     accessors,
@@ -403,6 +408,18 @@ export default function Customers() {
       </div>
 
       {error && <ErrorState message={error} onRetry={reload} />}
+
+      {priceListFilter && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface)" }}>
+          <span className="app-text-secondary">
+            Showing customers on the{" "}
+            <span className="font-semibold app-text">{customers.find((customer) => String(customer.price_list_id) === priceListFilter)?.price_list_name ?? "selected"}</span> price list
+          </span>
+          <Button size="sm" variant="ghost" icon="close" onClick={() => updateParams({ price_list: null })}>
+            Show all
+          </Button>
+        </div>
+      )}
 
       <Card>
         <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center" style={{ borderColor: "var(--border-color)" }}>
@@ -573,6 +590,7 @@ export default function Customers() {
         onClose={() => updateParams({ view: null })}
         onEdit={openEdit}
         onDelete={handleDelete}
+        onChanged={reload}
         user={user}
       />
 
