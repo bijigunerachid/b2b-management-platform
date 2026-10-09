@@ -23,6 +23,13 @@ function niceMax(value) {
   return step * magnitude;
 }
 
+// Evenly spaced ticks that land on round numbers for a niceMax() value.
+function axisTicks(max) {
+  const mantissa = max / 10 ** Math.floor(Math.log10(max));
+  const steps = Math.abs(mantissa - 2) < 1e-9 ? 4 : 5;
+  return Array.from({ length: steps + 1 }, (_, index) => (max / steps) * index);
+}
+
 function monthLabel(key, style = "short") {
   const [year, month] = key.split("-").map(Number);
   return new Date(year, month - 1, 1).toLocaleString("en", { month: style });
@@ -34,7 +41,7 @@ function MonthlyChart({ months }) {
 
   const values = months.map((month) => month[measure]);
   const max = niceMax(Math.max(...values, 0));
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((fraction) => fraction * max);
+  const ticks = axisTicks(max);
   const format = measure === "revenue" ? compactMoney : number;
   const total = values.reduce((sum, value) => sum + value, 0);
 

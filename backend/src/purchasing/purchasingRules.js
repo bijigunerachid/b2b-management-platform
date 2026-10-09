@@ -32,6 +32,18 @@ function isLate(po, now = new Date()) {
     return po.status === "Ordered" && Boolean(po.expected_at) && dateOnly(po.expected_at) < dateOnly(now);
 }
 
+/**
+ * Average cost after receiving `quantity` units at `unitCost` on top of
+ * `stock` units that cost `averageCost` each. An unknown or empty starting
+ * position takes the new cost.
+ */
+function weightedAverageCost({ stock, averageCost, quantity, unitCost }) {
+    const onHand = Math.max(0, Number(stock));
+    if (averageCost === null || averageCost === undefined || onHand === 0) return Math.round(Number(unitCost) * 100) / 100;
+    const total = onHand * Number(averageCost) + quantity * Number(unitCost);
+    return Math.round((total / (onHand + quantity)) * 100) / 100;
+}
+
 function poNumber(po) {
     const year = new Date(po.created_at).getFullYear() || new Date().getFullYear();
     return `PO-${year}-${String(po.id).padStart(6, "0")}`;
@@ -163,5 +175,6 @@ module.exports = {
     parsePurchaseOrderPayload,
     poNumber,
     proposedCost,
-    reorderSuggestions
+    reorderSuggestions,
+    weightedAverageCost
 };

@@ -19,6 +19,7 @@ On the staff side you can:
 - take back goods from a delivered order: the credit note lowers what the client owes (or records a refund if they already paid), and items in good condition go back into stock
 - track stock through a ledger: every sale, cancellation, delivery and correction is a separate entry with the resulting balance
 - order from suppliers, receive deliveries into stock, and get reorder suggestions based on recent sales
+- see sales and gross margin by month, product, customer and category for any date range, compared with the period before, and export each table to CSV. Every order line stores what the goods cost when they were sold (a weighted average updated on each delivery), so margins stay correct when costs change. Only Admins and Managers see costs and reports
 
 Clients get their own login. They can browse the catalog at their own prices, place orders, download their invoices and credit notes, and accept or decline the quotes you send them. They only ever see their own company's data.
 
@@ -186,6 +187,7 @@ For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behin
 
 - Rate limits are kept in memory, so they won't be shared if you run more than one API instance.
 - There's one currency and one VAT rate. Prices are stored excluding VAT.
+- Costs only exist from migration 008 on. Older order lines got the product's cost at that time, and products never bought from a supplier got an estimate, so margins on old data are approximate.
 - The Ctrl+K product search only looks at the first 100 products.
 - Customers and orders are paginated in the browser, which is fine for a few thousand rows but won't scale forever.
 - No browser tests yet. Everything in CI is API and unit level.

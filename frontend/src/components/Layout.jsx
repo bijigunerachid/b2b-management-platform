@@ -13,7 +13,10 @@ import { initials } from "../lib/api";
 const sections = [
   {
     title: "Overview",
-    links: [{ label: "Dashboard", path: "/", icon: "dashboard", roles: ["Admin", "Manager", "Employee"] }],
+    links: [
+      { label: "Dashboard", path: "/", icon: "dashboard", roles: ["Admin", "Manager", "Employee"] },
+      { label: "Reports", path: "/reports", icon: "revenue", roles: ["Admin", "Manager"] },
+    ],
   },
   {
     title: "Sales",

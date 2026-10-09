@@ -83,6 +83,8 @@
   --info-soft: #dff7fb;
 
   --chart-grid: #e8ecf3;
+  --series-margin: #2a78d6;
+  --series-cost: #eb6834;
   --overlay: rgb(10 15 30 / 55%);
 
   --card-shadow: 0 1px 2px rgb(15 23 42 / 4%), 0 1px 3px rgb(15 23 42 / 4%);
@@ -122,6 +124,8 @@ html.dark {
   --info-soft: #0f2e36;
 
   --chart-grid: #1f2a3f;
+  --series-margin: #3987e5;
+  --series-cost: #d95926;
   --overlay: rgb(0 0 0 / 65%);
 
   --card-shadow: 0 1px 2px rgb(0 0 0 / 30%);

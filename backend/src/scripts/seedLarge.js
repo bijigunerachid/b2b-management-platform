@@ -9,6 +9,7 @@ const { seedPurchasing } = require("../seed/purchasing");
 const { seedPortal } = require("../seed/portal");
 const { seedReturns } = require("../seed/returns");
 const { seedPricing } = require("../seed/pricing");
+const { backfillCosts } = require("../services/costs");
 
 /*
  * Seeds the database with a large, realistic demo dataset.
@@ -248,6 +249,7 @@ async function seed() {
 
         const quoteCount = await seedQuotes(connection, { now: new Date() });
         const purchasing = await seedPurchasing(connection, { now: new Date() });
+        await backfillCosts(connection);
         const portal = await seedPortal(connection, { password: seededPassword ?? process.env.SEED_USER_PASSWORD });
         const returns = await seedReturns(connection);
         const pricing = await seedPricing(connection);

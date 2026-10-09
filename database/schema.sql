@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS products (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     reorder_point INT NOT NULL DEFAULT 5,
     supplier_id INT NULL,
+    average_cost DECIMAL(10,2) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_products_supplier
         FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
@@ -110,7 +111,8 @@ CREATE TABLE IF NOT EXISTS products (
     CONSTRAINT fk_products_category
         FOREIGN KEY (category_id) REFERENCES categories(id),
     CONSTRAINT chk_products_price CHECK (price >= 0),
-    CONSTRAINT chk_products_stock CHECK (stock >= 0)
+    CONSTRAINT chk_products_stock CHECK (stock >= 0),
+    CONSTRAINT chk_products_average_cost CHECK (average_cost >= 0)
 );
 
 -- 5b. Pricing rules
@@ -171,6 +173,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     unit_price DECIMAL(10,2) NOT NULL,
     list_price DECIMAL(10,2) NULL,
     price_source ENUM('list', 'price_list', 'volume', 'contract', 'quote') NULL,
+    unit_cost DECIMAL(10,2) NULL,
     CONSTRAINT fk_order_items_order
         FOREIGN KEY (order_id) REFERENCES orders(id),
     CONSTRAINT fk_order_items_product

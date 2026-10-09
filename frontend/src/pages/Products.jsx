@@ -38,6 +38,7 @@ const emptyForm = {
   price: "",
   stock: "",
   reorder_point: "5",
+  average_cost: "",
   supplier_id: "",
   is_active: true,
 };
@@ -171,6 +172,7 @@ export default function Products() {
       price: String(product.price ?? ""),
       stock: String(product.stock ?? ""),
       reorder_point: String(product.reorder_point ?? 5),
+      average_cost: product.average_cost === null || product.average_cost === undefined ? "" : String(Number(product.average_cost)),
       supplier_id: product.supplier_id ? String(product.supplier_id) : "",
       is_active: isActiveFlag(product.is_active),
     });
@@ -201,6 +203,8 @@ export default function Products() {
     const reorderPoint = Number(form.reorder_point);
     if (!Number.isInteger(reorderPoint) || reorderPoint < 0) return setFormError("Reorder point must be a whole number of 0 or more.");
     if (!form.category_id) return setFormError("Choose a category for this product.");
+    const averageCost = form.average_cost === "" ? undefined : Number(form.average_cost);
+    if (averageCost !== undefined && (!Number.isFinite(averageCost) || averageCost < 0)) return setFormError("Unit cost must be 0 or more.");
 
     setSaving(true);
 
@@ -212,6 +216,7 @@ export default function Products() {
       // Stock is only set on creation; later changes are ledger adjustments.
       ...(isEditing ? {} : { stock }),
       reorder_point: reorderPoint,
+      ...(averageCost === undefined ? {} : { average_cost: Math.round(averageCost * 100) / 100 }),
       supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
       is_active: Boolean(form.is_active),
     };
@@ -630,6 +635,15 @@ export default function Products() {
                 )}
               </Field>
             )}
+
+            <Field label="Unit cost (HT)" hint="Used for margins. Receiving a purchase order updates it to the weighted average.">
+              {(id) => (
+                <div className="relative">
+                  <input id={id} name="average_cost" type="number" min="0" step="0.01" value={form.average_cost} onChange={handleChange} placeholder="Unknown" className="app-input pr-14 tabular-nums" />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold app-text-muted">MAD</span>
+                </div>
+              )}
+            </Field>
 
             <Field label="Reorder point" hint="Flag as low stock and suggest a reorder at or below this level (0 = never)">
               {(id) => <input id={id} name="reorder_point" type="number" min="0" step="1" value={form.reorder_point} onChange={handleChange} className="app-input tabular-nums" />}

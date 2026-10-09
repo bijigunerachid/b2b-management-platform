@@ -7,7 +7,8 @@ const {
     canPerform,
     isLate,
     parsePurchaseOrderPayload,
-    poNumber
+    poNumber,
+    weightedAverageCost
 } = require("../purchasing/purchasingRules");
 
 function parseId(value) {
@@ -220,11 +221,20 @@ const receivePurchaseOrder = withTransaction(async (connection, req) => {
     requireAction(po, "receive");
 
     const [items] = await connection.query(
-        "SELECT product_id, quantity FROM purchase_order_items WHERE purchase_order_id = ? ORDER BY product_id",
+        "SELECT product_id, quantity, unit_cost FROM purchase_order_items WHERE purchase_order_id = ? ORDER BY product_id",
         [po.id]
     );
 
     for (const item of items) {
+        const [[product]] = await connection.query("SELECT stock, average_cost FROM products WHERE id = ? FOR UPDATE", [item.product_id]);
+        const averageCost = weightedAverageCost({
+            stock: product.stock,
+            averageCost: product.average_cost,
+            quantity: item.quantity,
+            unitCost: item.unit_cost
+        });
+        await connection.query("UPDATE products SET average_cost = ? WHERE id = ?", [averageCost, item.product_id]);
+
         await recordMovement(connection, {
             productId: item.product_id,
             quantity: item.quantity,
