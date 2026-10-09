@@ -1,20 +1,25 @@
-
 import { createContext, useContext, useEffect, useState } from "react";
 
 const ThemeContext = createContext(null);
 
-export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
-    try {
-      const savedTheme = localStorage.getItem("b2b-theme");
+function getInitialTheme() {
+  try {
+    const savedTheme = localStorage.getItem("b2b-theme");
 
-      return savedTheme === "dark" || savedTheme === "light"
-        ? savedTheme
-        : "light";
-    } catch {
-      return "light";
+    if (savedTheme === "dark" || savedTheme === "light") {
+      return savedTheme;
     }
-  });
+  } catch {
+    // Storage can be unavailable (private mode); fall back to the OS.
+  }
+
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+export function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState(getInitialTheme);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -42,6 +47,7 @@ export function ThemeProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTheme() {
   const context = useContext(ThemeContext);
 

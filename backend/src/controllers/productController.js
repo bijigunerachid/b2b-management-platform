@@ -30,26 +30,58 @@ const getProducts = async (req, res, next) => {
         const params = [];
 
         if (search) {
-            conditions.push("name LIKE ?");
-            params.push(`%${search}%`);
+            conditions.push("(p.name LIKE ? OR p.description LIKE ?)");
+            params.push(`%${search}%`, `%${search}%`);
+        }
+
+        const categoryId = Number.parseInt(req.query.category_id, 10);
+
+        if (Number.isSafeInteger(categoryId) && categoryId > 0) {
+            conditions.push("p.category_id = ?");
+            params.push(categoryId);
+        }
+
+        if (req.query.status === "active") {
+            conditions.push("p.is_active = 1");
+        } else if (req.query.status === "inactive") {
+            conditions.push("p.is_active = 0");
+        }
+
+        if (req.query.stock === "low") {
+            conditions.push("p.stock <= 5");
         }
 
         const whereClause = conditions.length
             ? `WHERE ${conditions.join(" AND ")}`
             : "";
 
+        // Whitelisted sort columns; never interpolate raw query input.
+        const sortColumns = {
+            name: "p.name",
+            price: "p.price",
+            stock: "p.stock",
+            created_at: "p.created_at",
+            category: "c.name"
+        };
+        const sortColumn = sortColumns[req.query.sort] || "p.id";
+        const sortDirection = req.query.order === "asc" ? "ASC" : "DESC";
+
         const [countRows] = await pool.query(
             `SELECT COUNT(*) AS total
-             FROM products
+             FROM products p
              ${whereClause}`,
             params
         );
 
         const [products] = await pool.query(
-            `SELECT id, name, price, stock, category_id
-             FROM products
+            `SELECT
+                p.id, p.name, p.description, p.price, p.stock,
+                p.category_id, p.is_active, p.created_at,
+                c.name AS category_name
+             FROM products p
+             LEFT JOIN categories c ON c.id = p.category_id
              ${whereClause}
-             ORDER BY id DESC
+             ORDER BY ${sortColumn} ${sortDirection}, p.id DESC
              LIMIT ? OFFSET ?`,
             [...params, limit, offset]
         );
@@ -119,7 +151,8 @@ const createProduct = async (req, res) => {
             description,
             price,
             stock,
-            category_id
+            category_id,
+            is_active
         } = req.body;
 
         const parsedPrice = Number(price);
@@ -184,14 +217,15 @@ const createProduct = async (req, res) => {
 
         const [result] = await pool.query(
             `INSERT INTO products
-             (name, description, price, stock, category_id)
-             VALUES (?, ?, ?, ?, ?)`,
+             (name, description, price, stock, category_id, is_active)
+             VALUES (?, ?, ?, ?, ?, ?)`,
             [
                 name.trim(),
                 description || null,
                 parsedPrice,
                 parsedStock,
-                parsedCategoryId
+                parsedCategoryId,
+                is_active === false || is_active === 0 ? 0 : 1
             ]
         );
 

@@ -123,6 +123,14 @@ const createOrder = async (req, res) => {
             });
         }
 
+        // Bound the work (and row locks) a single request can trigger.
+        if (items.length > 100) {
+            return res.status(400).json({
+                success: false,
+                message: "An order can contain at most 100 items"
+            });
+        }
+
         // Combine duplicate product IDs
         const quantities = new Map();
 

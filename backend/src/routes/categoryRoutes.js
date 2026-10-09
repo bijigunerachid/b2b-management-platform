@@ -12,6 +12,8 @@ const {
 
 const { protect } = require("../middleware/authMiddleware");
 const { authorize } = require("../middleware/roleMiddleware");
+const validate = require("../middleware/validate");
+const categoryRules = require("../validation/categoryRules");
 
 router.use(protect);
 
@@ -32,12 +34,14 @@ router.get(
 router.post(
     "/",
     authorize("Admin", "Manager"),
+    validate(categoryRules),
     createCategory
 );
 
 router.put(
     "/:id",
     authorize("Admin", "Manager"),
+    validate(categoryRules),
     updateCategory
 );
 

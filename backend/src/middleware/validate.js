@@ -3,6 +3,13 @@ function validate(rules) {
     return (req, res, next) => {
         const errors = [];
 
+        if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+            return res.status(400).json({
+                success: false,
+                message: "Request body must be a JSON object."
+            });
+        }
+
         for (const rule of rules) {
             const value = req.body[rule.field];
 
@@ -37,6 +44,45 @@ function validate(rules) {
                 errors.push({
                     field: rule.field,
                     message: `${rule.field} must be a valid number.`
+                });
+            }
+
+            if (
+                rule.type === "integer" &&
+                (typeof value !== "number" || !Number.isSafeInteger(value))
+            ) {
+                errors.push({
+                    field: rule.field,
+                    message: `${rule.field} must be a whole number.`
+                });
+            }
+
+            if (
+                rule.maxLength &&
+                typeof value === "string" &&
+                value.length > rule.maxLength
+            ) {
+                errors.push({
+                    field: rule.field,
+                    message: `${rule.field} must be at most ${rule.maxLength} characters.`
+                });
+            }
+
+            if (
+                rule.max !== undefined &&
+                typeof value === "number" &&
+                value > rule.max
+            ) {
+                errors.push({
+                    field: rule.field,
+                    message: `${rule.field} must be at most ${rule.max}.`
+                });
+            }
+
+            if (rule.oneOf && !rule.oneOf.includes(value)) {
+                errors.push({
+                    field: rule.field,
+                    message: `${rule.field} must be one of: ${rule.oneOf.join(", ")}.`
                 });
             }
 

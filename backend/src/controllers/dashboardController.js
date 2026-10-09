@@ -1,6 +1,26 @@
 
 const pool = require("../config/database");
 
+// Returns exactly six months (oldest first), with zeros for months without orders.
+function fillMonths(rows, now = new Date()) {
+  const byMonth = new Map(rows.map((row) => [row.month, row]));
+  const months = [];
+
+  for (let offset = 5; offset >= 0; offset -= 1) {
+    const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const row = byMonth.get(key);
+
+    months.push({
+      month: key,
+      orders: Number(row?.orders ?? 0),
+      revenue: Number(row?.revenue ?? 0),
+    });
+  }
+
+  return months;
+}
+
 async function getDashboardStats(req, res) {
   try {
     const [customerRows] = await pool.query(
@@ -42,6 +62,39 @@ async function getDashboardStats(req, res) {
       LIMIT 5
     `);
 
+    // Completed revenue and order volume for the last six calendar months.
+    const [monthlyRows] = await pool.query(`
+      SELECT
+        DATE_FORMAT(created_at, '%Y-%m') AS month,
+        COUNT(*) AS orders,
+        COALESCE(SUM(CASE WHEN status = 'Completed' THEN total_amount END), 0) AS revenue
+      FROM orders
+      WHERE created_at >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 5 MONTH)
+      GROUP BY month
+      ORDER BY month
+    `);
+
+    const [statusRows] = await pool.query(`
+      SELECT status, COUNT(*) AS total
+      FROM orders
+      GROUP BY status
+    `);
+
+    const [topProducts] = await pool.query(`
+      SELECT
+        p.id,
+        p.name,
+        SUM(oi.quantity) AS quantity,
+        SUM(oi.quantity * oi.unit_price) AS revenue
+      FROM order_items oi
+      INNER JOIN orders o ON o.id = oi.order_id
+      INNER JOIN products p ON p.id = oi.product_id
+      WHERE o.status <> 'Cancelled'
+      GROUP BY p.id, p.name
+      ORDER BY quantity DESC
+      LIMIT 5
+    `);
+
     res.json({
       success: true,
       data: {
@@ -51,6 +104,16 @@ async function getDashboardStats(req, res) {
         totalRevenue: Number(revenueRows[0].revenue),
         lowStockProducts: lowStockRows,
         recentOrders,
+        monthlyRevenue: fillMonths(monthlyRows),
+        ordersByStatus: Object.fromEntries(
+          statusRows.map((row) => [row.status, Number(row.total)])
+        ),
+        topProducts: topProducts.map((row) => ({
+          id: row.id,
+          name: row.name,
+          quantity: Number(row.quantity),
+          revenue: Number(row.revenue),
+        })),
       },
     });
   } catch (error) {
@@ -63,4 +126,4 @@ async function getDashboardStats(req, res) {
   }
 }
 
-module.exports = { getDashboardStats };
+module.exports = { getDashboardStats, fillMonths };

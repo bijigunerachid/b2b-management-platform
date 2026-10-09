@@ -1,1036 +1,607 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import Button from "../components/ui/Button";
+import Icon from "../components/ui/Icon";
+import { Modal } from "../components/ui/Modal";
+import { useConfirm, useToast } from "../components/ui/feedback";
+import {
+  Avatar,
+  Badge,
+  Card,
+  EmptyState,
+  ErrorState,
+  Field,
+  IconAction,
+  InlineAlert,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  SegmentedControl,
+  SortHeader,
+  StatCard,
+  Switch,
+  TableHead,
+  TableSkeleton,
+  Th,
+} from "../components/ui/primitives";
+import { api, can, exportCsv, initials, isActiveFlag, money, number, toList, useResource } from "../lib/api";
 
-const API = "http://localhost:5000/api";
+const PAGE_SIZE = 10;
+const LOW_STOCK = 5;
 
 const emptyForm = {
-name: "",
-description: "",
-category_id: "",
-price: "",
-stock: "",
-is_active: true,
+  name: "",
+  description: "",
+  category_id: "",
+  price: "",
+  stock: "",
+  is_active: true,
 };
 
-const panelStyle = {
-backgroundColor: "var(--surface)",
-borderColor: "var(--border-color)",
-boxShadow: "var(--card-shadow)",
-};
+// UI sort keys → backend `sort` values (whitelisted server-side).
+const sortKeys = { name: "name", category: "category", price: "price", stock: "stock" };
 
-const inputClass =
-"app-input w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 focus:ring-blue-500/20";
+function StockMeter({ stock }) {
+  const tone = stock === 0 ? "danger" : stock <= LOW_STOCK ? "warning" : "success";
+  const width = Math.min(100, (stock / 50) * 100);
 
-const textStyle = { color: "var(--text-primary)" };
-const mutedStyle = { color: "var(--text-secondary)" };
-
-function isActiveProduct(value) {
-return value === true || value === 1 || value === "1";
-}
-
-function ProductStat({ label, value, description, icon, color, background }) {
-return ( <div
-   className="rounded-2xl border p-5 transition duration-200 hover:-translate-y-0.5"
-   style={panelStyle}
- > <div className="flex items-start justify-between gap-3"> <div> <p className="text-sm font-medium" style={mutedStyle}>
-{label} </p> <p className="mt-3 text-3xl font-bold tracking-tight" style={textStyle}>
-{value} </p> <p className="mt-2 text-xs" style={mutedStyle}>
-{description} </p> </div>
-
-
-    <div
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-      style={{ color, backgroundColor: background }}
-    >
-      {icon}
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-10 text-right font-semibold tabular-nums app-text">{stock}</span>
+      <div className="h-1.5 w-20 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }}>
+        <div className="h-full rounded-full" style={{ width: `${Math.max(width, stock > 0 ? 4 : 0)}%`, backgroundColor: `var(--${tone})` }} />
+      </div>
+      {stock <= LOW_STOCK && (
+        <Badge tone={tone} className="!px-2 !py-0.5 text-[11px]">
+          {stock === 0 ? "Out" : "Low"}
+        </Badge>
+      )}
     </div>
-  </div>
-</div>
-
-
-);
-}
-
-function Notice({ type, children, onClose }) {
-const isError = type === "error";
-
-return (
-<div
-role={isError ? "alert" : "status"}
-className="flex items-start justify-between gap-3 rounded-xl border p-4 text-sm"
-style={{
-backgroundColor: isError ? "var(--danger-soft)" : "var(--success-soft)",
-borderColor: isError ? "var(--danger)" : "var(--success)",
-color: isError ? "var(--danger)" : "var(--success)",
-}}
-> <div className="flex items-start gap-2.5"> <span className="font-bold">{isError ? "!" : "✓"}</span> <span>{children}</span> </div>
-
-
-  <button
-    type="button"
-    onClick={onClose}
-    aria-label="Dismiss notification"
-    className="shrink-0 rounded-md px-1 font-semibold opacity-70 hover:opacity-100"
-  >
-    ×
-  </button>
-</div>
-
-
-);
-}
-
-function Field({ label, required = false, children }) {
-return ( <div> <label className="mb-1.5 block text-sm font-medium" style={textStyle}>
-{label}
-{required && <span className="ml-1 text-red-500">*</span>} </label>
-{children} </div>
-);
-}
-
-function EmptyState({ searching, onAdd }) {
-return ( <div className="flex flex-col items-center px-5 py-14 text-center">
-<div
-className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl"
-style={{
-backgroundColor: "var(--primary-soft)",
-color: "var(--primary)",
-}}
-> <svg
-       width="30"
-       height="30"
-       viewBox="0 0 24 24"
-       fill="none"
-       stroke="currentColor"
-       strokeWidth="1.7"
-       aria-hidden="true"
-     > <path d="M3 7h18v13H3z" /> <path d="M3 7l2-4h14l2 4M9 12h6" /> </svg> </div>
-
-
-  <h3 className="text-base font-semibold" style={textStyle}>
-    {searching ? "No matching products" : "No products yet"}
-  </h3>
-
-  <p className="mt-2 max-w-sm text-sm" style={mutedStyle}>
-    {searching
-      ? "Try a different product name or category."
-      : "Add your first product to start managing your inventory."}
-  </p>
-
-  {!searching && (
-    <button
-      type="button"
-      onClick={onAdd}
-      className="mt-5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-      style={{ backgroundColor: "var(--primary)" }}
-    >
-      + Add product
-    </button>
-  )}
-</div>
-
-
-);
+  );
 }
 
 export default function Products() {
-const [products, setProducts] = useState([]);
-const [categories, setCategories] = useState([]);
+  const { user } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [params, setParams] = useSearchParams();
 
-const [search, setSearch] = useState("");
-const [categoryFilter, setCategoryFilter] = useState("");
+  const canWrite = can(user, "products.write");
+  const canDelete = can(user, "products.delete");
 
-const [page, setPage] = useState(1);
-const pageSize = 10;
+  const [search, setSearch] = useState(() => params.get("q") ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const [categoryId, setCategoryId] = useState(() => params.get("category") ?? "");
+  const [status, setStatus] = useState("all");
+  const [sort, setSort] = useState({ key: null, direction: "asc" });
+  const [page, setPage] = useState(1);
 
-const [pagination, setPagination] = useState({
-page: 1,
-limit: 10,
-total: 0,
-totalPages: 0,
-});
-
-const [showForm, setShowForm] = useState(false);
-const [editingId, setEditingId] = useState(null);
-const [form, setForm] = useState({ ...emptyForm });
-
-const [loading, setLoading] = useState(true);
-const [saving, setSaving] = useState(false);
-const [deletingId, setDeletingId] = useState(null);
-
-const [error, setError] = useState("");
-const [success, setSuccess] = useState("");
-
-async function request(url, options = {}) {
-const response = await fetch(`${API}${url}`, {
-...options,
-credentials: "include",
-headers: {
-"Content-Type": "application/json",
-...options.headers,
-},
-});
-
-
-const result = await response.json().catch(() => ({}));
-
-if (!response.ok || result.success === false) {
-  throw new Error(result.message || "Something went wrong.");
-}
-
-return result;
-
-
-}
-
-const loadData = useCallback(async () => {
-setLoading(true);
-setError("");
-
-
-try {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(pageSize),
-    search: search.trim(),
-  });
-
-  if (categoryFilter) {
-    params.set("category_id", categoryFilter);
+  // Follow ?q= when it changes (e.g. from the command palette or a stock alert).
+  const qParam = params.get("q");
+  const [appliedQ, setAppliedQ] = useState(qParam);
+  if (qParam !== null && qParam !== appliedQ) {
+    setAppliedQ(qParam);
+    setSearch(qParam);
+    setDebouncedSearch(qParam);
+    setPage(1);
   }
 
-  const [productResult, categoryResult] = await Promise.all([
-    request(`/products?${params.toString()}`),
-    request("/categories"),
-  ]);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const productList = Array.isArray(productResult.data)
-    ? productResult.data
-    : Array.isArray(productResult.products)
-      ? productResult.products
-      : [];
+  const query = useMemo(() => {
+    const next = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+    if (debouncedSearch.trim()) next.set("search", debouncedSearch.trim());
+    if (categoryId) next.set("category_id", categoryId);
+    if (status === "active" || status === "inactive") next.set("status", status);
+    if (status === "low") next.set("stock", "low");
+    if (sort.key) {
+      next.set("sort", sortKeys[sort.key]);
+      next.set("order", sort.direction);
+    }
+    return next.toString();
+  }, [page, debouncedSearch, categoryId, status, sort]);
 
-  const categoryList = Array.isArray(categoryResult.data)
-    ? categoryResult.data
-    : Array.isArray(categoryResult.categories)
-      ? categoryResult.categories
-      : Array.isArray(categoryResult)
-        ? categoryResult
-        : [];
+  const productsResource = useResource(`/products?${query}`);
+  const categoriesResource = useResource("/categories");
+  const lowResource = useResource("/products?stock=low&limit=1");
+  const inactiveResource = useResource("/products?status=inactive&limit=1");
+  const allResource = useResource("/products?limit=1");
 
-  setProducts(productList);
-  setCategories(categoryList);
+  const products = toList(productsResource.data, "products");
+  const categories = toList(categoriesResource.data, "categories");
+  const pagination = productsResource.data?.pagination ?? { total: 0, totalPages: 1 };
 
-  if (productResult.pagination) {
-    setPagination(productResult.pagination);
-  } else {
-    setPagination({
-      page,
-      limit: pageSize,
-      total: productList.length,
-      totalPages: productList.length > 0 ? 1 : 0,
+  function reloadAll() {
+    productsResource.reload();
+    lowResource.reload();
+    inactiveResource.reload();
+    allResource.reload();
+  }
+
+  /* ----- Form state ----- */
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
+
+  const createRequested = params.get("new") === "1" && canWrite;
+  const isEditing = editing !== null && !createRequested;
+
+  function clearNewParam() {
+    if (!createRequested) return;
+    const next = new URLSearchParams(params);
+    next.delete("new");
+    setParams(next, { replace: true });
+  }
+
+  function openCreate() {
+    setEditing(null);
+    setForm(emptyForm);
+    setFormError("");
+    setFormOpen(true);
+  }
+
+  function openEdit(product) {
+    setEditing(product);
+    setForm({
+      name: product.name ?? "",
+      description: product.description ?? "",
+      category_id: product.category_id ? String(product.category_id) : "",
+      price: String(product.price ?? ""),
+      stock: String(product.stock ?? ""),
+      is_active: isActiveFlag(product.is_active),
     });
-  }
-} catch (err) {
-  setError(err.message || "Failed to load products.");
-  setProducts([]);
-  setPagination({
-    page,
-    limit: pageSize,
-    total: 0,
-    totalPages: 0,
-  });
-} finally {
-  setLoading(false);
-}
-
-
-}, [page, search, categoryFilter]);
-
-useEffect(() => {
-loadData();
-}, [loadData]);
-
-function openCreateForm() {
-setEditingId(null);
-setForm({ ...emptyForm });
-setError("");
-setSuccess("");
-setShowForm(true);
-}
-
-function openEditForm(product) {
-setEditingId(product.id);
-
-
-setForm({
-  name: product.name ?? "",
-  description: product.description ?? "",
-  category_id: product.category_id
-    ? String(product.category_id)
-    : "",
-  price: product.price ?? "",
-  stock: product.stock ?? product.stock_quantity ?? "",
-  is_active:
-    product.is_active === undefined
-      ? true
-      : isActiveProduct(product.is_active),
-});
-
-setError("");
-setSuccess("");
-setShowForm(true);
-
-
-}
-
-function closeForm() {
-if (saving) return;
-
-
-setShowForm(false);
-setEditingId(null);
-setForm({ ...emptyForm });
-
-
-}
-
-function handleFormChange(event) {
-const { name, value, type, checked } = event.target;
-
-
-setForm((previous) => ({
-  ...previous,
-  [name]: type === "checkbox" ? checked : value,
-}));
-
-
-}
-
-async function handleSubmit(event) {
-event.preventDefault();
-setSaving(true);
-setError("");
-setSuccess("");
-
-
-try {
-  if (!form.name.trim()) {
-    throw new Error("Product name is required.");
+    setFormError("");
+    setFormOpen(true);
   }
 
-  if (
-    form.price === "" ||
-    !Number.isFinite(Number(form.price)) ||
-    Number(form.price) < 0
-  ) {
-    throw new Error("Enter a valid price.");
+  function closeForm() {
+    if (saving) return;
+    setFormOpen(false);
+    clearNewParam();
   }
 
-  if (
-    form.stock === "" ||
-    !Number.isInteger(Number(form.stock)) ||
-    Number(form.stock) < 0
-  ) {
-    throw new Error("Stock must be a non-negative whole number.");
+  function handleChange(event) {
+    const { name, value } = event.target;
+    setForm((previous) => ({ ...previous, [name]: value }));
   }
 
-  const wasEditing = editingId !== null;
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setFormError("");
 
-  const payload = {
-    name: form.name.trim(),
-    description: form.description.trim(),
-    category_id: form.category_id ? Number(form.category_id) : null,
-    price: Number(form.price),
-    stock: Number(form.stock),
-    is_active: Boolean(form.is_active),
-  };
+    const price = Number(form.price);
+    const stock = Number(form.stock);
 
-  const url = wasEditing ? `/products/${editingId}` : "/products";
+    if (!Number.isFinite(price) || price < 0) return setFormError("Enter a valid, non-negative price.");
+    if (!Number.isInteger(stock) || stock < 0) return setFormError("Stock must be a whole number of 0 or more.");
+    if (!form.category_id) return setFormError("Choose a category for this product.");
 
-  await request(url, {
-    method: wasEditing ? "PUT" : "POST",
-    body: JSON.stringify(payload),
-  });
+    setSaving(true);
 
-  setShowForm(false);
-  setEditingId(null);
-  setForm({ ...emptyForm });
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      category_id: Number(form.category_id),
+      price,
+      stock,
+      is_active: Boolean(form.is_active),
+    };
 
-  setSuccess(
-    wasEditing
-      ? "Product updated successfully."
-      : "Product created successfully."
-  );
-
-  setPage(1);
-
-  if (page === 1) {
-    await loadData();
+    try {
+      await api(isEditing ? `/products/${editing.id}` : "/products", {
+        method: isEditing ? "PUT" : "POST",
+        body: payload,
+      });
+      setFormOpen(false);
+      clearNewParam();
+      toast.success(`${payload.name} was ${isEditing ? "updated" : "added to your catalog"}.`, {
+        title: isEditing ? "Product updated" : "Product created",
+      });
+      reloadAll();
+    } catch (err) {
+      setFormError(err.message || "Unable to save product.");
+    } finally {
+      setSaving(false);
+    }
   }
-} catch (err) {
-  setError(err.message || "Failed to save product.");
-} finally {
-  setSaving(false);
-}
 
-
-}
-
-async function handleDelete(product) {
-const confirmed = window.confirm(
-`Are you sure you want to delete "${product.name}"?`
-);
-
-
-if (!confirmed) return;
-
-setError("");
-setSuccess("");
-setDeletingId(product.id);
-
-try {
-  await request(`/products/${product.id}`, {
-    method: "DELETE",
-  });
-
-  setSuccess("Product deleted successfully.");
-
-  if (products.length === 1 && page > 1) {
-    setPage((previous) => previous - 1);
-  } else {
-    await loadData();
+  async function toggleActive(product, nextActive) {
+    setTogglingId(product.id);
+    try {
+      await api(`/products/${product.id}`, {
+        method: "PUT",
+        body: {
+          name: product.name,
+          description: product.description ?? "",
+          category_id: Number(product.category_id),
+          price: Number(product.price),
+          stock: Number(product.stock),
+          is_active: nextActive,
+        },
+      });
+      toast.success(`${product.name} is now ${nextActive ? "active" : "inactive"}.`);
+      reloadAll();
+    } catch (err) {
+      toast.error(err.message || "Unable to update product.");
+    } finally {
+      setTogglingId(null);
+    }
   }
-} catch (err) {
-  setError(err.message || "Failed to delete product.");
-} finally {
-  setDeletingId(null);
-}
 
+  async function handleDelete(product) {
+    const confirmed = await confirm({
+      title: `Delete ${product.name}?`,
+      message: "This permanently removes the product. Products used in orders can't be deleted — deactivate them instead.",
+      confirmLabel: "Delete product",
+    });
+    if (!confirmed) return;
 
-}
+    try {
+      await api(`/products/${product.id}`, { method: "DELETE" });
+      toast.success(`${product.name} was deleted.`);
+      if (products.length === 1 && page > 1) setPage(page - 1);
+      reloadAll();
+    } catch (err) {
+      toast.error(err.message || "Unable to delete product.", { title: "Delete failed" });
+    }
+  }
 
-function handleSearchChange(event) {
-setSearch(event.target.value);
-setPage(1);
-}
+  const [exporting, setExporting] = useState(false);
 
-function handleCategoryChange(event) {
-setCategoryFilter(event.target.value);
-setPage(1);
-}
-
-const lowStockCount = products.filter(
-(product) => Number(product.stock ?? product.stock_quantity ?? 0) <= 5
-).length;
-
-const activeCount = products.filter((product) =>
-isActiveProduct(product.is_active)
-).length;
-
-const totalPages = Number(pagination.totalPages) || 0;
-const totalProducts = Number(pagination.total) || 0;
-
-const money = (value) =>
-new Intl.NumberFormat("fr-MA", {
-style: "currency",
-currency: "MAD",
-minimumFractionDigits: 2,
-maximumFractionDigits: 2,
-}).format(Number(value) || 0);
-
-const dateLabel = new Intl.DateTimeFormat("en", {
-weekday: "long",
-day: "numeric",
-month: "long",
-year: "numeric",
-}).format(new Date());
-
-return ( <div className="space-y-7 pb-8">
-{/* Page heading */} <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"> <div>
-<div
-className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em]"
-style={{ color: "var(--primary)" }}
->
-<span
-className="h-2 w-2 rounded-full"
-style={{ backgroundColor: "var(--primary)" }}
-/>
-Inventory management </div>
-
-
-      <h1
-        className="text-3xl font-bold tracking-tight sm:text-4xl"
-        style={textStyle}
-      >
-        Products
-      </h1>
-
-      <p className="mt-2 text-sm sm:text-base" style={mutedStyle}>
-        Manage your catalog, prices, categories, and stock levels.
-      </p>
-
-      <p className="mt-2 text-xs" style={mutedStyle}>
-        {dateLabel}
-      </p>
-    </div>
-
-    <button
-      type="button"
-      onClick={openCreateForm}
-      className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
-      style={{ backgroundColor: "var(--primary)" }}
-    >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        aria-hidden="true"
-      >
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-      Add product
-    </button>
-  </div>
-
-  {/* Notifications */}
-  {error && (
-    <Notice type="error" onClose={() => setError("")}>
-      {error}
-    </Notice>
-  )}
-
-  {success && (
-    <Notice type="success" onClose={() => setSuccess("")}>
-      {success}
-    </Notice>
-  )}
-
-  {/* Statistics */}
-  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-    <ProductStat
-      label="Total products"
-      value={totalProducts.toLocaleString("en")}
-      description="Products matching your filters"
-      color="var(--primary)"
-      background="var(--primary-soft)"
-      icon={
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-          <path d="M3 7h18v13H3z" />
-          <path d="M3 7l2-4h14l2 4M9 12h6" />
-        </svg>
+  async function handleExport() {
+    setExporting(true);
+    try {
+      // Fetch every page matching the current filters.
+      const rows = [];
+      for (let current = 1; ; current += 1) {
+        const pageQuery = new URLSearchParams(query);
+        pageQuery.set("page", String(current));
+        pageQuery.set("limit", "100");
+        const result = await api(`/products?${pageQuery}`);
+        rows.push(...toList(result));
+        if (current >= (result.pagination?.totalPages ?? 1)) break;
       }
-    />
+      exportCsv(
+        "products",
+        [
+          ["ID", (p) => p.id],
+          ["Name", (p) => p.name],
+          ["Category", (p) => p.category_name],
+          ["Price (MAD)", (p) => p.price],
+          ["Stock", (p) => p.stock],
+          ["Active", (p) => (isActiveFlag(p.is_active) ? "Yes" : "No")],
+          ["Description", (p) => p.description],
+        ],
+        rows
+      );
+      toast.info(`Exported ${rows.length} products to CSV.`);
+    } catch (err) {
+      toast.error(err.message || "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
-    <ProductStat
-      label="Active on this page"
-      value={activeCount.toLocaleString("en")}
-      description="Currently active products"
-      color="var(--success)"
-      background="var(--success-soft)"
-      icon={
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="m8 12 3 3 5-6" />
-        </svg>
-      }
-    />
+  function toggleSort(key) {
+    setSort((current) =>
+      current.key === key ? { key, direction: current.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" }
+    );
+    setPage(1);
+  }
 
-    <ProductStat
-      label="Low stock on this page"
-      value={lowStockCount.toLocaleString("en")}
-      description="Products with stock of 5 or less"
-      color="var(--warning)"
-      background="var(--warning-soft)"
-      icon={
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-          <path d="m12 3 10 18H2L12 3z" />
-          <path d="M12 9v5m0 3v.01" />
-        </svg>
-      }
-    />
-  </div>
+  const filtering = Boolean(debouncedSearch.trim() || categoryId || status !== "all");
+  const initialLoading = productsResource.loading && !productsResource.data;
+  const totalAll = allResource.data?.pagination?.total;
+  const lowCount = lowResource.data?.pagination?.total;
+  const inactiveCount = inactiveResource.data?.pagination?.total;
 
-  {/* Products directory */}
-  <section className="overflow-hidden rounded-2xl border" style={panelStyle}>
-    <div
-      className="flex flex-col gap-4 border-b p-5 lg:flex-row lg:items-center lg:justify-between"
-      style={{ borderColor: "var(--border-color)" }}
-    >
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-bold" style={textStyle}>
-            Product directory
-          </h2>
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Catalog"
+        title="Products"
+        description="Manage your catalog, pricing, and stock levels."
+        actions={
+          <>
+            <Button icon="download" onClick={handleExport} loading={exporting} disabled={pagination.total === 0}>
+              Export
+            </Button>
+            {canWrite && (
+              <Button variant="primary" icon="plus" onClick={openCreate}>
+                Add product
+              </Button>
+            )}
+          </>
+        }
+      />
 
-          <span
-            className="rounded-full px-2.5 py-1 text-xs font-semibold"
-            style={{
-              backgroundColor: "var(--primary-soft)",
-              color: "var(--primary)",
-            }}
-          >
-            {totalProducts}
-          </span>
-        </div>
-
-        <p className="mt-1 text-sm" style={mutedStyle}>
-          Search your inventory and manage individual products.
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={loadData}
-        disabled={loading}
-        className="inline-flex items-center justify-center gap-2 self-start rounded-xl border px-4 py-2.5 text-sm font-medium transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50 lg:self-auto"
-        style={{
-          borderColor: "var(--border-color)",
-          color: "var(--text-primary)",
-        }}
-      >
-        <svg
-          className={loading ? "animate-spin" : ""}
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden="true"
-        >
-          <path d="M20 7v5h-5M4 17v-5h5" />
-          <path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2" />
-        </svg>
-        {loading ? "Loading..." : "Refresh"}
-      </button>
-    </div>
-
-    {/* Search and category filter */}
-    <div className="grid grid-cols-1 gap-3 border-b p-5 md:grid-cols-2" style={{ borderColor: "var(--border-color)" }}>
-      <div className="relative">
-        <svg
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="var(--text-secondary)"
-          strokeWidth="1.8"
-          aria-hidden="true"
-        >
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-4-4" />
-        </svg>
-
-        <input
-          type="search"
-          value={search}
-          onChange={handleSearchChange}
-          placeholder="Search products..."
-          aria-label="Search products"
-          className={`${inputClass} pl-10`}
+      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total products" value={number(totalAll)} hint="Across all categories" icon="products" loading={totalAll === undefined} />
+        <StatCard label="Categories" value={number(categories.length)} hint="Ways to group your catalog" icon="categories" tone="info" loading={categoriesResource.loading && !categoriesResource.data} />
+        <StatCard
+          label="Low stock"
+          value={number(lowCount)}
+          hint={`${LOW_STOCK} or fewer units left`}
+          icon="alert"
+          tone="warning"
+          loading={lowCount === undefined}
+          onClick={() => {
+            setStatus("low");
+            setPage(1);
+          }}
+        />
+        <StatCard
+          label="Inactive"
+          value={number(inactiveCount)}
+          hint="Hidden from new orders"
+          icon="ban"
+          tone="danger"
+          loading={inactiveCount === undefined}
+          onClick={() => {
+            setStatus("inactive");
+            setPage(1);
+          }}
         />
       </div>
 
-      <select
-        value={categoryFilter}
-        onChange={handleCategoryChange}
-        aria-label="Filter by category"
-        className={inputClass}
-      >
-        <option value="">All categories</option>
-        {categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </select>
-    </div>
+      {productsResource.error && <ErrorState message={productsResource.error} onRetry={reloadAll} />}
 
-    {/* Create / edit form */}
-    {showForm && (
-      <form
-        onSubmit={handleSubmit}
-        className="m-4 space-y-5 rounded-2xl border p-5 sm:m-5 sm:p-6"
-        style={{
-          backgroundColor: "var(--surface-muted)",
-          borderColor: "var(--border-color)",
-        }}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p
-              className="mb-1 text-xs font-semibold uppercase tracking-wider"
-              style={{ color: "var(--primary)" }}
-            >
-              Product details
-            </p>
-
-            <h3 className="text-xl font-bold" style={textStyle}>
-              {editingId !== null ? "Edit product" : "Create product"}
-            </h3>
-
-            <p className="mt-1 text-sm" style={mutedStyle}>
-              Complete the fields below and save your changes.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={closeForm}
-            disabled={saving}
-            className="rounded-lg px-3 py-1.5 text-sm font-medium transition hover:opacity-70 disabled:opacity-50"
-            style={mutedStyle}
+      <Card>
+        <div className="flex flex-col gap-3 border-b p-4 xl:flex-row xl:items-center" style={{ borderColor: "var(--border-color)" }}>
+          <SearchInput
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            placeholder="Search name or description…"
+            className="xl:w-72"
+          />
+          <select
+            value={categoryId}
+            onChange={(event) => {
+              setCategoryId(event.target.value);
+              setPage(1);
+            }}
+            aria-label="Filter by category"
+            className="app-input h-10 py-0 xl:w-48"
           >
-            Close ×
-          </button>
+            <option value="">All categories</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+          <SegmentedControl
+            label="Status filter"
+            value={status}
+            onChange={(value) => {
+              setStatus(value);
+              setPage(1);
+            }}
+            options={[
+              { value: "all", label: "All" },
+              { value: "active", label: "Active" },
+              { value: "inactive", label: "Inactive" },
+              { value: "low", label: "Low stock" },
+            ]}
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            icon="refresh"
+            onClick={reloadAll}
+            aria-label="Refresh"
+            title="Refresh"
+            className={`xl:ml-auto ${productsResource.loading ? "[&_svg]:animate-spin" : ""}`}
+          />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field label="Product name" required>
-            <input
-              name="name"
-              value={form.name}
-              onChange={handleFormChange}
-              required
-              maxLength={150}
-              placeholder="Enter product name"
-              className={inputClass}
-            />
-          </Field>
+        {initialLoading ? (
+          <TableSkeleton columns={6} />
+        ) : products.length === 0 ? (
+          <EmptyState
+            icon={filtering ? "search" : "products"}
+            title={filtering ? "No matching products" : "No products yet"}
+            description={filtering ? "Try a different search, category, or status." : "Add your first product to start building your catalog."}
+            action={
+              filtering ? (
+                <Button
+                  onClick={() => {
+                    setSearch("");
+                    setDebouncedSearch("");
+                    setCategoryId("");
+                    setStatus("all");
+                    setPage(1);
+                  }}
+                >
+                  Clear filters
+                </Button>
+              ) : (
+                canWrite && (
+                  <Button variant="primary" icon="plus" onClick={openCreate}>
+                    Add your first product
+                  </Button>
+                )
+              )
+            }
+          />
+        ) : (
+          <div className={`overflow-x-auto transition-opacity ${productsResource.loading ? "opacity-60" : ""}`}>
+            <table className="w-full min-w-[900px] text-left text-sm">
+              <TableHead>
+                <SortHeader label="Product" column="name" sort={sort} onSort={toggleSort} />
+                <SortHeader label="Category" column="category" sort={sort} onSort={toggleSort} />
+                <SortHeader label="Price" column="price" sort={sort} onSort={toggleSort} />
+                <SortHeader label="Stock" column="stock" sort={sort} onSort={toggleSort} />
+                <Th>Active</Th>
+                <Th align="right">Actions</Th>
+              </TableHead>
+              <tbody>
+                {products.map((product) => {
+                  const active = isActiveFlag(product.is_active);
+                  const stock = Number(product.stock ?? 0);
 
-          <Field label="Category">
-            <select
-              name="category_id"
-              value={form.category_id}
-              onChange={handleFormChange}
-              className={inputClass}
-            >
-              <option value="">No category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+                  return (
+                    <tr key={product.id} className="border-t transition-colors hover:bg-[var(--surface-hover)]" style={{ borderColor: "var(--border-color)" }}>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <Avatar label={initials(product.name)} seed={product.category_id} />
+                          <div className="min-w-0">
+                            <p className={`max-w-[260px] truncate font-semibold ${active ? "app-text" : "app-text-muted line-through decoration-1"}`}>
+                              {product.name}
+                            </p>
+                            <p className="max-w-[260px] truncate text-xs app-text-muted">{product.description || `#${product.id}`}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <Badge tone="neutral">{product.category_name || "Uncategorized"}</Badge>
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3.5 font-semibold tabular-nums app-text">{money(product.price)}</td>
+                      <td className="px-5 py-3.5">
+                        <StockMeter stock={stock} />
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {canWrite ? (
+                          <Switch
+                            size="sm"
+                            checked={active}
+                            disabled={togglingId === product.id}
+                            onChange={(next) => toggleActive(product, next)}
+                            label={active ? `Deactivate ${product.name}` : `Activate ${product.name}`}
+                          />
+                        ) : (
+                          <Badge tone={active ? "success" : "neutral"} dot>
+                            {active ? "Active" : "Inactive"}
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex justify-end gap-1">
+                          {canWrite && <IconAction icon="edit" label="Edit product" onClick={() => openEdit(product)} />}
+                          {canDelete && <IconAction icon="trash" label="Delete product" tone="danger" onClick={() => handleDelete(product)} />}
+                          {!canWrite && !canDelete && <span className="text-xs app-text-muted">View only</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-          <Field label="Price (MAD)" required>
-            <input
-              name="price"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.price}
-              onChange={handleFormChange}
-              required
-              placeholder="0.00"
-              className={inputClass}
-            />
-          </Field>
+        {products.length > 0 && (
+          <Pagination
+            page={page}
+            totalPages={Math.max(1, Number(pagination.totalPages) || 1)}
+            total={Number(pagination.total) || 0}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+            label="products"
+          />
+        )}
+      </Card>
 
-          <Field label="Stock quantity" required>
-            <input
-              name="stock"
-              type="number"
-              min="0"
-              step="1"
-              value={form.stock}
-              onChange={handleFormChange}
-              required
-              placeholder="0"
-              className={inputClass}
-            />
-          </Field>
+      <Modal
+        open={formOpen || createRequested}
+        onClose={closeForm}
+        busy={saving}
+        size="lg"
+        icon={isEditing ? "edit" : "products"}
+        eyebrow="Product details"
+        title={isEditing ? `Edit ${editing.name}` : "Add a new product"}
+        description={isEditing ? "Update pricing, stock, and availability." : "Add an item to your catalog so it can be ordered."}
+        footer={
+          <>
+            <Button onClick={closeForm} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" form="product-form" variant="primary" loading={saving} icon="check">
+              {isEditing ? "Save changes" : "Create product"}
+            </Button>
+          </>
+        }
+      >
+        <form id="product-form" onSubmit={handleSubmit} className="space-y-5">
+          <InlineAlert>{formError}</InlineAlert>
 
-          <div className="md:col-span-2">
-            <Field label="Description">
-              <textarea
-                name="description"
-                rows={3}
-                value={form.description}
-                onChange={handleFormChange}
-                placeholder="Describe this product..."
-                className={`${inputClass} resize-y`}
-              />
+          {categories.length === 0 && !categoriesResource.loading && (
+            <InlineAlert tone="warning">
+              You need at least one category first.{" "}
+              <Link to="/categories?new=1" className="font-semibold underline">
+                Create a category
+              </Link>
+            </InlineAlert>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Product name" required className="sm:col-span-2">
+              {(id) => <input id={id} name="name" value={form.name} onChange={handleChange} required minLength={2} maxLength={150} placeholder="e.g. Office chair — ergonomic" className="app-input" />}
+            </Field>
+
+            <Field label="Category" required>
+              {(id) => (
+                <select id={id} name="category_id" value={form.category_id} onChange={handleChange} required className="app-input">
+                  <option value="">Select a category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+
+            <Field label="Price" required hint={form.price !== "" ? money(form.price) : "Price in Moroccan dirhams"}>
+              {(id) => (
+                <div className="relative">
+                  <input id={id} name="price" type="number" min="0" step="0.01" value={form.price} onChange={handleChange} required placeholder="0.00" className="app-input pr-14" />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold app-text-muted">MAD</span>
+                </div>
+              )}
+            </Field>
+
+            <Field label="Stock quantity" required hint={Number(form.stock) <= LOW_STOCK && form.stock !== "" ? "This will show as low stock." : "Units currently available"}>
+              {(id) => (
+                <div className="flex items-center gap-2">
+                  <Button size="icon" icon="minus" aria-label="Decrease stock" onClick={() => setForm((f) => ({ ...f, stock: String(Math.max(0, (Number(f.stock) || 0) - 1)) }))} />
+                  <input id={id} name="stock" type="number" min="0" step="1" value={form.stock} onChange={handleChange} required placeholder="0" className="app-input text-center tabular-nums" />
+                  <Button size="icon" icon="plus" aria-label="Increase stock" onClick={() => setForm((f) => ({ ...f, stock: String((Number(f.stock) || 0) + 1) }))} />
+                </div>
+              )}
+            </Field>
+
+            <div className="flex items-center justify-between gap-4 rounded-xl border p-3.5" style={{ borderColor: "var(--border-color)" }}>
+              <div>
+                <p className="text-sm font-semibold app-text">Active</p>
+                <p className="text-xs app-text-muted">Inactive products can't be ordered.</p>
+              </div>
+              <Switch checked={form.is_active} onChange={(value) => setForm((f) => ({ ...f, is_active: value }))} label="Product is active" />
+            </div>
+
+            <Field label="Description" className="sm:col-span-2" hint={`${form.description.length}/1000`}>
+              {(id) => <textarea id={id} name="description" rows={3} maxLength={1000} value={form.description} onChange={handleChange} placeholder="Materials, dimensions, packaging…" className="app-input resize-y" />}
             </Field>
           </div>
 
-          <label
-            className="flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 text-sm"
-            style={{
-              borderColor: "var(--border-color)",
-              color: "var(--text-primary)",
-            }}
-          >
-            <input
-              type="checkbox"
-              name="is_active"
-              checked={Boolean(form.is_active)}
-              onChange={handleFormChange}
-              className="h-4 w-4 rounded accent-blue-600"
-            />
-            <span>
-              <span className="block font-semibold">Active product</span>
-              <span className="mt-0.5 block text-xs" style={mutedStyle}>
-                Mark this product as active.
-              </span>
-            </span>
-          </label>
-        </div>
-
-        <div
-          className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end"
-          style={{ borderColor: "var(--border-color)" }}
-        >
-          <button
-            type="button"
-            onClick={closeForm}
-            disabled={saving}
-            className="rounded-xl border px-5 py-2.5 text-sm font-semibold transition hover:opacity-75 disabled:opacity-50"
-            style={{
-              borderColor: "var(--border-color)",
-              color: "var(--text-primary)",
-            }}
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ backgroundColor: "var(--primary)" }}
-          >
-            {saving
-              ? "Saving..."
-              : editingId !== null
-                ? "Save changes"
-                : "Create product"}
-          </button>
-        </div>
-      </form>
-    )}
-
-    {/* Products table */}
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[850px] text-left text-sm">
-        <thead
-          style={{
-            backgroundColor: "var(--surface-muted)",
-            color: "var(--text-secondary)",
-          }}
-        >
-          <tr>
-            <th className="px-5 py-4 font-semibold">Product</th>
-            <th className="px-5 py-4 font-semibold">Category</th>
-            <th className="px-5 py-4 font-semibold">Price</th>
-            <th className="px-5 py-4 font-semibold">Stock</th>
-            <th className="px-5 py-4 font-semibold">Status</th>
-            <th className="px-5 py-4 text-right font-semibold">Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {loading && products.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="px-5 py-12 text-center" style={mutedStyle}>
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
-                  Loading products...
-                </span>
-              </td>
-            </tr>
-          ) : products.length === 0 ? (
-            <tr>
-              <td colSpan={6}>
-                <EmptyState
-                  searching={Boolean(search.trim() || categoryFilter)}
-                  onAdd={openCreateForm}
-                />
-              </td>
-            </tr>
-          ) : (
-            products.map((product) => {
-              const stock = Number(
-                product.stock ?? product.stock_quantity ?? 0
-              );
-
-              const active = isActiveProduct(product.is_active);
-
-              const categoryName =
-                product.category_name ||
-                categories.find(
-                  (category) =>
-                    String(category.id) === String(product.category_id)
-                )?.name ||
-                "Uncategorized";
-
-              return (
-                <tr
-                  key={product.id}
-                  className="transition-colors hover:bg-slate-500/[0.04]"
-                  style={{ borderTop: "1px solid var(--border-color)" }}
-                >
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
-                        style={{
-                          backgroundColor: "var(--primary-soft)",
-                          color: "var(--primary)",
-                        }}
-                      >
-                        {(product.name || "?").trim().charAt(0).toUpperCase()}
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="max-w-[240px] truncate font-semibold" style={textStyle}>
-                          {product.name}
-                        </p>
-                        <p className="mt-1 text-xs" style={mutedStyle}>
-                          ID: {product.id}
-                        </p>
-                        {product.description && (
-                          <p className="mt-1 max-w-[240px] truncate text-xs" style={mutedStyle}>
-                            {product.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="px-5 py-4" style={textStyle}>
-                    {categoryName}
-                  </td>
-
-                  <td className="whitespace-nowrap px-5 py-4 font-semibold" style={textStyle}>
-                    {money(product.price)}
-                  </td>
-
-                  <td className="px-5 py-4">
-                    <span
-                      className="inline-flex rounded-lg px-2.5 py-1 font-semibold"
-                      style={{
-                        backgroundColor:
-                          stock <= 5
-                            ? "var(--warning-soft)"
-                            : "var(--surface-muted)",
-                        color:
-                          stock <= 5
-                            ? "var(--warning)"
-                            : "var(--text-primary)",
-                      }}
-                    >
-                      {stock}
-                    </span>
-                  </td>
-
-                  <td className="px-5 py-4">
-                    <span
-                      className="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-                      style={{
-                        backgroundColor: active
-                          ? "var(--success-soft)"
-                          : "var(--surface-muted)",
-                        color: active
-                          ? "var(--success)"
-                          : "var(--text-secondary)",
-                      }}
-                    >
-                      {active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-
-                  <td className="px-5 py-4">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEditForm(product)}
-                        className="rounded-lg border px-3 py-2 text-xs font-semibold transition hover:opacity-75"
-                        style={{
-                          borderColor: "var(--primary)",
-                          color: "var(--primary)",
-                        }}
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(product)}
-                        disabled={deletingId === product.id}
-                        className="rounded-lg border px-3 py-2 text-xs font-semibold transition hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
-                        style={{
-                          borderColor: "var(--danger)",
-                          color: "var(--danger)",
-                        }}
-                      >
-                        {deletingId === product.id ? "Deleting..." : "Delete"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })
+          {isEditing && (
+            <p className="flex items-center gap-2 text-xs app-text-muted">
+              <Icon name="info" size={14} /> Product #{editing.id}
+            </p>
           )}
-        </tbody>
-      </table>
+        </form>
+      </Modal>
     </div>
-
-    {/* Pagination */}
-    <div
-      className="flex flex-col gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-      style={{
-        borderColor: "var(--border-color)",
-        color: "var(--text-secondary)",
-      }}
-    >
-      <p className="text-sm">
-        Showing {products.length} products on this page out of{" "}
-        {totalProducts} matching products.
-      </p>
-
-      <div className="flex items-center justify-between gap-2 sm:justify-end">
-        <button
-          type="button"
-          disabled={loading || page <= 1}
-          onClick={() => setPage((previous) => Math.max(1, previous - 1))}
-          className="rounded-xl border px-3 py-2 text-sm font-medium transition hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-40"
-          style={{
-            borderColor: "var(--border-color)",
-            color: "var(--text-primary)",
-          }}
-        >
-          Previous
-        </button>
-
-        <span className="whitespace-nowrap px-2 text-sm">
-          Page {page} of {Math.max(totalPages, 1)}
-        </span>
-
-        <button
-          type="button"
-          disabled={loading || totalPages === 0 || page >= totalPages}
-          onClick={() =>
-            setPage((previous) => Math.min(totalPages, previous + 1))
-          }
-          className="rounded-xl border px-3 py-2 text-sm font-medium transition hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-40"
-          style={{
-            borderColor: "var(--border-color)",
-            color: "var(--text-primary)",
-          }}
-        >
-          Next
-        </button>
-      </div>
-    </div>
-  </section>
-</div>
-
-
-);
+  );
 }

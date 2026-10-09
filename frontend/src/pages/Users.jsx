@@ -1,755 +1,487 @@
+import { useMemo, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import Button from "../components/ui/Button";
+import Icon from "../components/ui/Icon";
+import { Modal } from "../components/ui/Modal";
+import { useConfirm, useToast } from "../components/ui/feedback";
+import {
+    Avatar,
+    Badge,
+    Card,
+    EmptyState,
+    ErrorState,
+    Field,
+    IconAction,
+    InlineAlert,
+    PageHeader,
+    Pagination,
+    SearchInput,
+    SegmentedControl,
+    SortHeader,
+    StatCard,
+    Switch,
+    TableHead,
+    TableSkeleton,
+    Th,
+} from "../components/ui/primitives";
+import { api, formatDate, initials, isActiveFlag, number, toList, useResource } from "../lib/api";
+import useTable from "../lib/useTable";
 
-import { useCallback, useEffect, useState } from "react";
+const ROLES = [
+    { id: 1, name: "Admin", tone: "danger", icon: "users", description: "Full access, including user management." },
+    { id: 2, name: "Manager", tone: "primary", icon: "customers", description: "Manage customers, products, and orders." },
+    { id: 3, name: "Employee", tone: "neutral", icon: "eye", description: "Read-only access to business data." },
+];
 
-const API = "http://localhost:5000/api";
+const roleByName = Object.fromEntries(ROLES.map((role) => [role.name, role]));
 
-const emptyForm = {
-    first_name: "",
-    last_name: "",
-    email: "",
-    password: "",
-    role_id: "3",
+const emptyForm = { first_name: "", last_name: "", email: "", password: "", role_id: "3" };
+
+const accessors = {
+    name: (user) => `${user.first_name} ${user.last_name}`,
+    role: (user) => user.role,
+    status: (user) => (isActiveFlag(user.is_active) ? 0 : 1),
+    created: (user) => new Date(user.created_at).getTime() || 0,
 };
 
-async function request(url, options = {}) {
-    const response = await fetch(`${API}${url}`, {
-        ...options,
-        credentials: "include",
-        headers: {
-            "Content-Type": "application/json",
-            ...options.headers,
-        },
-    });
-
-    const result = await response.json().catch(() => ({}));
-
-    if (!response.ok || result.success === false) {
-        throw new Error(result.message || "Request failed.");
-    }
-
-    return result;
+// Mirrors checkPasswordPolicy in backend/src/config/security.js.
+function passwordProblem(password) {
+    if (password.length < 10) return "Password must contain at least 10 characters.";
+    if (new TextEncoder().encode(password).length > 72) return "Password must be at most 72 bytes long.";
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return "Password must contain at least one letter and one number.";
+    return null;
 }
 
-function isActive(user) {
-    return user.is_active === true || Number(user.is_active) === 1;
-}
+function passwordStrength(password) {
+    if (!password) return null;
+    let score = 0;
+    if (password.length >= 10) score += 1;
+    if (password.length >= 14) score += 1;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+    if (/\d/.test(password)) score += 1;
+    if (/[^A-Za-z0-9]/.test(password)) score += 1;
 
-function getRole(user) {
-    return user.role || user.role_name || user.role_id || "Unknown";
-}
-
-function getInitials(user) {
-    const first = (user.first_name || "").trim().charAt(0);
-    const last = (user.last_name || "").trim().charAt(0);
-
-    return `${first}${last}`.toUpperCase() || "?";
+    if (passwordProblem(password)) return { score: 1, label: "Too weak", tone: "danger" };
+    if (score <= 2) return { score: 2, label: "Weak", tone: "warning" };
+    if (score <= 3) return { score: 3, label: "Good", tone: "primary" };
+    return { score: 4, label: "Strong", tone: "success" };
 }
 
 export default function Users() {
-    const [users, setUsers] = useState([]);
+    const { user: currentUser } = useAuth();
+    const toast = useToast();
+    const confirm = useConfirm();
+
+    const { data, loading, error, reload } = useResource("/users");
+    const users = useMemo(() => toList(data, "users"), [data]);
+
     const [search, setSearch] = useState("");
-    const [loading, setLoading] = useState(true);
+    const [roleFilter, setRoleFilter] = useState("All");
+    const [togglingId, setTogglingId] = useState(null);
+
+    const [formOpen, setFormOpen] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [form, setForm] = useState(emptyForm);
+    const [showPassword, setShowPassword] = useState(false);
+    const [formError, setFormError] = useState("");
     const [saving, setSaving] = useState(false);
-    const [updatingStatusId, setUpdatingStatusId] = useState(null);
-    const [error, setError] = useState("");
-    const [success, setSuccess] = useState("");
-    const [showForm, setShowForm] = useState(false);
-    const [editingId, setEditingId] = useState(null);
-    const [form, setForm] = useState({ ...emptyForm });
 
-    const loadUsers = useCallback(async () => {
-        setLoading(true);
-        setError("");
+    const filtered = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        return users.filter(
+            (user) =>
+                (roleFilter === "All" || user.role === roleFilter) &&
+                (!term || `${user.first_name} ${user.last_name} ${user.email}`.toLowerCase().includes(term))
+        );
+    }, [users, search, roleFilter]);
 
-        try {
-            const result = await request("/users");
-            const data = result.data ?? result.users ?? [];
+    const table = useTable(filtered, { accessors, initialSort: { key: "name", direction: "asc" } });
 
-            setUsers(Array.isArray(data) ? data : []);
-        } catch (err) {
-            setError(err.message || "Unable to load users.");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const activeCount = users.filter((user) => isActiveFlag(user.is_active)).length;
+    const roleCounts = Object.fromEntries(ROLES.map((role) => [role.name, users.filter((user) => user.role === role.name).length]));
 
-    useEffect(() => {
-        loadUsers();
-    }, [loadUsers]);
-
-    function openCreateForm() {
-        setEditingId(null);
-        setForm({ ...emptyForm });
-        setShowForm(true);
-        setError("");
-        setSuccess("");
+    function openCreate() {
+        setEditing(null);
+        setForm(emptyForm);
+        setShowPassword(false);
+        setFormError("");
+        setFormOpen(true);
     }
 
-    function openEditForm(user) {
-        setEditingId(user.id);
+    function openEdit(user) {
+        setEditing(user);
         setForm({
             first_name: user.first_name ?? "",
             last_name: user.last_name ?? "",
             email: user.email ?? "",
             password: "",
-            role_id: String(user.role_id ?? 3),
+            role_id: String(user.role_id ?? roleByName[user.role]?.id ?? 3),
         });
-        setShowForm(true);
-        setError("");
-        setSuccess("");
+        setShowPassword(false);
+        setFormError("");
+        setFormOpen(true);
     }
 
     function closeForm() {
-        setShowForm(false);
-        setEditingId(null);
-        setForm({ ...emptyForm });
+        if (!saving) setFormOpen(false);
     }
 
     function handleChange(event) {
         const { name, value } = event.target;
-
-        setForm((previous) => ({
-            ...previous,
-            [name]: value,
-        }));
+        setForm((previous) => ({ ...previous, [name]: value }));
     }
 
     async function handleSubmit(event) {
         event.preventDefault();
-        setError("");
-        setSuccess("");
+        setFormError("");
 
-        const firstName = form.first_name.trim();
-        const lastName = form.last_name.trim();
-        const email = form.email.trim();
+        const isEditing = editing !== null;
 
-        if (!firstName || !lastName || !email) {
-            setError("Please complete all required fields.");
-            return;
+        if (!isEditing || form.password) {
+            const problem = passwordProblem(form.password);
+            if (problem) return setFormError(problem);
         }
 
-        if (!editingId && form.password.length < 8) {
-            setError("Password must contain at least 8 characters.");
-            return;
-        }
+        const payload = {
+            first_name: form.first_name.trim(),
+            last_name: form.last_name.trim(),
+            email: form.email.trim(),
+            role_id: Number(form.role_id),
+            ...(form.password ? { password: form.password } : {}),
+        };
 
-        if (form.password && form.password.length < 8) {
-            setError("A new password must contain at least 8 characters.");
-            return;
+        if (isEditing && editing.id === currentUser?.id && payload.role_id !== 1) {
+            const confirmed = await confirm({
+                title: "Remove your own admin access?",
+                message: "You will lose access to user management as soon as you save. Another admin would need to restore it.",
+                confirmLabel: "Change my role",
+                tone: "warning",
+            });
+            if (!confirmed) return;
         }
 
         setSaving(true);
-
         try {
-            const payload = {
-                first_name: firstName,
-                last_name: lastName,
-                email,
-                role_id: Number(form.role_id),
-            };
-
-            if (form.password) {
-                payload.password = form.password;
-            }
-
-            if (editingId !== null) {
-                await request(`/users/${editingId}`, {
-                    method: "PUT",
-                    body: JSON.stringify(payload),
-                });
-
-                setSuccess("User updated successfully.");
-            } else {
-                await request("/users", {
-                    method: "POST",
-                    body: JSON.stringify(payload),
-                });
-
-                setSuccess("User created successfully.");
-            }
-
-            closeForm();
-            await loadUsers();
+            await api(isEditing ? `/users/${editing.id}` : "/users", {
+                method: isEditing ? "PUT" : "POST",
+                body: payload,
+            });
+            setFormOpen(false);
+            toast.success(
+                `${payload.first_name} ${payload.last_name} ${isEditing ? "was updated" : "can now sign in"}.`,
+                { title: isEditing ? "User updated" : "User created" }
+            );
+            reload();
         } catch (err) {
-            setError(err.message || "Unable to save the user.");
+            setFormError(err.message || "Unable to save the user.");
         } finally {
             setSaving(false);
         }
     }
 
-    async function toggleStatus(user) {
-        const nextStatus = !isActive(user);
-        const fullName = `${user.first_name} ${user.last_name}`.trim();
+    async function toggleStatus(user, nextActive) {
+        const name = `${user.first_name} ${user.last_name}`;
 
-        const confirmed = window.confirm(
-            `Are you sure you want to ${
-                nextStatus ? "activate" : "deactivate"
-            } ${fullName}?`
-        );
-
+        const confirmed = await confirm({
+            title: nextActive ? `Reactivate ${name}?` : `Deactivate ${name}?`,
+            message: nextActive
+                ? "They will be able to sign in again with their existing password."
+                : "They will be signed out of new requests and won't be able to sign in until reactivated.",
+            confirmLabel: nextActive ? "Activate account" : "Deactivate account",
+            tone: nextActive ? "primary" : "danger",
+            icon: nextActive ? "checkCircle" : "ban",
+        });
         if (!confirmed) return;
 
-        setError("");
-        setSuccess("");
-        setUpdatingStatusId(user.id);
-
+        setTogglingId(user.id);
         try {
-            const result = await request(`/users/${user.id}/status`, {
-                method: "PATCH",
-                body: JSON.stringify({
-                    is_active: nextStatus,
-                }),
-            });
-
-            setSuccess(result.message || "Account status updated.");
-            await loadUsers();
+            const result = await api(`/users/${user.id}/status`, { method: "PATCH", body: { is_active: nextActive } });
+            toast.success(result.message || `${name} is now ${nextActive ? "active" : "inactive"}.`);
+            reload();
         } catch (err) {
-            setError(err.message || "Unable to update account status.");
+            toast.error(err.message || "Unable to update account status.");
         } finally {
-            setUpdatingStatusId(null);
+            setTogglingId(null);
         }
     }
 
-    const filteredUsers = users.filter((user) => {
-        const text = [
-            user.first_name,
-            user.last_name,
-            user.email,
-            user.role,
-            user.role_name,
-            getRole(user),
-        ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-
-        return text.includes(search.trim().toLowerCase());
-    });
-
-    const activeCount = users.filter(isActive).length;
-    const inactiveCount = users.length - activeCount;
-
-    const inputClass =
-        "app-input w-full rounded-xl px-4 py-3 text-sm outline-none transition focus:ring-2 focus:ring-blue-500/20";
-
-    const primaryButton =
-        "app-primary-button inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
-
-    const secondaryButton =
-        "app-surface app-border inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition hover:bg-black/5 dark:hover:bg-white/5";
-
-    function renderStatus(user) {
-        const active = isActive(user);
-
-        return (
-            <span
-                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                    active
-                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                        : "bg-red-500/10 text-red-700 dark:text-red-400"
-                }`}
-            >
-                <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                        active ? "bg-emerald-500" : "bg-red-500"
-                    }`}
-                />
-                {active ? "Active" : "Inactive"}
-            </span>
-        );
-    }
-
-    function renderActions(user) {
-        const active = isActive(user);
-        const updating = updatingStatusId === user.id;
-
-        return (
-            <div className="flex flex-wrap items-center gap-2">
-                <button
-                    type="button"
-                    onClick={() => openEditForm(user)}
-                    disabled={updatingStatusId !== null}
-                    className="rounded-lg px-3 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-500/10 disabled:opacity-50 dark:text-blue-400"
-                >
-                    Edit
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => toggleStatus(user)}
-                    disabled={updatingStatusId !== null}
-                    className={`rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-50 ${
-                        active
-                            ? "text-red-600 hover:bg-red-500/10 dark:text-red-400"
-                            : "text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
-                    }`}
-                >
-                    {updating
-                        ? "Updating..."
-                        : active
-                          ? "Deactivate"
-                          : "Activate"}
-                </button>
-            </div>
-        );
-    }
+    const isEditing = editing !== null;
+    const strength = passwordStrength(form.password);
+    const selectedRole = ROLES.find((role) => String(role.id) === form.role_id);
 
     return (
         <div className="space-y-6">
-            {/* Page heading */}
-            <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <div className="app-text-secondary mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
-                        <span>Administration</span>
-                        <span>/</span>
-                        <span>Users</span>
-                    </div>
+            <PageHeader
+                eyebrow="Administration"
+                title="Users & access"
+                description="Manage team accounts, roles, and who can sign in."
+                actions={
+                    <Button variant="primary" icon="userPlus" onClick={openCreate}>
+                        Invite user
+                    </Button>
+                }
+            />
 
-                    <h1 className="app-text text-2xl font-bold tracking-tight sm:text-3xl">
-                        User Management
-                    </h1>
+            <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <StatCard label="Team members" value={number(users.length)} hint={`${number(activeCount)} active`} icon="customers" loading={loading && !data} />
+                {ROLES.map((role) => (
+                    <StatCard
+                        key={role.name}
+                        label={`${role.name}s`}
+                        value={number(roleCounts[role.name])}
+                        hint={role.description}
+                        icon={role.icon}
+                        tone={role.tone === "neutral" ? "info" : role.tone}
+                        loading={loading && !data}
+                        onClick={() => setRoleFilter(role.name)}
+                    />
+                ))}
+            </div>
 
-                    <p className="app-text-secondary mt-2 text-sm">
-                        Manage employee accounts, roles, and account status.
-                    </p>
+            {error && <ErrorState message={error} onRetry={reload} />}
+
+            <Card>
+                <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center" style={{ borderColor: "var(--border-color)" }}>
+                    <SearchInput
+                        value={search}
+                        onChange={(value) => {
+                            setSearch(value);
+                            table.setPage(1);
+                        }}
+                        placeholder="Search name or email…"
+                        className="lg:w-80"
+                    />
+                    <SegmentedControl
+                        label="Filter by role"
+                        value={roleFilter}
+                        onChange={(value) => {
+                            setRoleFilter(value);
+                            table.setPage(1);
+                        }}
+                        options={[
+                            { value: "All", label: "All", count: users.length },
+                            ...ROLES.map((role) => ({ value: role.name, label: role.name, count: roleCounts[role.name] })),
+                        ]}
+                    />
+                    <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={`lg:ml-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
                 </div>
 
-                <button
-                    type="button"
-                    onClick={openCreateForm}
-                    className={primaryButton}
-                >
-                    <span className="text-lg leading-none">+</span>
-                    Add User
-                </button>
-            </header>
-
-            {/* Notifications */}
-            {error && (
-                <div
-                    role="alert"
-                    className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400"
-                >
-                    <span aria-hidden="true">!</span>
-                    <p className="flex-1">{error}</p>
-                    <button
-                        type="button"
-                        onClick={() => setError("")}
-                        className="font-semibold"
-                        aria-label="Dismiss error"
-                    >
-                        ×
-                    </button>
-                </div>
-            )}
-
-            {success && (
-                <div
-                    role="status"
-                    className="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-400"
-                >
-                    <span aria-hidden="true">✓</span>
-                    <p className="flex-1">{success}</p>
-                    <button
-                        type="button"
-                        onClick={() => setSuccess("")}
-                        className="font-semibold"
-                        aria-label="Dismiss success message"
-                    >
-                        ×
-                    </button>
-                </div>
-            )}
-
-            {/* Statistics */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="app-surface app-border rounded-2xl border p-5 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="app-text-secondary text-sm">Total users</p>
-                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-lg text-blue-600 dark:text-blue-400">
-                            ♙
-                        </span>
-                    </div>
-                    <p className="app-text mt-4 text-3xl font-bold">
-                        {users.length}
-                    </p>
-                    <p className="app-text-secondary mt-2 text-xs">
-                        Registered accounts
-                    </p>
-                </div>
-
-                <div className="app-surface app-border rounded-2xl border p-5 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="app-text-secondary text-sm">Active users</p>
-                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-lg text-emerald-600 dark:text-emerald-400">
-                            ✓
-                        </span>
-                    </div>
-                    <p className="app-text mt-4 text-3xl font-bold">
-                        {activeCount}
-                    </p>
-                    <p className="app-text-secondary mt-2 text-xs">
-                        Accounts currently active
-                    </p>
-                </div>
-
-                <div className="app-surface app-border rounded-2xl border p-5 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="app-text-secondary text-sm">Inactive users</p>
-                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-lg text-amber-600 dark:text-amber-400">
-                            ◷
-                        </span>
-                    </div>
-                    <p className="app-text mt-4 text-3xl font-bold">
-                        {inactiveCount}
-                    </p>
-                    <p className="app-text-secondary mt-2 text-xs">
-                        Deactivated accounts
-                    </p>
-                </div>
-            </section>
-
-            {/* Create/edit form */}
-            {showForm && (
-                <section className="app-surface app-border rounded-2xl border p-5 shadow-sm sm:p-6">
-                    <div className="mb-6 flex items-start justify-between gap-4">
-                        <div>
-                            <h2 className="app-text text-lg font-bold">
-                                {editingId !== null
-                                    ? "Edit user"
-                                    : "Create user"}
-                            </h2>
-                            <p className="app-text-secondary mt-1 text-sm">
-                                {editingId !== null
-                                    ? "Update account information and permissions."
-                                    : "Create an employee account and assign a role."}
-                            </p>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={closeForm}
-                            disabled={saving}
-                            className="app-text-secondary rounded-lg px-2 py-1 text-xl hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
-                            aria-label="Close user form"
-                        >
-                            ×
-                        </button>
-                    </div>
-
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                            <div>
-                                <label
-                                    htmlFor="first_name"
-                                    className="app-text mb-2 block text-sm font-semibold"
-                                >
-                                    First name <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    id="first_name"
-                                    name="first_name"
-                                    value={form.first_name}
-                                    onChange={handleChange}
-                                    required
-                                    maxLength={100}
-                                    autoComplete="given-name"
-                                    placeholder="Enter first name"
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="last_name"
-                                    className="app-text mb-2 block text-sm font-semibold"
-                                >
-                                    Last name <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    id="last_name"
-                                    name="last_name"
-                                    value={form.last_name}
-                                    onChange={handleChange}
-                                    required
-                                    maxLength={100}
-                                    autoComplete="family-name"
-                                    placeholder="Enter last name"
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="email"
-                                    className="app-text mb-2 block text-sm font-semibold"
-                                >
-                                    Email address <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    value={form.email}
-                                    onChange={handleChange}
-                                    required
-                                    autoComplete="email"
-                                    placeholder="name@company.com"
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="role_id"
-                                    className="app-text mb-2 block text-sm font-semibold"
-                                >
-                                    Role <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    id="role_id"
-                                    name="role_id"
-                                    value={form.role_id}
-                                    onChange={handleChange}
-                                    required
-                                    className={inputClass}
-                                >
-                                    <option value="1">Admin</option>
-                                    <option value="2">Manager</option>
-                                    <option value="3">Employee</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label
-                                htmlFor="password"
-                                className="app-text mb-2 block text-sm font-semibold"
+                {loading && !data ? (
+                    <TableSkeleton columns={5} />
+                ) : filtered.length === 0 ? (
+                    <EmptyState
+                        icon="search"
+                        title="No matching users"
+                        description="Try another name, email, or role."
+                        action={
+                            <Button
+                                onClick={() => {
+                                    setSearch("");
+                                    setRoleFilter("All");
+                                }}
                             >
-                                {editingId !== null
-                                    ? "New password (optional)"
-                                    : "Password"}
-                                {editingId === null && (
-                                    <span className="ml-1 text-red-500">*</span>
-                                )}
-                            </label>
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                value={form.password}
-                                onChange={handleChange}
-                                required={editingId === null}
-                                minLength={8}
-                                autoComplete="new-password"
-                                placeholder={
-                                    editingId !== null
-                                        ? "Leave empty to keep the current password"
-                                        : "At least 8 characters"
-                                }
-                                className={inputClass}
-                            />
-                            <p className="app-text-secondary mt-2 text-xs">
-                                {editingId !== null
-                                    ? "Only enter a password if you want to change it."
-                                    : "Use at least 8 characters."}
-                            </p>
-                        </div>
-
-                        <div className="app-border flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end">
-                            <button
-                                type="button"
-                                onClick={closeForm}
-                                disabled={saving}
-                                className={secondaryButton}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                className={primaryButton}
-                            >
-                                {saving
-                                    ? "Saving..."
-                                    : editingId !== null
-                                      ? "Save changes"
-                                      : "Create user"}
-                            </button>
-                        </div>
-                    </form>
-                </section>
-            )}
-
-            {/* User directory */}
-            <section className="app-surface app-border overflow-hidden rounded-2xl border shadow-sm">
-                <div className="app-border flex flex-col gap-4 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-                    <div>
-                        <h2 className="app-text font-bold">User directory</h2>
-                        <p className="app-text-secondary mt-1 text-sm">
-                            Search accounts and manage access status.
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                        <input
-                            type="search"
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search name, email or role..."
-                            aria-label="Search users"
-                            className={`${inputClass} sm:w-72`}
-                        />
-                        <button
-                            type="button"
-                            onClick={loadUsers}
-                            disabled={loading}
-                            className={secondaryButton}
-                        >
-                            <span aria-hidden="true">↻</span>
-                            {loading ? "Loading..." : "Refresh"}
-                        </button>
-                    </div>
-                </div>
-
-                {loading && users.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center gap-3 p-12">
-                        <div className="app-text-secondary h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        <p className="app-text-secondary text-sm">
-                            Loading users...
-                        </p>
-                    </div>
-                ) : filteredUsers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-                        <span className="app-muted mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-2xl">
-                            ♙
-                        </span>
-                        <h3 className="app-text font-semibold">
-                            {search ? "No matching users" : "No users found"}
-                        </h3>
-                        <p className="app-text-secondary mt-2 max-w-sm text-sm">
-                            {search
-                                ? "Try another name, email address, or role."
-                                : "User accounts will appear here when available."}
-                        </p>
-                        {search && (
-                            <button
-                                type="button"
-                                onClick={() => setSearch("")}
-                                className="mt-4 text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400"
-                            >
-                                Clear search
-                            </button>
-                        )}
-                    </div>
+                                Clear filters
+                            </Button>
+                        }
+                    />
                 ) : (
-                    <>
-                        {/* Desktop table */}
-                        <div className="hidden overflow-x-auto md:block">
-                            <table className="w-full text-left text-sm">
-                                <thead className="app-muted">
-                                    <tr>
-                                        <th className="app-text-secondary px-5 py-4 font-semibold">
-                                            User
-                                        </th>
-                                        <th className="app-text-secondary px-5 py-4 font-semibold">
-                                            Role
-                                        </th>
-                                        <th className="app-text-secondary px-5 py-4 font-semibold">
-                                            Status
-                                        </th>
-                                        <th className="app-text-secondary px-5 py-4 text-right font-semibold">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredUsers.map((user) => (
-                                        <tr
-                                            key={user.id}
-                                            className="app-border border-t transition hover:bg-black/[0.025] dark:hover:bg-white/[0.035]"
-                                        >
-                                            <td className="px-5 py-4">
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[760px] text-left text-sm">
+                            <TableHead>
+                                <SortHeader label="User" column="name" sort={table.sort} onSort={table.toggleSort} />
+                                <SortHeader label="Role" column="role" sort={table.sort} onSort={table.toggleSort} />
+                                <SortHeader label="Joined" column="created" sort={table.sort} onSort={table.toggleSort} />
+                                <SortHeader label="Active" column="status" sort={table.sort} onSort={table.toggleSort} />
+                                <Th align="right">Actions</Th>
+                            </TableHead>
+                            <tbody>
+                                {table.rows.map((user) => {
+                                    const active = isActiveFlag(user.is_active);
+                                    const isSelf = user.id === currentUser?.id;
+                                    const role = roleByName[user.role];
+
+                                    return (
+                                        <tr key={user.id} className="border-t transition-colors hover:bg-[var(--surface-hover)]" style={{ borderColor: "var(--border-color)" }}>
+                                            <td className="px-5 py-3.5">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-sm font-bold text-blue-600 dark:text-blue-400">
-                                                        {getInitials(user)}
-                                                    </span>
+                                                    <div className="relative">
+                                                        <Avatar label={initials(user.first_name, user.last_name)} seed={user.id} rounded="rounded-full" />
+                                                        <span
+                                                            className="absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-[var(--surface)]"
+                                                            style={{ backgroundColor: active ? "var(--success)" : "var(--text-muted)" }}
+                                                            title={active ? "Active" : "Inactive"}
+                                                        />
+                                                    </div>
                                                     <div className="min-w-0">
-                                                        <p className="app-text font-semibold">
+                                                        <p className={`flex items-center gap-2 font-semibold ${active ? "app-text" : "app-text-muted"}`}>
                                                             {user.first_name} {user.last_name}
+                                                            {isSelf && <Badge tone="primary" className="!px-2 !py-0 text-[10px]">You</Badge>}
                                                         </p>
-                                                        <p className="app-text-secondary mt-1 break-all text-xs">
-                                                            {user.email}
-                                                        </p>
+                                                        <p className="truncate text-xs app-text-muted">{user.email}</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="app-text px-5 py-4">
-                                                <span className="app-muted inline-flex rounded-lg px-3 py-1.5 text-xs font-semibold">
-                                                    {getRole(user)}
-                                                </span>
+                                            <td className="px-5 py-3.5">
+                                                <Badge tone={role?.tone} icon={role?.icon}>
+                                                    {user.role}
+                                                </Badge>
                                             </td>
-                                            <td className="px-5 py-4">
-                                                {renderStatus(user)}
+                                            <td className="whitespace-nowrap px-5 py-3.5 app-text-secondary">{formatDate(user.created_at)}</td>
+                                            <td className="px-5 py-3.5">
+                                                <Switch
+                                                    size="sm"
+                                                    checked={active}
+                                                    disabled={isSelf || togglingId === user.id}
+                                                    onChange={(next) => toggleStatus(user, next)}
+                                                    label={isSelf ? "You can't deactivate your own account" : active ? `Deactivate ${user.first_name}` : `Activate ${user.first_name}`}
+                                                />
                                             </td>
-                                            <td className="px-5 py-4">
+                                            <td className="px-5 py-3.5">
                                                 <div className="flex justify-end">
-                                                    {renderActions(user)}
+                                                    <IconAction icon="edit" label={`Edit ${user.first_name}`} onClick={() => openEdit(user)} />
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Mobile user cards */}
-                        <div className="divide-y divide-[var(--border-color)] md:hidden">
-                            {filteredUsers.map((user) => (
-                                <article key={user.id} className="space-y-4 p-4">
-                                    <div className="flex items-start gap-3">
-                                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-sm font-bold text-blue-600 dark:text-blue-400">
-                                            {getInitials(user)}
-                                        </span>
-                                        <div className="min-w-0 flex-1">
-                                            <h3 className="app-text break-words font-semibold">
-                                                {user.first_name} {user.last_name}
-                                            </h3>
-                                            <p className="app-text-secondary mt-1 break-all text-sm">
-                                                {user.email}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="app-muted app-text rounded-lg px-3 py-1.5 text-xs font-semibold">
-                                                {getRole(user)}
-                                            </span>
-                                            {renderStatus(user)}
-                                        </div>
-                                    </div>
-
-                                    <div className="app-border border-t pt-3">
-                                        {renderActions(user)}
-                                    </div>
-                                </article>
-                            ))}
-                        </div>
-                    </>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
 
-                <div className="app-border app-muted flex flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                    <p className="app-text-secondary text-xs">
-                        Showing {filteredUsers.length} of {users.length} users
-                    </p>
-                    {loading && users.length > 0 && (
-                        <p className="app-text-secondary text-xs">
-                            Refreshing data...
-                        </p>
-                    )}
-                </div>
-            </section>
+                {filtered.length > 0 && (
+                    <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label="users" />
+                )}
+            </Card>
+
+            <Modal
+                open={formOpen}
+                onClose={closeForm}
+                busy={saving}
+                size="lg"
+                icon={isEditing ? "edit" : "userPlus"}
+                eyebrow="Account"
+                title={isEditing ? `Edit ${editing.first_name} ${editing.last_name}` : "Invite a team member"}
+                description={isEditing ? "Update details, role, or reset the password." : "Create an account and choose what they can access."}
+                footer={
+                    <>
+                        <Button onClick={closeForm} disabled={saving}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" form="user-form" variant="primary" loading={saving} icon="check">
+                            {isEditing ? "Save changes" : "Create account"}
+                        </Button>
+                    </>
+                }
+            >
+                <form id="user-form" onSubmit={handleSubmit} className="space-y-5">
+                    <InlineAlert>{formError}</InlineAlert>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="First name" required>
+                            {(id) => <input id={id} name="first_name" value={form.first_name} onChange={handleChange} required maxLength={100} autoComplete="off" className="app-input" />}
+                        </Field>
+                        <Field label="Last name" required>
+                            {(id) => <input id={id} name="last_name" value={form.last_name} onChange={handleChange} required maxLength={100} autoComplete="off" className="app-input" />}
+                        </Field>
+                        <Field label="Email address" required className="sm:col-span-2">
+                            {(id) => <input id={id} name="email" type="email" value={form.email} onChange={handleChange} required autoComplete="off" placeholder="name@company.com" className="app-input" />}
+                        </Field>
+                    </div>
+
+                    <fieldset>
+                        <legend className="mb-2 text-sm font-medium app-text">
+                            Role <span style={{ color: "var(--danger)" }}>*</span>
+                        </legend>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                            {ROLES.map((role) => {
+                                const selected = form.role_id === String(role.id);
+                                return (
+                                    <label
+                                        key={role.id}
+                                        className="relative flex cursor-pointer flex-col gap-1 rounded-xl border p-3.5 transition hover:border-[var(--border-strong)]"
+                                        style={{
+                                            borderColor: selected ? "var(--primary)" : "var(--border-color)",
+                                            backgroundColor: selected ? "var(--primary-soft)" : "var(--surface)",
+                                            boxShadow: selected ? "0 0 0 1px var(--primary)" : undefined,
+                                        }}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="role_id"
+                                            value={role.id}
+                                            checked={selected}
+                                            onChange={handleChange}
+                                            className="sr-only"
+                                        />
+                                        <span className="flex items-center gap-2 text-sm font-semibold app-text">
+                                            <Icon name={role.icon} size={16} />
+                                            {role.name}
+                                            {selected && <Icon name="checkCircle" size={16} className="ml-auto" style={{ color: "var(--primary)" }} />}
+                                        </span>
+                                        <span className="text-xs app-text-secondary">{role.description}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                        {selectedRole && isEditing && editing.role !== selectedRole.name && (
+                            <p className="mt-2 text-xs font-medium" style={{ color: "var(--warning)" }}>
+                                Role will change from {editing.role} to {selectedRole.name}.
+                            </p>
+                        )}
+                    </fieldset>
+
+                    <Field
+                        label={isEditing ? "New password" : "Password"}
+                        required={!isEditing}
+                        hint={isEditing ? "Leave blank to keep the current password. A new password signs this user out everywhere." : "At least 10 characters with a letter and a number. Changing a password signs the user out everywhere."}
+                    >
+                        {(id) => (
+                            <>
+                                <div className="relative">
+                                    <input
+                                        id={id}
+                                        name="password"
+                                        type={showPassword ? "text" : "password"}
+                                        value={form.password}
+                                        onChange={handleChange}
+                                        required={!isEditing}
+                                        minLength={10}
+                                        maxLength={72}
+                                        autoComplete="new-password"
+                                        placeholder={isEditing ? "••••••••" : "Create a password"}
+                                        className="app-input pr-11"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((value) => !value)}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                        className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md transition hover:bg-[var(--surface-hover)] app-text-muted"
+                                    >
+                                        <Icon name={showPassword ? "eyeOff" : "eye"} size={16} />
+                                    </button>
+                                </div>
+                                {strength && (
+                                    <div className="mt-2 flex items-center gap-3">
+                                        <div className="flex flex-1 gap-1">
+                                            {[1, 2, 3, 4].map((step) => (
+                                                <span
+                                                    key={step}
+                                                    className="h-1.5 flex-1 rounded-full transition-colors"
+                                                    style={{ backgroundColor: step <= strength.score ? `var(--${strength.tone})` : "var(--surface-hover)" }}
+                                                />
+                                            ))}
+                                        </div>
+                                        <span className="w-16 text-right text-xs font-semibold" style={{ color: `var(--${strength.tone})` }}>
+                                            {strength.label}
+                                        </span>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </Field>
+                </form>
+            </Modal>
         </div>
     );
 }

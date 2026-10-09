@@ -1,6 +1,15 @@
-
 const jwt = require("jsonwebtoken");
 const pool = require("../config/database");
+const { clearSessionCookie } = require("../config/security");
+
+function unauthorized(res, message) {
+    clearSessionCookie(res);
+
+    return res.status(401).json({
+        success: false,
+        message
+    });
+}
 
 const protect = async (req, res, next) => {
     try {
@@ -14,61 +23,46 @@ const protect = async (req, res, next) => {
             });
         }
 
-        // 2. Verify the token
+        // 2. Verify signature and expiry; only accept the algorithm we sign with
         let decoded;
 
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET);
-        } catch (error) {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid or expired token. Please log in again."
+            decoded = jwt.verify(token, process.env.JWT_SECRET, {
+                algorithms: ["HS256"]
             });
+        } catch {
+            return unauthorized(res, "Your session has expired. Please log in again.");
         }
 
-        // 3. Check that the user still exists and is active
+        // 3. Load the user's current state and role in one query
         const [users] = await pool.query(
-            `SELECT id, role_id, is_active
+            `SELECT users.id, users.role_id, users.is_active,
+                    users.token_version, roles.name AS role
              FROM users
-             WHERE id = ?`,
+             INNER JOIN roles ON roles.id = users.role_id
+             WHERE users.id = ?`,
             [decoded.userId]
         );
 
-        if (users.length === 0 || !users[0].is_active) {
-            res.clearCookie("token", {
-                httpOnly: true,
-                secure: false,
-                sameSite: "lax"
-            });
+        const user = users[0];
 
-            return res.status(401).json({
-                success: false,
-                message: "Your account is unavailable. Please contact an administrator."
-            });
+        if (!user || !user.is_active) {
+            return unauthorized(res, "Your account is unavailable. Please contact an administrator.");
         }
 
-        // 4. Use current database permissions, not stale JWT role data
-        const [roles] = await pool.query(
-            "SELECT name FROM roles WHERE id = ?",
-            [users[0].role_id]
-        );
-
-        if (roles.length === 0) {
-            return res.status(403).json({
-                success: false,
-                message: "User role not found."
-            });
+        // 4. Reject sessions revoked by logout, password/role change, or deactivation
+        if (decoded.tokenVersion !== user.token_version) {
+            return unauthorized(res, "Your session has ended. Please log in again.");
         }
 
+        // 5. Use current database permissions, never role data from the token
         req.user = {
-            userId: users[0].id,
-            roleId: users[0].role_id,
-            role: roles[0].name
+            userId: user.id,
+            roleId: user.role_id,
+            role: user.role
         };
 
-        // 5. Continue to the requested route
-        next();
-
+        return next();
     } catch (error) {
         console.error("Authentication middleware error:", error);
 

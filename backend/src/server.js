@@ -1,8 +1,12 @@
+require("dotenv").config({ quiet: true });
+
 const express = require("express");
-require("dotenv").config();
-const pool = require("./config/database");
-const userRoutes = require("./routes/userRoutes");
 const cookieParser = require("cookie-parser");
+const cors = require("cors");
+
+const validateEnv = require("./config/validateEnv");
+const { allowedOrigins } = require("./config/security");
+const userRoutes = require("./routes/userRoutes");
 const authRoutes = require("./routes/authRoutes");
 const customerRoutes = require("./routes/customerRoutes");
 const productRoutes = require("./routes/productRoutes");
@@ -13,23 +17,52 @@ const {
     notFound,
     errorHandler
 } = require("./middleware/errorMiddleware");
-const validateEnv = require("./config/validateEnv");
+const {
+    apiLimiter,
+    originCheck,
+    securityHeaders
+} = require("./middleware/securityMiddleware");
+
 validateEnv();
-const cors = require("cors");
 
 const app = express();
 
-const PORT = process.env.PORT || 5000;
+app.disable("x-powered-by");
+
+// Behind a reverse proxy, set TRUST_PROXY (e.g. "1") so rate limits see
+// the real client IP instead of the proxy's.
+if (process.env.TRUST_PROXY) {
+    const hops = Number(process.env.TRUST_PROXY);
+    app.set("trust proxy", Number.isNaN(hops) ? process.env.TRUST_PROXY : hops);
+}
+
+app.use(securityHeaders);
 
 app.use(cors({
-    origin: "http://localhost:5173",
-    credentials: true
+    origin(origin, callback) {
+        // Requests without an Origin (curl, server-to-server) carry no
+        // browser credentials risk; browsers must be on the allow-list.
+        callback(null, !origin || allowedOrigins().includes(origin));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type"],
+    maxAge: 600
 }));
 
-app.use(express.json());
+app.use(originCheck);
+app.use(express.json({ limit: "100kb", strict: true }));
 app.use(cookieParser());
 
-// Root endpoint
+// Responses carry business data: never let shared caches store them.
+app.use("/api", (req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+});
+
+app.use("/api", apiLimiter);
+
+// Health check
 app.get("/", (req, res) => {
     res.status(200).json({
         success: true,
@@ -37,7 +70,6 @@ app.get("/", (req, res) => {
     });
 });
 
-// Existing API routes
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/customers", customerRoutes);
@@ -45,24 +77,6 @@ app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/dashboard", dashboardRoutes);
-
-// Database connection test
-app.get("/api/test-db", async (req, res) => {
-    try {
-        const [rows] = await pool.query("SELECT 1 AS result");
-
-        res.status(200).json({
-            message: "MySQL connection successful",
-            database: rows
-        });
-    } catch (error) {
-        console.error("Database connection error:", error.message);
-
-        res.status(500).json({
-            message: "MySQL connection failed"
-        });
-    }
-});
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,13 +1,35 @@
 const pool = require("../config/database");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const {
+    BCRYPT_ROUNDS,
+    SESSION_HOURS,
+    clearSessionCookie,
+    cookieOptions
+} = require("../config/security");
+
+// Compared against when the email is unknown, so a missing account takes
+// as long as a wrong password and response timing reveals nothing.
+const DUMMY_HASH = bcrypt.hashSync("timing-equalizer-not-a-real-password", BCRYPT_ROUNDS);
+
+const INVALID_CREDENTIALS = {
+    success: false,
+    message: "Invalid email or password"
+};
 
 const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password } = req.body || {};
 
-        // 1. Validate input
-        if (!email || !password) {
+        // 1. Validate input shape
+        if (
+            typeof email !== "string" ||
+            typeof password !== "string" ||
+            !email.trim() ||
+            !password ||
+            email.length > 255 ||
+            password.length > 200
+        ) {
             return res.status(400).json({
                 success: false,
                 message: "Email and password are required"
@@ -24,6 +46,7 @@ const login = async (req, res) => {
                 users.email,
                 users.password,
                 users.role_id,
+                users.token_version,
                 roles.name AS role,
                 users.is_active
             FROM users
@@ -31,62 +54,47 @@ const login = async (req, res) => {
                 ON users.role_id = roles.id
             WHERE users.email = ?
             `,
-            [email]
+            [email.trim().toLowerCase()]
         );
-
-        if (users.length === 0) {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid email or password"
-            });
-        }
 
         const user = users[0];
 
-        // 3. Check if account is active
+        // 3. Always run bcrypt so timing doesn't reveal whether the email exists
+        const passwordCorrect = await bcrypt.compare(
+            password,
+            user ? user.password : DUMMY_HASH
+        );
+
+        if (!user || !passwordCorrect) {
+            return res.status(401).json(INVALID_CREDENTIALS);
+        }
+
+        // 4. Only reveal the account state to someone who knows the password
         if (!user.is_active) {
             return res.status(403).json({
                 success: false,
-                message: "Account is inactive"
+                message: "Your account has been deactivated. Please contact an administrator."
             });
         }
 
-        // 4. Compare password with bcrypt hash
-        const passwordCorrect = await bcrypt.compare(
-            password,
-            user.password
-        );
-
-        if (!passwordCorrect) {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid email or password"
-            });
-        }
-
-        // 5. Create JWT
+        // 5. Create JWT bound to the current session version
         const token = jwt.sign(
             {
                 userId: user.id,
-                roleId: user.role_id,
-                role: user.role
+                tokenVersion: user.token_version
             },
             process.env.JWT_SECRET,
             {
-                expiresIn: "1h"
+                algorithm: "HS256",
+                expiresIn: `${SESSION_HOURS}h`
             }
         );
 
-        // 6. Store JWT in HttpOnly cookie
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: false,
-            sameSite: "lax",
-            maxAge: 60 * 60 * 1000
-        });
+        // 6. Store JWT in an HttpOnly cookie
+        res.cookie("token", token, cookieOptions());
 
-        // 7. Never send password back to frontend
-        res.json({
+        // 7. Never send the password hash back
+        return res.json({
             success: true,
             message: "Login successful",
             user: {
@@ -97,17 +105,15 @@ const login = async (req, res) => {
                 role: user.role
             }
         });
-
     } catch (error) {
-        console.error(error);
+        console.error("Login error:", error);
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Login failed"
         });
     }
 };
-
 
 const getCurrentUser = async (req, res) => {
     try {
@@ -118,8 +124,7 @@ const getCurrentUser = async (req, res) => {
                 users.first_name,
                 users.last_name,
                 users.email,
-                roles.name AS role,
-                users.is_active
+                roles.name AS role
             FROM users
             INNER JOIN roles
                 ON users.role_id = roles.id
@@ -129,32 +134,18 @@ const getCurrentUser = async (req, res) => {
         );
 
         if (users.length === 0) {
-            return res.status(404).json({
+            clearSessionCookie(res);
+
+            return res.status(401).json({
                 success: false,
                 message: "User not found"
             });
         }
 
-        const user = users[0];
-
-        if (!user.is_active) {
-            res.clearCookie("token", {
-                httpOnly: true,
-                secure: false,
-                sameSite: "lax"
-            });
-
-            return res.status(403).json({
-                success: false,
-                message: "Your account has been deactivated."
-            });
-        }
-
         return res.json({
             success: true,
-            user
+            user: users[0]
         });
-
     } catch (error) {
         console.error("Get current user error:", error);
 
@@ -165,14 +156,32 @@ const getCurrentUser = async (req, res) => {
     }
 };
 
-const logout = (req ,res) => {
-    res.clearCookie("token",{
-        httpOnly : true,
-        secure : false,
-        samesite: "lax"
-    });
-    res.json({
-        success:true,
+// Always clears the cookie. When the token is still valid, it also revokes
+// every session for this user, not just this browser's cookie.
+const logout = async (req, res) => {
+    const token = req.cookies?.token;
+
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+                algorithms: ["HS256"]
+            });
+
+            await pool.query(
+                `UPDATE users
+                 SET token_version = token_version + 1
+                 WHERE id = ? AND token_version = ?`,
+                [decoded.userId, decoded.tokenVersion]
+            );
+        } catch {
+            // Expired or invalid token: nothing to revoke.
+        }
+    }
+
+    clearSessionCookie(res);
+
+    return res.json({
+        success: true,
         message: "Logout successful"
     });
 };

@@ -1,986 +1,632 @@
-import { useEffect, useState } from "react";
-
-const API_URL = "http://localhost:5000/api/customers";
+import { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import Button from "../components/ui/Button";
+import Icon from "../components/ui/Icon";
+import { Drawer, Modal } from "../components/ui/Modal";
+import { useConfirm, useToast } from "../components/ui/feedback";
+import {
+  Avatar,
+  Badge,
+  Card,
+  DetailItem,
+  EmptyState,
+  ErrorState,
+  Field,
+  IconAction,
+  InlineAlert,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  SegmentedControl,
+  SortHeader,
+  StatCard,
+  TableHead,
+  TableSkeleton,
+  Th,
+} from "../components/ui/primitives";
+import { api, can, exportCsv, formatDate, initials, money, number, toList, useResource } from "../lib/api";
+import { ORDER_STATUS } from "../lib/orderStatus";
+import useTable from "../lib/useTable";
 
 const emptyForm = {
-company_name: "",
-contact_name: "",
-email: "",
-phone: "",
-address: "",
-city: "",
-country: "Morocco",
+  company_name: "",
+  contact_name: "",
+  email: "",
+  phone: "",
+  address: "",
+  city: "",
+  country: "Morocco",
 };
 
-const inputClass =
-"app-input w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 focus:ring-blue-500/20";
-
-const panelStyle = {
-backgroundColor: "var(--surface)",
-borderColor: "var(--border-color)",
-boxShadow: "var(--card-shadow)",
+const accessors = {
+  company: (customer) => customer.company_name,
+  contact: (customer) => customer.contact_name,
+  city: (customer) => customer.city,
+  created: (customer) => new Date(customer.created_at).getTime() || 0,
 };
 
-const mutedText = { color: "var(--text-secondary)" };
-const primaryText = { color: "var(--text-primary)" };
+function isThisMonth(value) {
+  const date = new Date(value);
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
 
-function StatCard({ label, value, description, icon, accent }) {
-return ( <div
-   className="rounded-2xl border p-5 transition duration-200 hover:-translate-y-0.5"
-   style={panelStyle}
- > <div className="flex items-start justify-between gap-3"> <div> <p className="text-sm font-medium" style={mutedText}>
-{label} </p> <p
-         className="mt-3 text-3xl font-bold tracking-tight"
-         style={primaryText}
-       >
-{value} </p> <p className="mt-2 text-xs" style={mutedText}>
-{description} </p> </div>
+/* ---------- Detail drawer ---------- */
 
+function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
+  const navigate = useNavigate();
+  const { data, loading } = useResource(open && customer ? "/orders" : null);
 
-    <div
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-      style={{
-        backgroundColor: accent.background,
-        color: accent.color,
-      }}
+  const orders = toList(data).filter((order) => Number(order.customer_id) === Number(customer?.id));
+  const billable = orders.filter((order) => order.status !== "Cancelled");
+  const lifetimeValue = billable.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      eyebrow="Customer profile"
+      title={customer?.company_name ?? ""}
+      description={customer ? `Customer #${customer.id} · since ${formatDate(customer.created_at)}` : ""}
+      footer={
+        customer && (
+          <>
+            {can(user, "customers.delete") && (
+              <Button variant="danger-ghost" icon="trash" onClick={() => onDelete(customer)} className="mr-auto">
+                Delete
+              </Button>
+            )}
+            {can(user, "customers.write") && (
+              <Button icon="edit" onClick={() => onEdit(customer)}>
+                Edit
+              </Button>
+            )}
+            {can(user, "orders.write") && (
+              <Button variant="primary" icon="plus" onClick={() => navigate(`/orders?new=1&customer=${customer.id}`)}>
+                New order
+              </Button>
+            )}
+          </>
+        )
+      }
     >
-      {icon}
-    </div>
-  </div>
-</div>
+      {customer && (
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Avatar label={initials(customer.company_name)} seed={customer.id} size={56} rounded="rounded-2xl" />
+            <div className="min-w-0">
+              <p className="text-lg font-bold app-text">{customer.contact_name || "No contact"}</p>
+              <p className="text-sm app-text-secondary">Primary contact</p>
+            </div>
+          </div>
 
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Orders", value: loading ? "…" : orders.length },
+              { label: "Lifetime value", value: loading ? "…" : money(lifetimeValue) },
+              {
+                label: "Last order",
+                value: loading ? "…" : orders[0] ? formatDate(orders[0].created_at) : "—",
+              },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl p-3 app-muted">
+                <p className="text-[11px] font-medium uppercase tracking-wide app-text-muted">{item.label}</p>
+                <p className="mt-1 truncate text-sm font-bold app-text">{item.value}</p>
+              </div>
+            ))}
+          </div>
 
-);
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DetailItem icon="mail" label="Email">
+              {customer.email && (
+                <a href={`mailto:${customer.email}`} className="hover:underline" style={{ color: "var(--primary)" }}>
+                  {customer.email}
+                </a>
+              )}
+            </DetailItem>
+            <DetailItem icon="phone" label="Phone">
+              {customer.phone && (
+                <a href={`tel:${customer.phone}`} className="hover:underline">
+                  {customer.phone}
+                </a>
+              )}
+            </DetailItem>
+            <DetailItem icon="mapPin" label="City">
+              {customer.city}
+            </DetailItem>
+            <DetailItem icon="globe" label="Country">
+              {customer.country}
+            </DetailItem>
+            <div className="sm:col-span-2">
+              <DetailItem icon="building" label="Address">
+                {customer.address}
+              </DetailItem>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-3 text-sm font-bold app-text">Order history</h3>
+            {loading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="skeleton h-14 rounded-xl" />
+                ))}
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="rounded-xl border border-dashed p-6 text-center text-sm app-text-secondary" style={{ borderColor: "var(--border-strong)" }}>
+                No orders from this customer yet.
+              </div>
+            ) : (
+              <ul className="divide-y overflow-hidden rounded-xl border" style={{ borderColor: "var(--border-color)" }}>
+                {orders.map((order) => (
+                  <li key={order.id} style={{ borderColor: "var(--border-color)" }}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/orders?view=${order.id}`)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--surface-hover)]"
+                    >
+                      <span className="text-sm font-bold app-text">#{order.id}</span>
+                      <span className="flex-1 text-xs app-text-muted">{formatDate(order.created_at)}</span>
+                      <Badge tone={ORDER_STATUS[order.status]?.tone} dot>
+                        {order.status}
+                      </Badge>
+                      <span className="w-28 text-right text-sm font-semibold tabular-nums app-text">{money(order.total_amount)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </Drawer>
+  );
 }
 
-function Field({ label, required = false, children }) {
-return ( <div> <label className="mb-1.5 block text-sm font-medium" style={primaryText}>
-{label}
-{required && <span className="ml-1 text-red-500">*</span>} </label>
-{children} </div>
-);
-}
-
-function Notice({ type, children, onClose }) {
-const isError = type === "error";
-
-return (
-<div
-role={isError ? "alert" : "status"}
-className="flex items-start justify-between gap-3 rounded-xl border p-4 text-sm"
-style={{
-backgroundColor: isError
-? "var(--danger-soft)"
-: "var(--success-soft)",
-borderColor: isError
-? "var(--danger)"
-: "var(--success)",
-color: isError ? "var(--danger)" : "var(--success)",
-}}
-> <div className="flex items-start gap-2.5"> <span className="font-bold">{isError ? "!" : "✓"}</span> <span>{children}</span> </div>
-
-
-  <button
-    type="button"
-    onClick={onClose}
-    className="shrink-0 rounded-md px-1 font-semibold opacity-70 hover:opacity-100"
-    aria-label="Dismiss notification"
-  >
-    ×
-  </button>
-</div>
-
-
-);
-}
-
-function EmptyState({ searching, onAdd }) {
-return ( <div className="flex flex-col items-center px-5 py-14 text-center">
-<div
-className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl"
-style={{
-backgroundColor: "var(--primary-soft)",
-color: "var(--primary)",
-}}
-> <svg
-       width="30"
-       height="30"
-       viewBox="0 0 24 24"
-       fill="none"
-       stroke="currentColor"
-       strokeWidth="1.6"
-       aria-hidden="true"
-     > <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /> <circle cx="10" cy="7" r="4" /> <path d="M20 8v6m3-3h-6" /> </svg> </div>
-
-
-  <h3 className="text-base font-semibold" style={primaryText}>
-    {searching ? "No matching customers" : "No customers yet"}
-  </h3>
-
-  <p className="mt-2 max-w-sm text-sm" style={mutedText}>
-    {searching
-      ? "Try a different company name, contact, email, phone, or city."
-      : "Add your first customer to start building your business directory."}
-  </p>
-
-  {!searching && (
-    <button
-      type="button"
-      onClick={onAdd}
-      className="mt-5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-      style={{ backgroundColor: "var(--primary)" }}
-    >
-      + Add your first customer
-    </button>
-  )}
-</div>
-
-
-);
-}
+/* ---------- Page ---------- */
 
 export default function Customers() {
-const [customers, setCustomers] = useState([]);
-const [search, setSearch] = useState("");
-const [form, setForm] = useState(emptyForm);
-const [editingId, setEditingId] = useState(null);
-const [modalOpen, setModalOpen] = useState(false);
+  const { user } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [params, setParams] = useSearchParams();
 
-const [loading, setLoading] = useState(true);
-const [saving, setSaving] = useState(false);
-const [deletingId, setDeletingId] = useState(null);
+  const { data, loading, error, reload } = useResource("/customers");
+  const customers = useMemo(() => toList(data, "customers"), [data]);
 
-const [error, setError] = useState("");
-const [success, setSuccess] = useState("");
+  const [search, setSearch] = useState("");
+  const [country, setCountry] = useState("all");
+  const [view, setView] = useState("table");
 
-async function request(url, options = {}) {
-const response = await fetch(url, {
-...options,
-credentials: "include",
-headers: {
-...(options.body
-? { "Content-Type": "application/json" }
-: {}),
-...options.headers,
-},
-});
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
 
+  const canWrite = can(user, "customers.write");
+  const canDelete = can(user, "customers.delete");
 
-const result = await response.json();
+  // Deep links: ?new=1 opens the create form, ?view=<id> opens the profile drawer.
+  const createRequested = params.get("new") === "1" && canWrite;
+  const viewId = params.get("view");
+  const viewed = customers.find((customer) => String(customer.id) === viewId) ?? null;
 
-if (!response.ok) {
-  throw new Error(result.message || "Request failed.");
-}
+  // Keep the last profile rendered while the drawer animates closed.
+  const [lastViewed, setLastViewed] = useState(null);
+  if (viewed && viewed !== lastViewed) setLastViewed(viewed);
 
-return result;
-
-
-}
-
-async function loadCustomers() {
-setLoading(true);
-setError("");
-
-
-try {
-  const result = await request(API_URL);
-
-  setCustomers(
-    Array.isArray(result)
-      ? result
-      : result.data ?? result.customers ?? []
-  );
-} catch (err) {
-  setError(err.message || "Unable to load customers.");
-} finally {
-  setLoading(false);
-}
-
-
-}
-
-useEffect(() => {
-loadCustomers();
-}, []);
-
-function openCreateModal() {
-setForm({ ...emptyForm });
-setEditingId(null);
-setModalOpen(true);
-setError("");
-setSuccess("");
-}
-
-function openEditModal(customer) {
-setForm({
-company_name: customer.company_name || "",
-contact_name: customer.contact_name || "",
-email: customer.email || "",
-phone: customer.phone || "",
-address: customer.address || "",
-city: customer.city || "",
-country: customer.country || "Morocco",
-});
-
-
-setEditingId(customer.id);
-setModalOpen(true);
-setError("");
-setSuccess("");
-
-
-}
-
-function closeModal() {
-if (saving) return;
-
-
-setModalOpen(false);
-setEditingId(null);
-setForm({ ...emptyForm });
-
-
-}
-
-function handleChange(event) {
-const { name, value } = event.target;
-
-
-setForm((previous) => ({
-  ...previous,
-  [name]: value,
-}));
-
-
-}
-
-async function handleSubmit(event) {
-event.preventDefault();
-setError("");
-setSuccess("");
-setSaving(true);
-
-
-try {
-  const isEditing = editingId !== null;
-
-  await request(
-    isEditing ? `${API_URL}/${editingId}` : API_URL,
-    {
-      method: isEditing ? "PUT" : "POST",
-      body: JSON.stringify({
-        ...form,
-        company_name: form.company_name.trim(),
-        contact_name: form.contact_name.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        address: form.address.trim(),
-        city: form.city.trim(),
-        country: form.country.trim(),
-      }),
+  function updateParams(changes) {
+    const next = new URLSearchParams(params);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === null) next.delete(key);
+      else next.set(key, value);
     }
+    setParams(next, { replace: true });
+  }
+
+  const countries = useMemo(
+    () => [...new Set(customers.map((customer) => customer.country).filter(Boolean))].sort(),
+    [customers]
   );
 
-  closeModal();
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return customers.filter((customer) => {
+      const matchesCountry = country === "all" || customer.country === country;
+      const matchesSearch =
+        !term ||
+        [customer.company_name, customer.contact_name, customer.email, customer.phone, customer.city]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(term);
+      return matchesCountry && matchesSearch;
+    });
+  }, [customers, search, country]);
 
-  setSuccess(
-    isEditing
-      ? "Customer updated successfully."
-      : "Customer created successfully."
-  );
-
-  await loadCustomers();
-} catch (err) {
-  setError(err.message || "Unable to save customer.");
-} finally {
-  setSaving(false);
-}
-
-
-}
-
-async function handleDelete(customer) {
-const confirmed = window.confirm(
-`Delete "${customer.company_name}"? This action cannot be undone.`
-);
-
-
-if (!confirmed) return;
-
-setError("");
-setSuccess("");
-setDeletingId(customer.id);
-
-try {
-  await request(`${API_URL}/${customer.id}`, {
-    method: "DELETE",
+  const table = useTable(filtered, {
+    accessors,
+    initialSort: { key: "created", direction: "desc" },
+    pageSize: view === "grid" ? 12 : 10,
   });
 
-  setSuccess("Customer deleted successfully.");
-  await loadCustomers();
-} catch (err) {
-  setError(err.message || "Unable to delete customer.");
-} finally {
-  setDeletingId(null);
-}
+  const cities = new Set(customers.map((customer) => customer.city?.trim().toLowerCase()).filter(Boolean)).size;
+  const newThisMonth = customers.filter((customer) => isThisMonth(customer.created_at)).length;
 
+  /* ----- Form ----- */
 
-}
+  function openCreate() {
+    setEditing(null);
+    setForm(emptyForm);
+    setFormError("");
+    setFormOpen(true);
+  }
 
-const normalizedSearch = search.trim().toLowerCase();
+  function openEdit(customer) {
+    setEditing(customer);
+    setForm({
+      company_name: customer.company_name || "",
+      contact_name: customer.contact_name || "",
+      email: customer.email || "",
+      phone: customer.phone || "",
+      address: customer.address || "",
+      city: customer.city || "",
+      country: customer.country || "Morocco",
+    });
+    setFormError("");
+    setFormOpen(true);
+  }
 
-const filteredCustomers = customers.filter((customer) =>
-[
-customer.company_name,
-customer.contact_name,
-customer.email,
-customer.phone,
-customer.city,
-customer.country,
-]
-.filter(Boolean)
-.join(" ")
-.toLowerCase()
-.includes(normalizedSearch)
-);
+  function closeForm() {
+    if (saving) return;
+    setFormOpen(false);
+    if (createRequested) updateParams({ new: null });
+  }
 
-const citiesCount = new Set(
-customers
-.map((customer) => customer.city?.trim().toLowerCase())
-.filter(Boolean)
-).size;
+  function handleChange(event) {
+    const { name, value } = event.target;
+    setForm((previous) => ({ ...previous, [name]: value }));
+  }
 
-const countriesCount = new Set(
-customers
-.map((customer) => customer.country?.trim().toLowerCase())
-.filter(Boolean)
-).size;
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setFormError("");
+    setSaving(true);
 
-const formatDate = (value) =>
-new Intl.DateTimeFormat("en", {
-weekday: "long",
-day: "numeric",
-month: "long",
-year: "numeric",
-}).format(value);
+    const payload = Object.fromEntries(Object.entries(form).map(([key, value]) => [key, value.trim()]));
+    const isEditing = editing !== null && !createRequested;
 
-return ( <div className="space-y-7 pb-8">
-{/* Page heading */} <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"> <div>
-<div
-className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em]"
-style={{ color: "var(--primary)" }}
->
-<span
-className="h-2 w-2 rounded-full"
-style={{ backgroundColor: "var(--primary)" }}
-/>
-Customer management </div>
+    try {
+      await api(isEditing ? `/customers/${editing.id}` : "/customers", {
+        method: isEditing ? "PUT" : "POST",
+        body: payload,
+      });
 
+      setFormOpen(false);
+      if (createRequested) updateParams({ new: null });
+      toast.success(
+        isEditing ? `${payload.company_name} was updated.` : `${payload.company_name} was added to your customers.`,
+        { title: isEditing ? "Customer updated" : "Customer created" }
+      );
+      reload();
+    } catch (err) {
+      setFormError(err.message || "Unable to save customer.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
-      <h1
-        className="text-3xl font-bold tracking-tight sm:text-4xl"
-        style={primaryText}
-      >
-        Customers
-      </h1>
+  async function handleDelete(customer) {
+    const confirmed = await confirm({
+      title: `Delete ${customer.company_name}?`,
+      message: "This permanently removes the customer. Customers with existing orders cannot be deleted.",
+      confirmLabel: "Delete customer",
+    });
 
-      <p className="mt-2 text-sm sm:text-base" style={mutedText}>
-        Manage your business relationships from one place.
-      </p>
+    if (!confirmed) return;
 
-      <p className="mt-2 text-xs" style={mutedText}>
-        {formatDate(new Date())}
-      </p>
-    </div>
+    try {
+      await api(`/customers/${customer.id}`, { method: "DELETE" });
+      if (viewId === String(customer.id)) updateParams({ view: null });
+      toast.success(`${customer.company_name} was deleted.`);
+      reload();
+    } catch (err) {
+      toast.error(err.message || "Unable to delete customer.", { title: "Delete failed" });
+    }
+  }
 
-    <button
-      type="button"
-      onClick={openCreateModal}
-      className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
-      style={{ backgroundColor: "var(--primary)" }}
-    >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        aria-hidden="true"
-      >
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-      Add customer
-    </button>
-  </div>
+  function handleExport() {
+    exportCsv(
+      "customers",
+      [
+        ["ID", (c) => c.id],
+        ["Company", (c) => c.company_name],
+        ["Contact", (c) => c.contact_name],
+        ["Email", (c) => c.email],
+        ["Phone", (c) => c.phone],
+        ["Address", (c) => c.address],
+        ["City", (c) => c.city],
+        ["Country", (c) => c.country],
+        ["Created", (c) => c.created_at],
+      ],
+      table.sorted
+    );
+    toast.info(`Exported ${table.sorted.length} customers to CSV.`);
+  }
 
-  {/* Notifications */}
-  {error && (
-    <Notice type="error" onClose={() => setError("")}>
-      {error}
-    </Notice>
-  )}
+  const isEditing = editing !== null && !createRequested;
+  const searching = Boolean(search.trim()) || country !== "all";
 
-  {success && (
-    <Notice type="success" onClose={() => setSuccess("")}>
-      {success}
-    </Notice>
-  )}
-
-  {/* Statistics */}
-  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    <StatCard
-      label="Total customers"
-      value={loading ? "—" : customers.length.toLocaleString("en")}
-      description="All registered customers"
-      accent={{ background: "var(--primary-soft)", color: "var(--primary)" }}
-      icon={
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          aria-hidden="true"
-        >
-          <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-          <circle cx="10" cy="7" r="4" />
-          <path d="M20 8v6m3-3h-6" />
-        </svg>
-      }
-    />
-
-    <StatCard
-      label="Search results"
-      value={loading ? "—" : filteredCustomers.length.toLocaleString("en")}
-      description={
-        normalizedSearch
-          ? "Customers matching your search"
-          : "Customers currently displayed"
-      }
-      accent={{ background: "var(--success-soft)", color: "var(--success)" }}
-      icon={
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          aria-hidden="true"
-        >
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-4-4" />
-        </svg>
-      }
-    />
-
-    <StatCard
-      label="Cities covered"
-      value={loading ? "—" : citiesCount.toLocaleString("en")}
-      description="Unique customer cities"
-      accent={{ background: "var(--warning-soft)", color: "var(--warning)" }}
-      icon={
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          aria-hidden="true"
-        >
-          <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4" />
-          <path d="M8 9v.01M8 12v.01M8 15v.01M8 18v.01M15 12v.01M15 16v.01" />
-        </svg>
-      }
-    />
-
-    <StatCard
-      label="Countries"
-      value={loading ? "—" : countriesCount.toLocaleString("en")}
-      description="Unique customer countries"
-      accent={{ background: "var(--danger-soft)", color: "var(--danger)" }}
-      icon={
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
-        </svg>
-      }
-    />
-  </div>
-
-  {/* Customer table */}
-  <section
-    className="overflow-hidden rounded-2xl border"
-    style={panelStyle}
-  >
-    <div className="flex flex-col gap-4 border-b p-5 lg:flex-row lg:items-center lg:justify-between"
-      style={{ borderColor: "var(--border-color)" }}
-    >
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-bold" style={primaryText}>
-            Customer directory
-          </h2>
-
-          <span
-            className="rounded-full px-2.5 py-1 text-xs font-semibold"
-            style={{
-              backgroundColor: "var(--primary-soft)",
-              color: "var(--primary)",
-            }}
-          >
-            {filteredCustomers.length}
-          </span>
-        </div>
-
-        <p className="mt-1 text-sm" style={mutedText}>
-          View, search, and manage your registered customers.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative min-w-0 sm:w-72">
-          <svg
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--text-secondary)"
-            strokeWidth="1.8"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-4-4" />
-          </svg>
-
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search customers..."
-            aria-label="Search customers"
-            className={`${inputClass} pl-10`}
-          />
-
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              aria-label="Clear search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-lg"
-              style={mutedText}
-            >
-              ×
-            </button>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={loadCustomers}
-          disabled={loading}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
-          style={{
-            borderColor: "var(--border-color)",
-            color: "var(--text-primary)",
-          }}
-        >
-          <svg
-            className={loading ? "animate-spin" : ""}
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <path d="M20 7v5h-5M4 17v-5h5" />
-            <path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2" />
-          </svg>
-          {loading ? "Loading..." : "Refresh"}
-        </button>
-      </div>
-    </div>
-
-    {loading && customers.length === 0 ? (
-      <div className="space-y-4 p-5" aria-label="Loading customers">
-        {[1, 2, 3, 4].map((item) => (
-          <div
-            key={item}
-            className="h-12 animate-pulse rounded-xl"
-            style={{ backgroundColor: "var(--surface-muted)" }}
-          />
-        ))}
-      </div>
-    ) : filteredCustomers.length === 0 ? (
-      <EmptyState
-        searching={Boolean(normalizedSearch)}
-        onAdd={openCreateModal}
-      />
-    ) : (
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[850px] text-left text-sm">
-          <thead
-            style={{
-              backgroundColor: "var(--surface-muted)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            <tr>
-              <th className="px-5 py-4 font-semibold">Company</th>
-              <th className="px-5 py-4 font-semibold">Contact</th>
-              <th className="px-5 py-4 font-semibold">Email</th>
-              <th className="px-5 py-4 font-semibold">Phone</th>
-              <th className="px-5 py-4 font-semibold">Location</th>
-              <th className="px-5 py-4 text-right font-semibold">Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {filteredCustomers.map((customer) => (
-              <tr
-                key={customer.id}
-                className="transition-colors hover:bg-slate-500/[0.04]"
-                style={{
-                  borderTop: "1px solid var(--border-color)",
-                }}
-              >
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
-                      style={{
-                        backgroundColor: "var(--primary-soft)",
-                        color: "var(--primary)",
-                      }}
-                    >
-                      {(customer.company_name || "?")
-                        .trim()
-                        .charAt(0)
-                        .toUpperCase()}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="max-w-[220px] truncate font-semibold" style={primaryText}>
-                        {customer.company_name || "Unnamed company"}
-                      </p>
-                      <p className="mt-1 text-xs" style={mutedText}>
-                        ID: {customer.id}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-
-                <td className="px-5 py-4" style={primaryText}>
-                  {customer.contact_name || "—"}
-                </td>
-
-                <td className="px-5 py-4">
-                  {customer.email ? (
-                    <a
-                      href={`mailto:${customer.email}`}
-                      className="max-w-[200px] truncate hover:underline"
-                      style={{ color: "var(--primary)" }}
-                    >
-                      {customer.email}
-                    </a>
-                  ) : (
-                    <span style={mutedText}>—</span>
-                  )}
-                </td>
-
-                <td className="whitespace-nowrap px-5 py-4" style={primaryText}>
-                  {customer.phone || "—"}
-                </td>
-
-                <td className="px-5 py-4">
-                  <p style={primaryText}>{customer.city || "—"}</p>
-                  {customer.country && (
-                    <p className="mt-1 text-xs" style={mutedText}>
-                      {customer.country}
-                    </p>
-                  )}
-                </td>
-
-                <td className="px-5 py-4">
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(customer)}
-                      className="rounded-lg border px-3 py-2 text-xs font-semibold transition hover:opacity-75"
-                      style={{
-                        borderColor: "var(--primary)",
-                        color: "var(--primary)",
-                      }}
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(customer)}
-                      disabled={deletingId === customer.id}
-                      className="rounded-lg border px-3 py-2 text-xs font-semibold transition hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{
-                        borderColor: "var(--danger)",
-                        color: "var(--danger)",
-                      }}
-                    >
-                      {deletingId === customer.id
-                        ? "Deleting..."
-                        : "Delete"}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )}
-
-    <div
-      className="flex flex-col gap-2 border-t px-5 py-4 text-xs sm:flex-row sm:items-center sm:justify-between"
-      style={{
-        borderColor: "var(--border-color)",
-        color: "var(--text-secondary)",
-      }}
-    >
-      <span>
-        Showing {filteredCustomers.length} of {customers.length} customers
-      </span>
-      <span>Customer directory</span>
-    </div>
-  </section>
-
-  {/* Create / edit modal */}
-  {modalOpen && (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-5"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !saving) {
-          closeModal();
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Sales"
+        title="Customers"
+        description="Manage your business accounts, contacts, and relationships."
+        actions={
+          <>
+            <Button icon="download" onClick={handleExport} disabled={filtered.length === 0}>
+              Export
+            </Button>
+            {canWrite && (
+              <Button variant="primary" icon="plus" onClick={openCreate}>
+                Add customer
+              </Button>
+            )}
+          </>
         }
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="customer-modal-title"
-        className="my-auto max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-2xl border p-5 shadow-2xl sm:p-7"
-        style={{
-          backgroundColor: "var(--surface)",
-          borderColor: "var(--border-color)",
-        }}
-      >
-        <div
-          className="mb-6 flex items-start justify-between gap-4 border-b pb-5"
-          style={{ borderColor: "var(--border-color)" }}
-        >
-          <div>
-            <div
-              className="mb-2 text-xs font-semibold uppercase tracking-wider"
-              style={{ color: "var(--primary)" }}
-            >
-              Customer details
-            </div>
+      />
 
-            <h2
-              id="customer-modal-title"
-              className="text-2xl font-bold"
-              style={primaryText}
-            >
-              {editingId !== null ? "Edit customer" : "Add customer"}
-            </h2>
+      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total customers" value={number(customers.length)} hint="All registered accounts" icon="customers" loading={loading && !data} />
+        <StatCard label="New this month" value={number(newThisMonth)} hint="Accounts created this month" icon="sparkles" tone="success" loading={loading && !data} />
+        <StatCard label="Cities" value={number(cities)} hint="Unique customer cities" icon="mapPin" tone="warning" loading={loading && !data} />
+        <StatCard label="Countries" value={number(countries.length)} hint="Markets you serve" icon="globe" tone="info" loading={loading && !data} />
+      </div>
 
-            <p className="mt-1 text-sm" style={mutedText}>
-              {editingId !== null
-                ? "Update the information for this customer."
-                : "Enter the company and contact information below."}
-            </p>
-          </div>
+      {error && <ErrorState message={error} onRetry={reload} />}
 
-          <button
-            type="button"
-            onClick={closeModal}
-            disabled={saving}
-            aria-label="Close modal"
-            className="rounded-xl border px-3 py-2 text-xl transition hover:opacity-70 disabled:opacity-40"
-            style={{
-              borderColor: "var(--border-color)",
-              color: "var(--text-secondary)",
+      <Card>
+        <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center" style={{ borderColor: "var(--border-color)" }}>
+          <SearchInput
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              table.setPage(1);
             }}
+            placeholder="Search company, contact, email, city…"
+            className="lg:w-80"
+          />
+          <select
+            value={country}
+            onChange={(event) => {
+              setCountry(event.target.value);
+              table.setPage(1);
+            }}
+            aria-label="Filter by country"
+            className="app-input h-10 py-0 lg:w-48"
           >
-            ×
-          </button>
+            <option value="all">All countries</option>
+            {countries.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+          <div className="flex items-center gap-2 lg:ml-auto">
+            <SegmentedControl
+              label="Layout"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: "table", label: <Icon name="list" size={16} /> },
+                { value: "grid", label: <Icon name="grid" size={16} /> },
+              ]}
+            />
+            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={loading ? "[&_svg]:animate-spin" : ""} />
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <h3
-              className="mb-3 text-sm font-semibold"
-              style={primaryText}
-            >
-              Company information
-            </h3>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Company name" required>
-                <input
-                  name="company_name"
-                  value={form.company_name}
-                  onChange={handleChange}
-                  placeholder="e.g. Atlas Solutions"
-                  required
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Contact name">
-                <input
-                  name="contact_name"
-                  value={form.contact_name}
-                  onChange={handleChange}
-                  placeholder="Full name"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Email address">
-                <input
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  placeholder="contact@company.com"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Phone number">
-                <input
-                  name="phone"
-                  type="tel"
-                  value={form.phone}
-                  onChange={handleChange}
-                  placeholder="+212 ..."
-                  className={inputClass}
-                />
-              </Field>
-            </div>
-          </div>
-
-          <div
-            className="border-t pt-5"
-            style={{ borderColor: "var(--border-color)" }}
-          >
-            <h3
-              className="mb-3 text-sm font-semibold"
-              style={primaryText}
-            >
-              Location information
-            </h3>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="City">
-                <input
-                  name="city"
-                  value={form.city}
-                  onChange={handleChange}
-                  placeholder="e.g. Agadir"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Country">
-                <input
-                  name="country"
-                  value={form.country}
-                  onChange={handleChange}
-                  placeholder="Country"
-                  className={inputClass}
-                />
-              </Field>
-            </div>
-
-            <div className="mt-4">
-              <Field label="Full address">
-                <textarea
-                  name="address"
-                  value={form.address}
-                  onChange={handleChange}
-                  rows={3}
-                  placeholder="Street, building, postal code..."
-                  className={`${inputClass} resize-y`}
-                />
-              </Field>
-            </div>
-          </div>
-
-          <div
-            className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end"
-            style={{ borderColor: "var(--border-color)" }}
-          >
-            <button
-              type="button"
-              onClick={closeModal}
-              disabled={saving}
-              className="rounded-xl border px-5 py-2.5 text-sm font-semibold transition hover:opacity-75 disabled:opacity-50"
-              style={{
-                borderColor: "var(--border-color)",
-                color: "var(--text-primary)",
-              }}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ backgroundColor: "var(--primary)" }}
-            >
-              {saving && (
-                <svg
-                  className="animate-spin"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden="true"
+        {loading && !data ? (
+          <TableSkeleton columns={5} />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={searching ? "search" : "customers"}
+            title={searching ? "No matching customers" : "No customers yet"}
+            description={
+              searching
+                ? "Try a different search term or country."
+                : "Add your first customer to start building your business directory."
+            }
+            action={
+              searching ? (
+                <Button
+                  onClick={() => {
+                    setSearch("");
+                    setCountry("all");
+                  }}
                 >
-                  <circle cx="12" cy="12" r="9" opacity=".25" />
-                  <path d="M21 12a9 9 0 0 0-9-9" />
-                </svg>
-              )}
-
-              {saving
-                ? "Saving..."
-                : editingId !== null
-                  ? "Save changes"
-                  : "Create customer"}
-            </button>
+                  Clear filters
+                </Button>
+              ) : (
+                canWrite && (
+                  <Button variant="primary" icon="plus" onClick={openCreate}>
+                    Add your first customer
+                  </Button>
+                )
+              )
+            }
+          />
+        ) : view === "grid" ? (
+          <div className="stagger grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+            {table.rows.map((customer) => (
+              <button
+                key={customer.id}
+                type="button"
+                onClick={() => updateParams({ view: customer.id })}
+                className="group rounded-xl border p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-md"
+                style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface)" }}
+              >
+                <div className="flex items-start gap-3">
+                  <Avatar label={initials(customer.company_name)} seed={customer.id} size={44} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold app-text group-hover:text-[var(--primary)]">{customer.company_name}</p>
+                    <p className="truncate text-sm app-text-secondary">{customer.contact_name || "No contact"}</p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-1.5 text-sm app-text-secondary">
+                  <p className="flex items-center gap-2 truncate">
+                    <Icon name="mail" size={14} /> {customer.email || "—"}
+                  </p>
+                  <p className="flex items-center gap-2 truncate">
+                    <Icon name="mapPin" size={14} /> {[customer.city, customer.country].filter(Boolean).join(", ") || "—"}
+                  </p>
+                </div>
+              </button>
+            ))}
           </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] text-left text-sm">
+              <TableHead>
+                <SortHeader label="Company" column="company" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label="Contact" column="contact" sort={table.sort} onSort={table.toggleSort} />
+                <Th>Email & phone</Th>
+                <SortHeader label="Location" column="city" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label="Since" column="created" sort={table.sort} onSort={table.toggleSort} />
+                <Th align="right">Actions</Th>
+              </TableHead>
+              <tbody>
+                {table.rows.map((customer) => (
+                  <tr
+                    key={customer.id}
+                    onClick={() => updateParams({ view: customer.id })}
+                    className="cursor-pointer border-t transition-colors hover:bg-[var(--surface-hover)]"
+                    style={{ borderColor: "var(--border-color)" }}
+                  >
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <Avatar label={initials(customer.company_name)} seed={customer.id} />
+                        <div className="min-w-0">
+                          <p className="max-w-[220px] truncate font-semibold app-text">{customer.company_name}</p>
+                          <p className="text-xs app-text-muted">#{customer.id}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 app-text">{customer.contact_name || "—"}</td>
+                    <td className="px-5 py-3.5">
+                      <p className="max-w-[220px] truncate app-text">{customer.email || "—"}</p>
+                      <p className="text-xs app-text-muted">{customer.phone || "—"}</p>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <p className="app-text">{customer.city || "—"}</p>
+                      <p className="text-xs app-text-muted">{customer.country}</p>
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-3.5 app-text-secondary">{formatDate(customer.created_at)}</td>
+                    <td className="px-5 py-3.5" onClick={(event) => event.stopPropagation()}>
+                      <div className="flex justify-end gap-1">
+                        <IconAction icon="eye" label="View profile" onClick={() => updateParams({ view: customer.id })} />
+                        {canWrite && <IconAction icon="edit" label="Edit customer" onClick={() => openEdit(customer)} />}
+                        {canDelete && <IconAction icon="trash" label="Delete customer" tone="danger" onClick={() => handleDelete(customer)} />}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {filtered.length > 0 && (
+          <Pagination
+            page={table.page}
+            totalPages={table.totalPages}
+            total={table.total}
+            pageSize={table.pageSize}
+            onPageChange={table.setPage}
+            label="customers"
+          />
+        )}
+      </Card>
+
+      <CustomerDrawer
+        customer={viewed ?? lastViewed}
+        open={Boolean(viewed)}
+        onClose={() => updateParams({ view: null })}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+        user={user}
+      />
+
+      <Modal
+        open={formOpen || createRequested}
+        onClose={closeForm}
+        busy={saving}
+        size="lg"
+        icon={isEditing ? "edit" : "userPlus"}
+        eyebrow="Customer details"
+        title={isEditing ? `Edit ${editing.company_name}` : "Add a new customer"}
+        description={isEditing ? "Update this account's company and contact information." : "Create a business account to start taking orders."}
+        footer={
+          <>
+            <Button onClick={closeForm} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" form="customer-form" variant="primary" loading={saving} icon="check">
+              {isEditing ? "Save changes" : "Create customer"}
+            </Button>
+          </>
+        }
+      >
+        <form id="customer-form" onSubmit={handleSubmit} className="space-y-6">
+          <InlineAlert>{formError}</InlineAlert>
+
+          <fieldset>
+            <legend className="mb-3 flex items-center gap-2 text-sm font-semibold app-text">
+              <Icon name="building" size={16} className="app-text-muted" /> Company & contact
+            </legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Company name" required>
+                {(id) => <input id={id} name="company_name" value={form.company_name} onChange={handleChange} required minLength={2} maxLength={150} placeholder="e.g. Atlas Solutions" className="app-input" />}
+              </Field>
+              <Field label="Contact name" required>
+                {(id) => <input id={id} name="contact_name" value={form.contact_name} onChange={handleChange} required minLength={2} maxLength={150} placeholder="Full name" className="app-input" />}
+              </Field>
+              <Field label="Email address">
+                {(id) => <input id={id} name="email" type="email" value={form.email} onChange={handleChange} placeholder="contact@company.com" className="app-input" />}
+              </Field>
+              <Field label="Phone number">
+                {(id) => <input id={id} name="phone" type="tel" value={form.phone} onChange={handleChange} maxLength={30} placeholder="+212 6…" className="app-input" />}
+              </Field>
+            </div>
+          </fieldset>
+
+          <fieldset className="border-t pt-5" style={{ borderColor: "var(--border-color)" }}>
+            <legend className="sr-only">Location</legend>
+            <p className="mb-3 flex items-center gap-2 text-sm font-semibold app-text">
+              <Icon name="mapPin" size={16} className="app-text-muted" /> Location
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="City">
+                {(id) => <input id={id} name="city" value={form.city} onChange={handleChange} maxLength={100} placeholder="e.g. Agadir" className="app-input" />}
+              </Field>
+              <Field label="Country">
+                {(id) => <input id={id} name="country" value={form.country} onChange={handleChange} maxLength={100} list="country-options" className="app-input" />}
+              </Field>
+              <Field label="Full address" className="sm:col-span-2">
+                {(id) => <textarea id={id} name="address" value={form.address} onChange={handleChange} rows={2} maxLength={255} placeholder="Street, building, postal code…" className="app-input resize-y" />}
+              </Field>
+            </div>
+            <datalist id="country-options">
+              {countries.map((item) => (
+                <option key={item} value={item} />
+              ))}
+            </datalist>
+          </fieldset>
         </form>
-      </div>
+      </Modal>
     </div>
-  )}
-</div>
-
-
-);
+  );
 }

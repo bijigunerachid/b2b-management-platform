@@ -13,12 +13,7 @@ const {
 const { protect } = require("../middleware/authMiddleware");
 const { authorize } = require("../middleware/roleMiddleware");
 
-const customerRules = [
-    { field: "name", required: true, type: "string", minLength: 2 },
-    { field: "email", type: "email" },
-    { field: "phone", type: "string" },
-    { field: "address", type: "string" }
-];
+const customerRules = require("../validation/customerRules");
 // All routes require authentication
 router.use(protect);
 

@@ -14,32 +14,7 @@ const { protect } = require("../middleware/authMiddleware");
 const { authorize } = require("../middleware/roleMiddleware");
 const validate = require("../middleware/validate");
 
-const productRules = [
-    {
-        field: "name",
-        required: true,
-        type: "string",
-        minLength: 2
-    },
-    {
-        field: "price",
-        required: true,
-        type: "number",
-        min: 0
-    },
-    {
-        field: "stock",
-        required: true,
-        type: "number",
-        min: 0
-    },
-    {
-        field: "category_id",
-        required: true,
-        type: "number",
-        min: 1
-    }
-];
+const productRules = require("../validation/productRules");
 
 router.use(protect);
 

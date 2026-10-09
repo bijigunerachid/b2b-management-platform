@@ -1,4 +1,3 @@
-
 function validateEnv() {
     const requiredVariables = [
         "DB_HOST",
@@ -25,10 +24,23 @@ function validateEnv() {
 
     if (process.env.NODE_ENV === "production") {
         if (!process.env.DB_PASSWORD) {
-            throw new Error(
-                "DB_PASSWORD is required in production."
-            );
+            throw new Error("DB_PASSWORD is required in production.");
         }
+
+        if (!process.env.CORS_ORIGIN) {
+            throw new Error("CORS_ORIGIN is required in production.");
+        }
+
+        if (process.env.CORS_ORIGIN.split(",").some((origin) => !origin.trim().startsWith("https://"))) {
+            throw new Error("CORS_ORIGIN must only list https:// origins in production.");
+        }
+    }
+
+    // The bootstrap credentials are only needed while running createAdmin.
+    if (process.env.ADMIN_PASSWORD) {
+        console.warn(
+            "Warning: ADMIN_PASSWORD is set in the environment. Remove it from .env once the admin account exists."
+        );
     }
 
     return true;
