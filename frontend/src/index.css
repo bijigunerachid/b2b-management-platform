@@ -331,6 +331,34 @@ html.dark {
   .stagger > *:nth-child(6) { animation-delay: 200ms; }
 }
 
+/* ========================================
+   Print (invoices)
+   ======================================== */
+
+.invoice-sheet {
+  min-height: 297mm;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  /* Slightly under one page so a short invoice never spills onto a second. */
+  .invoice-sheet {
+    min-height: 296mm;
+    max-width: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

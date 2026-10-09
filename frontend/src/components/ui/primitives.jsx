@@ -87,7 +87,7 @@ export function StatCard({ label, value, hint, icon, tone = "primary", loading =
           {loading ? (
             <div className="skeleton mt-3 h-8 w-20" />
           ) : (
-            <p className="mt-2 truncate text-[26px] font-bold tracking-tight app-text">{value}</p>
+            <p className="mt-2 break-words text-2xl font-bold leading-tight tracking-tight tabular-nums app-text">{value}</p>
           )}
         </div>
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={toneStyle(tone)}>

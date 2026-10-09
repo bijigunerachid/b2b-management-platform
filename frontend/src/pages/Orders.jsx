@@ -114,21 +114,32 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
       description={order ? `Placed ${formatDate(order.created_at, true)} · ${timeAgo(order.created_at)}` : "Loading…"}
       icon="orders"
       footer={
-        order &&
-        canWrite &&
-        nextStatuses(order.status).length > 0 &&
-        nextStatuses(order.status).map((status) => (
-          <Button
-            key={status}
-            variant={status === "Cancelled" ? "danger-ghost" : "primary"}
-            icon={actionLabels[status].icon}
-            loading={updating === order.id}
-            onClick={() => onChangeStatus(order, status)}
-            className={status === "Cancelled" ? "mr-auto" : ""}
-          >
-            {actionLabels[status].label}
-          </Button>
-        ))
+        order && (
+          <>
+            {canWrite &&
+              nextStatuses(order.status).map((status) => (
+                <Button
+                  key={status}
+                  variant={status === "Cancelled" ? "danger-ghost" : "primary"}
+                  icon={actionLabels[status].icon}
+                  loading={updating === order.id}
+                  onClick={() => onChangeStatus(order, status)}
+                  className={status === "Cancelled" ? "order-first mr-auto" : "order-2"}
+                >
+                  {actionLabels[status].label}
+                </Button>
+              ))}
+            <Link
+              to={`/orders/${order.id}/invoice`}
+              target="_blank"
+              rel="noopener"
+              className="order-1 inline-flex h-10 items-center gap-2 rounded-[var(--control-radius)] border px-4 text-sm font-semibold transition hover:bg-[var(--surface-hover)] app-text"
+              style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface)" }}
+            >
+              <Icon name="download" size={17} /> Invoice
+            </Link>
+          </>
+        )
       }
     >
       {error ? (
@@ -741,6 +752,16 @@ export default function Orders() {
                             />
                           )}
                           <IconAction icon="eye" label="View order" onClick={() => updateParams({ view: order.id })} />
+                          <a
+                            href={`/orders/${order.id}/invoice`}
+                            target="_blank"
+                            rel="noopener"
+                            aria-label={`Open invoice for order ${order.id}`}
+                            title="Open invoice"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg transition text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                          >
+                            <Icon name="download" size={17} />
+                          </a>
                         </div>
                       </td>
                     </tr>
