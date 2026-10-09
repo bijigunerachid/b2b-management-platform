@@ -9,22 +9,167 @@ const money = (value) =>
     currency: "MAD",
   }).format(Number(value) || 0);
 
+const number = (value) =>
+  new Intl.NumberFormat("fr-MA").format(Number(value) || 0);
+
 const statusStyles = {
-  Pending: "bg-amber-100 text-amber-800",
-  Processing: "bg-blue-100 text-blue-800",
-  Completed: "bg-green-100 text-green-800",
-  Cancelled: "bg-red-100 text-red-800",
+  Pending: {
+    background: "var(--warning-soft)",
+    color: "var(--warning)",
+    label: "Pending",
+  },
+  Processing: {
+    background: "var(--primary-soft)",
+    color: "var(--primary)",
+    label: "Processing",
+  },
+  Completed: {
+    background: "var(--success-soft)",
+    color: "var(--success)",
+    label: "Completed",
+  },
+  Cancelled: {
+    background: "var(--danger-soft)",
+    color: "var(--danger)",
+    label: "Cancelled",
+  },
 };
 
-function StatCard({ title, value, description }) {
+function StatCard({ title, value, description, icon, accent }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-slate-500">{title}</p>
-      <p className="mt-3 text-3xl font-bold text-slate-900">
-        {value}
+    <article
+      className="rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-6"
+      style={{
+        backgroundColor: "var(--surface)",
+        borderColor: "var(--border-color)",
+        boxShadow: "var(--card-shadow)",
+      }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p
+            className="text-sm font-medium"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            {title}
+          </p>
+
+          <p
+            className="mt-3 break-words text-2xl font-bold tracking-tight sm:text-3xl"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {value}
+          </p>
+        </div>
+
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl"
+          style={{
+            backgroundColor: accent,
+            color: "var(--primary)",
+          }}
+          aria-hidden="true"
+        >
+          {icon}
+        </div>
+      </div>
+
+      <p
+        className="mt-4 border-t pt-3 text-xs leading-5"
+        style={{
+          borderColor: "var(--border-color)",
+          color: "var(--text-secondary)",
+        }}
+      >
+        {description}
       </p>
-      <p className="mt-2 text-xs text-slate-500">{description}</p>
+    </article>
+  );
+}
+
+function SectionHeader({ title, description, count }) {
+  return (
+    <div
+      className="flex flex-col gap-2 border-b px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+      style={{ borderColor: "var(--border-color)" }}
+    >
+      <div>
+        <h2
+          className="text-base font-bold sm:text-lg"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {title}
+        </h2>
+
+        <p
+          className="mt-1 text-sm"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          {description}
+        </p>
+      </div>
+
+      {count !== undefined && (
+        <span
+          className="w-fit rounded-full px-3 py-1 text-xs font-semibold"
+          style={{
+            backgroundColor: "var(--primary-soft)",
+            color: "var(--primary)",
+          }}
+        >
+          {count} items
+        </span>
+      )}
     </div>
+  );
+}
+
+function EmptyState({ message }) {
+  return (
+    <div className="px-6 py-12 text-center">
+      <div
+        className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl text-2xl"
+        style={{
+          backgroundColor: "var(--surface-muted)",
+          color: "var(--text-secondary)",
+        }}
+        aria-hidden="true"
+      >
+        ✓
+      </div>
+
+      <p
+        className="mt-3 text-sm font-medium"
+        style={{ color: "var(--text-primary)" }}
+      >
+        {message}
+      </p>
+    </div>
+  );
+}
+
+function TableHeader({ children }) {
+  return (
+    <th
+      className="whitespace-nowrap px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide sm:px-6"
+      style={{
+        backgroundColor: "var(--surface-muted)",
+        color: "var(--text-secondary)",
+      }}
+    >
+      {children}
+    </th>
+  );
+}
+
+function TableCell({ children, className = "" }) {
+  return (
+    <td
+      className={`px-5 py-4 text-sm sm:px-6 ${className}`}
+      style={{ color: "var(--text-primary)" }}
+    >
+      {children}
+    </td>
   );
 }
 
@@ -32,6 +177,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   async function loadStats() {
     setLoading(true);
@@ -51,6 +197,7 @@ export default function Dashboard() {
       }
 
       setStats(result.data ?? result);
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err.message || "Could not connect to the server.");
     } finally {
@@ -62,28 +209,92 @@ export default function Dashboard() {
     loadStats();
   }, []);
 
-  if (loading) {
+  const today = new Intl.DateTimeFormat("en", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+
+  const cardBase = {
+    backgroundColor: "var(--surface)",
+    borderColor: "var(--border-color)",
+    boxShadow: "var(--card-shadow)",
+  };
+
+  if (loading && !stats) {
     return (
-      <div className="p-6 text-slate-500">
-        Loading dashboard statistics...
+      <div className="space-y-6" aria-live="polite">
+        <div>
+          <div
+            className="h-8 w-52 animate-pulse rounded-lg"
+            style={{ backgroundColor: "var(--border-color)" }}
+          />
+          <div
+            className="mt-3 h-4 w-72 max-w-full animate-pulse rounded"
+            style={{ backgroundColor: "var(--border-color)" }}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[1, 2, 3, 4].map((item) => (
+            <div
+              key={item}
+              className="h-36 animate-pulse rounded-2xl border"
+              style={cardBase}
+            />
+          ))}
+        </div>
+
+        <p
+          className="text-sm"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Loading dashboard statistics...
+        </p>
       </div>
     );
   }
 
   if (error || !stats) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-slate-900">
-          Dashboard
-        </h1>
+      <div className="space-y-5">
+        <div>
+          <h1
+            className="text-2xl font-bold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Dashboard
+          </h1>
+          <p
+            className="mt-1 text-sm"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Your business overview
+          </p>
+        </div>
 
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-          {error || "Dashboard data is unavailable."}
+        <div
+          className="rounded-2xl border p-5"
+          style={{
+            backgroundColor: "var(--danger-soft)",
+            borderColor: "var(--danger)",
+            color: "var(--danger)",
+          }}
+          role="alert"
+        >
+          <p className="font-semibold">
+            Unable to load dashboard
+          </p>
+          <p className="mt-1 text-sm">
+            {error || "Dashboard data is unavailable."}
+          </p>
         </div>
 
         <button
+          type="button"
           onClick={loadStats}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          className="app-primary-button"
         >
           Try again
         </button>
@@ -94,87 +305,195 @@ export default function Dashboard() {
   const cards = [
     {
       title: "Total Customers",
-      value: stats.totalCustomers ?? 0,
+      value: number(stats.totalCustomers),
       description: "Registered business customers",
+      icon: "♙",
+      accent: "var(--primary-soft)",
     },
     {
       title: "Total Products",
-      value: stats.totalProducts ?? 0,
+      value: number(stats.totalProducts),
       description: "Products in your inventory",
+      icon: "▤",
+      accent: "var(--primary-soft)",
     },
     {
       title: "Total Orders",
-      value: stats.totalOrders ?? 0,
+      value: number(stats.totalOrders),
       description: "Orders recorded in the database",
+      icon: "☷",
+      accent: "var(--primary-soft)",
     },
     {
       title: "Revenue",
       value: money(stats.totalRevenue),
       description: "Completed orders only",
+      icon: "↗",
+      accent: "var(--success-soft)",
     },
   ];
 
+  const lowStockProducts = stats.lowStockProducts || [];
+  const recentOrders = stats.recentOrders || [];
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Overview of your business operations.
-          </p>
-        </div>
+    <div className="space-y-7 sm:space-y-8">
+      {/* Welcome section */}
+      <section
+        className="relative overflow-hidden rounded-2xl p-6 sm:p-8"
+        style={{
+          background:
+            "linear-gradient(120deg, #1d4ed8 0%, #2563eb 60%, #3b82f6 100%)",
+          color: "#ffffff",
+        }}
+      >
+        <div
+          className="pointer-events-none absolute -right-10 -top-20 h-56 w-56 rounded-full"
+          style={{ backgroundColor: "rgb(255 255 255 / 8%)" }}
+        />
+        <div
+          className="pointer-events-none absolute -bottom-24 right-32 h-48 w-48 rounded-full"
+          style={{ backgroundColor: "rgb(255 255 255 / 7%)" }}
+        />
 
-        <button
-          onClick={loadStats}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50"
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-blue-100">
+              BUSINESS OVERVIEW
+            </p>
+
+            <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+              Welcome to your dashboard
+            </h1>
+
+            <p className="mt-2 max-w-xl text-sm leading-6 text-blue-100">
+              Monitor your customers, inventory, orders, and business revenue
+              from one place.
+            </p>
+
+            <p className="mt-4 text-sm font-medium text-white/90">
+              {today}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={loadStats}
+            disabled={loading}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-white/20 disabled:cursor-wait disabled:opacity-70"
+            style={{
+              backgroundColor: "rgb(255 255 255 / 10%)",
+              borderColor: "rgb(255 255 255 / 30%)",
+              color: "#ffffff",
+            }}
+          >
+            <span aria-hidden="true">{loading ? "◌" : "↻"}</span>
+            {loading ? "Refreshing..." : "Refresh statistics"}
+          </button>
+        </div>
+      </section>
+
+      {/* Refresh error while retaining existing statistics */}
+      {error && (
+        <div
+          className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+          style={{
+            backgroundColor: "var(--danger-soft)",
+            borderColor: "var(--danger)",
+            color: "var(--danger)",
+          }}
+          role="alert"
         >
-          Refresh statistics
-        </button>
-      </div>
+          <p className="text-sm">{error} Showing the last loaded data.</p>
+          <button
+            type="button"
+            onClick={loadStats}
+            className="text-sm font-semibold underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map((card) => (
-          <StatCard key={card.title} {...card} />
-        ))}
-      </div>
-
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-5">
-          <h2 className="text-lg font-semibold text-slate-800">
-            Low-stock alerts
+      {/* KPI cards */}
+      <section aria-label="Business statistics">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2
+            className="text-lg font-bold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Key metrics
           </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Active products with five or fewer units remaining.
-          </p>
+
+          {lastUpdated && (
+            <p
+              className="text-xs"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Updated {lastUpdated.toLocaleTimeString()}
+            </p>
+          )}
         </div>
 
-        {!stats.lowStockProducts?.length ? (
-          <p className="p-5 text-sm text-slate-500">
-            No low-stock products found.
-          </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {cards.map((card) => (
+            <StatCard key={card.title} {...card} />
+          ))}
+        </div>
+      </section>
+
+      {/* Low-stock section */}
+      <section
+        className="overflow-hidden rounded-2xl border"
+        style={cardBase}
+      >
+        <SectionHeader
+          title="Low-stock alerts"
+          description="Active products with five or fewer units remaining."
+          count={lowStockProducts.length}
+        />
+
+        {lowStockProducts.length === 0 ? (
+          <EmptyState message="No low-stock products found." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-600">
+            <table className="w-full text-left">
+              <thead>
                 <tr>
-                  <th className="px-5 py-3">Product</th>
-                  <th className="px-5 py-3">Stock remaining</th>
+                  <TableHeader>Product</TableHeader>
+                  <TableHeader>Stock remaining</TableHeader>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
-                {stats.lowStockProducts.map((product) => (
-                  <tr key={product.id}>
-                    <td className="px-5 py-3 font-medium text-slate-800">
-                      {product.name}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
+              <tbody>
+                {lowStockProducts.map((product) => (
+                  <tr
+                    key={product.id}
+                    className="border-t transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    style={{ borderColor: "var(--border-color)" }}
+                  >
+                    <TableCell>
+                      <span className="font-semibold">
+                        {product.name}
+                      </span>
+                    </TableCell>
+
+                    <TableCell>
+                      <span
+                        className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
+                        style={{
+                          backgroundColor: "var(--danger-soft)",
+                          color: "var(--danger)",
+                        }}
+                      >
+                        <span
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{ backgroundColor: "var(--danger)" }}
+                          aria-hidden="true"
+                        />
                         {product.stock} left
                       </span>
-                    </td>
+                    </TableCell>
                   </tr>
                 ))}
               </tbody>
@@ -183,67 +502,104 @@ export default function Dashboard() {
         )}
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-5">
-          <h2 className="text-lg font-semibold text-slate-800">
-            Recent orders
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Your five most recently created orders.
-          </p>
-        </div>
+      {/* Recent orders section */}
+      <section
+        className="overflow-hidden rounded-2xl border"
+        style={cardBase}
+      >
+        <SectionHeader
+          title="Recent orders"
+          description="Your five most recently created orders."
+          count={recentOrders.length}
+        />
 
-        {!stats.recentOrders?.length ? (
-          <p className="p-5 text-sm text-slate-500">
-            No orders recorded yet.
-          </p>
+        {recentOrders.length === 0 ? (
+          <EmptyState message="No orders recorded yet." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-600">
+            <table className="w-full text-left">
+              <thead>
                 <tr>
-                  <th className="px-5 py-3">Order</th>
-                  <th className="px-5 py-3">Customer</th>
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3">Total</th>
-                  <th className="px-5 py-3">Status</th>
+                  <TableHeader>Order</TableHeader>
+                  <TableHeader>Customer</TableHeader>
+                  <TableHeader>Date</TableHeader>
+                  <TableHeader>Total</TableHeader>
+                  <TableHeader>Status</TableHeader>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
-                {stats.recentOrders.map((order) => (
-                  <tr key={order.id}>
-                    <td className="px-5 py-3 font-semibold">
-                      #{order.id}
-                    </td>
-                    <td className="px-5 py-3">
-                      {order.company_name || "Unknown customer"}
-                    </td>
-                    <td className="whitespace-nowrap px-5 py-3">
-                      {order.created_at
-                        ? new Date(order.created_at).toLocaleDateString()
-                        : "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-5 py-3">
-                      {money(order.total_amount)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                          statusStyles[order.status] ||
-                          "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+              <tbody>
+                {recentOrders.map((order) => {
+                  const status =
+                    statusStyles[order.status] || {
+                      background: "var(--surface-muted)",
+                      color: "var(--text-secondary)",
+                      label: order.status || "Unknown",
+                    };
+
+                  return (
+                    <tr
+                      key={order.id}
+                      className="border-t transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      style={{ borderColor: "var(--border-color)" }}
+                    >
+                      <TableCell>
+                        <span
+                          className="font-bold"
+                          style={{ color: "var(--primary)" }}
+                        >
+                          #{order.id}
+                        </span>
+                      </TableCell>
+
+                      <TableCell>
+                        <span className="block min-w-32 font-medium">
+                          {order.company_name || "Unknown customer"}
+                        </span>
+                      </TableCell>
+
+                      <TableCell>
+                        <span className="whitespace-nowrap">
+                          {order.created_at
+                            ? new Date(order.created_at).toLocaleDateString(
+                                "fr-MA"
+                              )
+                            : "—"}
+                        </span>
+                      </TableCell>
+
+                      <TableCell>
+                        <span className="whitespace-nowrap font-semibold">
+                          {money(order.total_amount)}
+                        </span>
+                      </TableCell>
+
+                      <TableCell>
+                        <span
+                          className="inline-flex whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold"
+                          style={{
+                            backgroundColor: status.background,
+                            color: status.color,
+                          }}
+                        >
+                          {status.label}
+                        </span>
+                      </TableCell>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </section>
+
+      <footer
+        className="pb-2 text-center text-xs"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        B2B Management Platform · Business overview
+      </footer>
     </div>
   );
 }
