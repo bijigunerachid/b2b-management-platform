@@ -5,9 +5,10 @@ const pool = require("../config/database");
 const getCustomers = async (req, res) => {
     try {
         const [customers] = await pool.query(`
-            SELECT *
-            FROM customers
-            ORDER BY id DESC
+            SELECT c.*, pl.name AS price_list_name, pl.discount_percent AS price_list_discount
+            FROM customers c
+            LEFT JOIN price_lists pl ON pl.id = c.price_list_id
+            ORDER BY c.id DESC
         `);
 
         res.json({
@@ -38,7 +39,10 @@ const getCustomerById = async (req, res) => {
         }
 
         const [customers] = await pool.query(
-            "SELECT * FROM customers WHERE id = ?",
+            `SELECT c.*, pl.name AS price_list_name, pl.discount_percent AS price_list_discount, pl.is_active AS price_list_active
+             FROM customers c
+             LEFT JOIN price_lists pl ON pl.id = c.price_list_id
+             WHERE c.id = ?`,
             [id]
         );
 

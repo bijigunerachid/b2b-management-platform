@@ -13,6 +13,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Customers = lazy(() => import("./pages/Customers"));
 const Products = lazy(() => import("./pages/Products"));
 const Categories = lazy(() => import("./pages/Categories"));
+const Pricing = lazy(() => import("./pages/Pricing"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Quotes = lazy(() => import("./pages/Quotes"));
 const Receivables = lazy(() => import("./pages/Receivables"));
@@ -56,6 +57,7 @@ export default function App() {
                                     <Route path="/customers" element={<Customers />} />
                                     <Route path="/products" element={<Products />} />
                                     <Route path="/categories" element={<Categories />} />
+                                    <Route path="/pricing" element={<Pricing />} />
                                     <Route path="/orders" element={<Orders />} />
                                     <Route path="/receivables" element={<Receivables />} />
                                     <Route path="/credit-notes" element={<CreditNotes />} />

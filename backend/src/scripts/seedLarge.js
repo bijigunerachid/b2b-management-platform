@@ -8,6 +8,7 @@ const { seedQuotes } = require("../seed/quotes");
 const { seedPurchasing } = require("../seed/purchasing");
 const { seedPortal } = require("../seed/portal");
 const { seedReturns } = require("../seed/returns");
+const { seedPricing } = require("../seed/pricing");
 
 /*
  * Seeds the database with a large, realistic demo dataset.
@@ -93,12 +94,15 @@ async function seed() {
             await connection.query("DELETE FROM stock_movements");
             await connection.query("DELETE FROM credit_note_items");
             await connection.query("DELETE FROM credit_notes");
+            await connection.query("DELETE FROM customer_prices");
+            await connection.query("DELETE FROM volume_discounts");
             await connection.query("DELETE FROM purchase_orders");
             await connection.query("DELETE FROM order_items");
             await connection.query("DELETE FROM orders");
             await connection.query("DELETE FROM products");
             await connection.query("DELETE FROM users WHERE customer_id IS NOT NULL");
             await connection.query("DELETE FROM customers");
+            await connection.query("DELETE FROM price_lists");
             await connection.query("DELETE FROM categories");
             await connection.query("DELETE FROM suppliers");
             await connection.query("DELETE FROM users WHERE email LIKE '%@seed.b2b.local' OR email LIKE '%.portal.example'");
@@ -246,6 +250,7 @@ async function seed() {
         const purchasing = await seedPurchasing(connection, { now: new Date() });
         const portal = await seedPortal(connection, { password: seededPassword ?? process.env.SEED_USER_PASSWORD });
         const returns = await seedReturns(connection);
+        const pricing = await seedPricing(connection);
         if (purchasing) console.log(`Inserted ${purchasing.suppliers} suppliers and purchase orders…`);
         if (quoteCount > 0) console.log(`Inserted ${quoteCount} quotes…`);
 
@@ -264,6 +269,7 @@ async function seed() {
         console.log(`  Payments:    ${paymentRows.length}`);
         console.log(`  Quotes:      ${quoteCount}${quoteCount === 0 ? " (existing quotes kept)" : ""}`);
         console.log(`  Returns:     ${returns ? `${returns.created} credit notes` : "existing credit notes kept"}`);
+        console.log(`  Pricing:     ${pricing ? `${pricing.priceLists} price lists, ${pricing.volumeBreaks} volume discounts, ${pricing.contracts} contract prices` : "existing pricing kept"}`);
         console.log(`  Purchasing:  ${purchasing ? `${purchasing.suppliers} suppliers, ${purchasing.received + purchasing.ordered + purchasing.drafts + purchasing.cancelled} purchase orders` : "existing suppliers kept"}`);
         console.log(`  Revenue:     ${revenue.toLocaleString("en", { maximumFractionDigits: 0 })} MAD completed`);
 

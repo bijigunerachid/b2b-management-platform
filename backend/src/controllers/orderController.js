@@ -68,6 +68,8 @@ const getOrderById = async (req, res) => {
                 p.name AS product_name,
                 oi.quantity,
                 oi.unit_price,
+                oi.list_price,
+                oi.price_source,
                 (oi.quantity * oi.unit_price) AS subtotal
              FROM order_items oi
              INNER JOIN products p ON p.id = oi.product_id

@@ -18,6 +18,7 @@ export function buildInvoice(order, { vatRate = company.vatRate, termsDays = com
       description: item.product_name ?? `Product #${item.product_id}`,
       quantity,
       unitPrice,
+      listPrice: item.list_price === null || item.list_price === undefined ? unitPrice : Number(item.list_price),
       amount: round2(quantity * unitPrice),
     };
   });

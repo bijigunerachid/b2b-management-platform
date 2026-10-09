@@ -25,7 +25,7 @@ function ProductCard({ product }) {
       toast.warning("Your cart can hold up to 50 different products.");
       return;
     }
-    cart.add(product, quantity);
+    cart.add({ ...product, price: product.your_price ?? product.price }, quantity);
     toast.success(`${quantity} × ${product.name} added to your cart.`, { duration: 2500 });
     setQuantity(1);
   }
@@ -42,9 +42,21 @@ function ProductCard({ product }) {
       </div>
       <h3 className="mt-3 line-clamp-2 min-h-10 text-sm font-semibold app-text">{product.name}</h3>
       <p className="mt-0.5 text-xs app-text-muted">{product.category_name}</p>
-      <p className="mt-3 text-lg font-bold tabular-nums app-text">
-        {money(product.price)} <span className="text-xs font-normal app-text-muted">HT</span>
-      </p>
+      <div className="mt-3">
+        {product.your_price < product.price && (
+          <p className="text-xs tabular-nums app-text-muted">
+            <span className="line-through">{money(product.price)}</span> · {product.price_label}
+          </p>
+        )}
+        <p className="text-lg font-bold tabular-nums app-text">
+          {money(product.your_price ?? product.price)} <span className="text-xs font-normal app-text-muted">HT</span>
+        </p>
+        {product.volume_prices?.length > 0 && (
+          <p className="mt-0.5 text-xs app-text-secondary">
+            {product.volume_prices.map((tier) => `${tier.min_quantity}+: ${money(tier.unit_price)}`).join(" · ")}
+          </p>
+        )}
+      </div>
       <div className="mt-auto flex items-center gap-2 pt-4">
         <input
           type="number"

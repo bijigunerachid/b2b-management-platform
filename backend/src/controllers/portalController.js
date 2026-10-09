@@ -8,6 +8,8 @@ const { ORDER_BILLING_COLUMNS, BILLING_JOINS } = require("../billing/queries");
 const { HttpError, withTransaction } = require("../services/transaction");
 const { placeOrder } = require("../services/orderPlacement");
 const { loadCreditNote, serializeCreditNote } = require("../services/creditNotes");
+const { describePrice, loadPricingContext } = require("../pricing/pricing");
+const { priceItems } = require("./pricingController");
 const { allowedActions, canPerform, daysLeft, dateOnly, effectiveStatus, quoteNumber } = require("../quotes/quoteRules");
 
 const CATALOG_PAGE_SIZE = 24;
@@ -133,6 +135,7 @@ const getCatalog = async (req, res) => {
              LIMIT ? OFFSET ?`,
             [...params, CATALOG_PAGE_SIZE, (page - 1) * CATALOG_PAGE_SIZE]
         );
+        const pricing = await loadPricingContext(pool, req.user.customerId);
         const [categories] = await pool.query(
             `SELECT c.id, c.name, COUNT(p.id) AS product_count
              FROM categories c
@@ -148,6 +151,7 @@ const getCatalog = async (req, res) => {
                 name: product.name,
                 description: product.description,
                 price: Number(product.price),
+                ...yourPrice(pricing, product),
                 category_id: product.category_id,
                 category_name: product.category_name,
                 availability: availability(product)
@@ -160,6 +164,32 @@ const getCatalog = async (req, res) => {
         return res.status(500).json({ success: false, message: "Could not load the catalog." });
     }
 };
+
+/** The customer's price for one unit, and the cheaper prices from volume breaks. */
+function yourPrice(pricing, product) {
+    const single = describePrice(pricing, product, 1);
+    const tiers = [];
+
+    if (single.price_source !== "contract") {
+        const quantities = [...new Set(pricing.breaks.map((rule) => rule.min_quantity))].sort((a, b) => a - b);
+        let last = single.unit_price;
+        for (const quantity of quantities) {
+            const tier = describePrice(pricing, product, quantity);
+            if (tier.unit_price < last) {
+                tiers.push({ min_quantity: quantity, unit_price: tier.unit_price });
+                last = tier.unit_price;
+            }
+        }
+    }
+
+    return { your_price: single.unit_price, price_label: single.label, volume_prices: tiers };
+}
+
+// POST /api/portal/cart/price { items: [{ product_id, quantity }] }
+const priceCart = withTransaction(async (connection, req) => {
+    const result = await priceItems(connection, req.user.customerId, req.body?.items, { activeOnly: true });
+    return { body: { data: { lines: result.lines } } };
+}, "Could not price your cart.");
 
 /* ---------- Orders ---------- */
 
@@ -204,7 +234,7 @@ const getOrder = async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ success: false, message: "Order not found" });
 
         const [items] = await pool.query(
-            `SELECT oi.product_id, p.name AS product_name, oi.quantity, oi.unit_price,
+            `SELECT oi.product_id, p.name AS product_name, oi.quantity, oi.unit_price, oi.list_price,
                     (oi.quantity * oi.unit_price) AS subtotal, p.is_active AS product_active
              FROM order_items oi
              INNER JOIN products p ON p.id = oi.product_id
@@ -372,6 +402,7 @@ module.exports = {
     availability,
     getCatalog,
     getCreditNote,
+    priceCart,
     getOrder,
     getQuote,
     getSummary,

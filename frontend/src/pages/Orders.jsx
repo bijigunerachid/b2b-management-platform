@@ -27,6 +27,7 @@ import {
 import { api, can, compactMoney, exportCsv, formatDate, initials, money, number, timeAgo, toList, useActiveProducts, useResource } from "../lib/api";
 import { ORDER_STATUS, STATUS_FLOW, nextStatuses } from "../lib/orderStatus";
 import { paymentBadge } from "../lib/billing";
+import { PRICE_SOURCES, hasDiscount, usePrices } from "../lib/pricing";
 import PaymentPanel from "../components/PaymentPanel";
 import ReturnsPanel from "../components/ReturnsPanel";
 import useTable from "../lib/useTable";
@@ -62,6 +63,28 @@ const actionLabels = {
   Completed: { label: "Mark completed", icon: "checkCircle" },
   Cancelled: { label: "Cancel order", icon: "ban" },
 };
+
+function LinePrice({ line }) {
+  if (!line || (!hasDiscount(line) && !line.next_break)) return null;
+  return (
+    <p className="col-span-full flex flex-wrap items-center gap-x-2 gap-y-1 text-xs app-text-muted">
+      {hasDiscount(line) && (
+        <>
+          <span className="tabular-nums">
+            <span className="line-through">{money(line.list_price)}</span>{" "}
+            <span className="font-semibold app-text">{money(line.unit_price)}</span> each
+          </span>
+          <Badge tone={PRICE_SOURCES[line.price_source]?.tone}>{line.label}</Badge>
+        </>
+      )}
+      {line.next_break && (
+        <span>
+          {line.next_break.min_quantity}+ units: {line.next_break.discount_percent}% volume discount
+        </span>
+      )}
+    </p>
+  );
+}
 
 let lineCounter = 0;
 const newLine = () => {
@@ -211,7 +234,11 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
                       <tr key={item.product_id} className="border-t" style={{ borderColor: "var(--border-color)" }}>
                         <td className="px-4 py-3">
                           <p className="font-medium app-text">{item.product_name}</p>
-                          <p className="text-xs app-text-muted">{money(item.unit_price)} each</p>
+                          <p className="text-xs app-text-muted">
+                            {hasDiscount(item) && <span className="mr-1 line-through">{money(item.list_price)}</span>}
+                            {money(item.unit_price)} each
+                            {item.price_source && item.price_source !== "list" && ` · ${PRICE_SOURCES[item.price_source]?.label}`}
+                          </p>
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums app-text">×{item.quantity}</td>
                         <td className="px-4 py-3 text-right font-semibold tabular-nums app-text">
@@ -265,10 +292,18 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
   const productById = new Map(products.map((product) => [String(product.id), product]));
   const selectedIds = new Set(lines.map((line) => line.product_id).filter(Boolean));
 
+  const { prices, loading: pricing } = usePrices("/pricing/preview", customerId, lines);
+  const unitPriceOf = (product) => prices.get(product.id)?.unit_price ?? Number(product.price);
+
   const total = lines.reduce((sum, line) => {
+    const product = productById.get(line.product_id);
+    return sum + (product ? unitPriceOf(product) * (Number(line.quantity) || 0) : 0);
+  }, 0);
+  const listTotal = lines.reduce((sum, line) => {
     const product = productById.get(line.product_id);
     return sum + (product ? Number(product.price) * (Number(line.quantity) || 0) : 0);
   }, 0);
+  const savings = Math.round((listTotal - total) * 100) / 100;
   const units = lines.reduce((sum, line) => sum + (line.product_id ? Number(line.quantity) || 0 : 0), 0);
   const selectedCustomer = customers.find((customer) => String(customer.id) === String(customerId));
 
@@ -437,7 +472,7 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
                       />
 
                       <p className="text-right text-sm font-semibold tabular-nums app-text sm:pr-1">
-                        {product ? money(Number(product.price) * quantity) : "—"}
+                        {product ? money(unitPriceOf(product) * quantity) : "—"}
                       </p>
 
                       <IconAction
@@ -447,6 +482,8 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
                         disabled={lines.length === 1}
                         onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
                       />
+
+                      {product && <LinePrice line={prices.get(product.id)} />}
 
                       {tooMany && (
                         <p className="col-span-full text-xs font-medium" style={{ color: "var(--danger)" }}>
@@ -473,7 +510,9 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
                   <Avatar label={initials(selectedCustomer.company_name)} seed={selectedCustomer.id} size={36} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold app-text">{selectedCustomer.company_name}</p>
-                    <p className="truncate text-xs app-text-muted">{selectedCustomer.contact_name}</p>
+                    <p className="truncate text-xs app-text-muted">
+                      {selectedCustomer.price_list_name ? `${selectedCustomer.price_list_name} price list, −${Number(selectedCustomer.price_list_discount)}%` : "Catalog prices"}
+                    </p>
                   </div>
                 </>
               ) : (
@@ -490,12 +529,20 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
                 <dt className="app-text-secondary">Units</dt>
                 <dd className="font-semibold app-text">{units}</dd>
               </div>
+              {savings > 0 && (
+                <div className="flex justify-between">
+                  <dt className="app-text-secondary">Discounts</dt>
+                  <dd className="font-semibold tabular-nums" style={{ color: "var(--success)" }}>
+                    −{money(savings)}
+                  </dd>
+                </div>
+              )}
             </dl>
 
             <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--border-color)" }}>
               <p className="text-xs app-text-secondary">Total</p>
-              <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums app-text">{money(total)}</p>
-              <p className="mt-2 text-xs app-text-muted">Prices are confirmed by the server when the order is saved.</p>
+              <p className={`mt-0.5 text-2xl font-bold tracking-tight tabular-nums app-text ${pricing ? "opacity-60" : ""}`}>{money(total)}</p>
+              <p className="mt-2 text-xs app-text-muted">Excluding VAT, with this customer's prices.</p>
             </div>
           </aside>
         </form>
