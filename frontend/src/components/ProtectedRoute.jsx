@@ -4,10 +4,6 @@ import Icon from "./ui/Icon";
 import { Spinner } from "./ui/Button";
 import { EmptyState } from "./ui/primitives";
 
-/**
- * area="staff" (default) keeps portal clients out of the back office;
- * area="portal" keeps staff out of the client portal.
- */
 export default function ProtectedRoute({ roles, area = "staff" }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -17,13 +13,13 @@ export default function ProtectedRoute({ roles, area = "staff" }) {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4" style={{ backgroundColor: "var(--app-bg)" }}>
         <div
           className="flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg animate-pop-in"
-          style={{ background: "linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)" }}
+          style={{ backgroundColor: "var(--primary)" }}
         >
           <Icon name="box" size={28} strokeWidth={2} />
         </div>
         <div className="flex items-center gap-2 text-sm font-medium app-text-secondary">
           <Spinner size={15} />
-          Checking your session…
+          Checking your session...
         </div>
       </div>
     );

@@ -84,8 +84,6 @@ export function AuthProvider({ children }) {
                 credentials: "include"
             });
         } finally {
-            // Clear local state even if the network call failed; the
-            // server-side session is revoked whenever the request lands.
             setUser(null);
         }
     }, []);

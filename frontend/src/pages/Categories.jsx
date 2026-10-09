@@ -147,9 +147,7 @@ export default function Categories() {
     return (
         <div className="space-y-6">
             <PageHeader
-                eyebrow="Catalog"
                 title="Categories"
-                description="Group your products so they're easy to find, filter, and report on."
                 actions={
                     canWrite && (
                         <Button variant="primary" icon="plus" onClick={openCreate}>
@@ -159,17 +157,17 @@ export default function Categories() {
                 }
             />
 
-            <div className="stagger grid gap-4 sm:grid-cols-3">
-                <StatCard label="Categories" value={number(categories.length)} hint="In your catalog" icon="categories" loading={loading && !data} />
+            <div className="grid gap-4 sm:grid-cols-3">
+                <StatCard label="Categories" value={number(categories.length)} icon="categories" loading={loading && !data} />
                 <StatCard label="Products assigned" value={number(totalProducts)} hint={largest ? `Largest: ${largest.name}` : "No products yet"} icon="products" tone="success" loading={loading && !data} />
-                <StatCard label="Empty categories" value={number(emptyCount)} hint="Without any products" icon="box" tone="warning" loading={loading && !data} />
+                <StatCard label="Empty categories" value={number(emptyCount)} icon="box" tone="warning" loading={loading && !data} />
             </div>
 
             {error && <ErrorState message={error} onRetry={reload} />}
 
             <Card>
                 <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center" style={{ borderColor: "var(--border-color)" }}>
-                    <SearchInput value={search} onChange={setSearch} placeholder="Search categories…" className="sm:w-80" />
+                    <SearchInput value={search} onChange={setSearch} placeholder="Search categories..." className="sm:w-80" />
                     <div className="flex items-center gap-2 sm:ml-auto">
                         <span className="text-xs font-medium app-text-muted">Sort</span>
                         <SegmentedControl
@@ -209,7 +207,7 @@ export default function Categories() {
                         }
                     />
                 ) : (
-                    <div className="stagger grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
                         {visible.map((category) => {
                             const count = Number(category.product_count) || 0;
                             const share = totalProducts ? (count / totalProducts) * 100 : 0;
@@ -274,7 +272,6 @@ export default function Categories() {
                 onClose={closeForm}
                 busy={saving}
                 icon={isEditing ? "edit" : "categories"}
-                eyebrow="Category details"
                 title={isEditing ? `Edit “${editing.name}”` : "Add a new category"}
                 description={isEditing ? "Rename or describe this category." : "Categories help you organize and filter products."}
                 footer={

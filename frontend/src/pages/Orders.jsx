@@ -67,8 +67,6 @@ const newLine = () => {
   return { key: lineCounter, product_id: "", quantity: "1" };
 };
 
-/* ---------- Status timeline ---------- */
-
 function StatusTimeline({ status }) {
   const cancelled = status === "Cancelled";
   const reached = cancelled ? 0 : STATUS_FLOW.indexOf(status);
@@ -106,8 +104,6 @@ function StatusTimeline({ status }) {
   );
 }
 
-/* ---------- Order drawer ---------- */
-
 function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating, canWrite, canRecordPayments, canVoidPayments, onPaymentsChanged }) {
   // `version` changes the request key so the drawer refetches after updates.
   const { data, loading, error } = useResource(orderId ? `/orders/${orderId}?v=${version}` : null);
@@ -119,9 +115,8 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
     <Drawer
       open={open}
       onClose={onClose}
-      eyebrow="Order details"
       title={orderId ? `Order #${orderId}` : ""}
-      description={order ? `Placed ${formatDate(order.created_at, true)} · ${timeAgo(order.created_at)}` : "Loading…"}
+      description={order ? `Placed ${formatDate(order.created_at, true)} · ${timeAgo(order.created_at)}` : "Loading..."}
       icon="orders"
       footer={
         order && (
@@ -245,12 +240,9 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
   );
 }
 
-/* ---------- Create order modal ---------- */
-
 function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
   const toast = useToast();
   const customersResource = useResource(open ? "/customers" : null);
-  // Every page of active products, not just the first 100.
   const productsResource = useActiveProducts(open);
   const customers = toList(customersResource.data);
   const { products } = productsResource;
@@ -260,7 +252,6 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Adopt a new prefilled customer when the modal is reopened for one.
   const [appliedInitial, setAppliedInitial] = useState(initialCustomerId);
   if (initialCustomerId && initialCustomerId !== appliedInitial) {
     setAppliedInitial(initialCustomerId);
@@ -340,9 +331,7 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
       busy={saving}
       size="xl"
       icon="orders"
-      eyebrow="New order"
       title="Create an order"
-      description="Choose a customer, add products, and review the total before confirming."
       footer={
         <>
           <Button onClick={close} disabled={saving}>
@@ -371,11 +360,11 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
             <Field label="Customer" required>
               {(id) => (
                 <select id={id} value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="app-input">
-                  <option value="">Select a customer…</option>
+                  <option value="">Select a customer...</option>
                   {customers.map((customer) => (
                     <option key={customer.id} value={customer.id}>
                       {customer.company_name}
-                      {customer.city ? ` — ${customer.city}` : ""}
+                      {customer.city ? `, ${customer.city}` : ""}
                     </option>
                   ))}
                 </select>
@@ -419,7 +408,7 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
                         aria-label={`Product for line ${index + 1}`}
                         className="app-input col-span-2 sm:col-span-1"
                       >
-                        <option value="">Select a product…</option>
+                        <option value="">Select a product...</option>
                         {products.map((option) => {
                           const taken = selectedIds.has(String(option.id)) && String(option.id) !== line.product_id;
                           const outOfStock = Number(option.stock) === 0;
@@ -471,7 +460,6 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
             </div>
           </div>
 
-          {/* Summary */}
           <aside className="h-fit rounded-xl border p-5 lg:sticky lg:top-0" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}>
             <p className="text-xs font-semibold uppercase tracking-wider app-text-muted">Order summary</p>
 
@@ -512,8 +500,6 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
   );
 }
 
-/* ---------- Page ---------- */
-
 export default function Orders() {
   const { user } = useAuth();
   const toast = useToast();
@@ -533,7 +519,6 @@ export default function Orders() {
   const [createOpen, setCreateOpen] = useState(false);
   const [drawerVersion, setDrawerVersion] = useState(0);
 
-  // Follow ?status= links from the dashboard and notifications.
   const statusParam = params.get("status");
   const [appliedStatus, setAppliedStatus] = useState(statusParam);
   if (statusParam !== appliedStatus) {
@@ -632,9 +617,7 @@ export default function Orders() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Sales"
         title="Orders"
-        description="Track every order from placement to delivery."
         actions={
           <>
             <Button icon="download" onClick={handleExport} disabled={filtered.length === 0}>
@@ -649,7 +632,7 @@ export default function Orders() {
         }
       />
 
-      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Completed revenue" value={compactMoney(revenue)} hint={periods[period.key].label} icon="revenue" tone="success" loading={loading && !data} />
         <StatCard label="Average order" value={money(average)} hint="Across completed orders" icon="orders" tone="primary" loading={loading && !data} />
         <StatCard label="Pending" value={number(counts.Pending)} hint="Awaiting review" icon="clock" tone="warning" loading={loading && !data} onClick={() => setStatus("Pending")} />
@@ -676,7 +659,7 @@ export default function Orders() {
                 setSearch(value);
                 table.setPage(1);
               }}
-              placeholder="Search order # or customer…"
+              placeholder="Search order # or customer..."
               className="sm:w-80"
             />
             <select

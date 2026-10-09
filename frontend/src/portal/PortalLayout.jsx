@@ -51,7 +51,6 @@ function CartDrawer() {
     <Drawer
       open={cart.open}
       onClose={() => !placing && cart.setOpen(false)}
-      eyebrow="Your cart"
       title={cart.lines.length ? `${cart.units} item${cart.units === 1 ? "" : "s"}` : "Your cart is empty"}
       description="Prices are confirmed when the order is placed."
       icon="orders"
@@ -159,7 +158,7 @@ function Shell() {
       >
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))" }}>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{ backgroundColor: "var(--primary)" }}>
               <Icon name="box" size={19} strokeWidth={2} />
             </div>
             <div className="hidden min-w-0 sm:block">
@@ -254,7 +253,6 @@ function Shell() {
           </div>
         </div>
 
-        {/* Mobile navigation */}
         <nav className="flex gap-1 overflow-x-auto border-t px-3 py-2 md:hidden" style={{ borderColor: "var(--border-color)" }} aria-label="Portal navigation">
           {links.map((link) => (
             <NavLink

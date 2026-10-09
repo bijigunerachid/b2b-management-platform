@@ -151,7 +151,7 @@ const createDraftsFromSuggestions = withTransaction(async (connection, req) => {
     );
 
     if (groups.length === 0) {
-        throw new HttpError(409, "There is nothing to reorder from the selected suppliers.");
+        throw new HttpError(409, "Nothing to reorder for the selected suppliers.");
     }
 
     const created = [];

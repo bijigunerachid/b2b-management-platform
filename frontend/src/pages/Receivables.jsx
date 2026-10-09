@@ -27,8 +27,6 @@ import { can, compactMoney, exportCsv, formatDate, initials, money, number, useR
 import { AGEING_BUCKETS, paymentBadge } from "../lib/billing";
 import useTable from "../lib/useTable";
 
-// Ordinal severity → one hue getting stronger, plus a distinct color for
-// "not yet due". Every bar is also labeled, so color is never the only cue.
 const bucketColor = {
   current: "var(--primary)",
   "1-30": "color-mix(in srgb, var(--danger) 45%, var(--surface))",
@@ -52,7 +50,7 @@ function AgeingChart({ buckets, outstanding, selected, onSelect }) {
     <Card className="flex flex-col">
       <CardHeader
         title="Receivables ageing"
-        description="Balance owed, by how late it is. Click a bar to filter the invoices below."
+        description="Click a bar to filter the list below"
       />
       <div className="flex-1 space-y-3 p-5">
         {AGEING_BUCKETS.map(({ key, label }) => {
@@ -93,9 +91,9 @@ function AgeingChart({ buckets, outstanding, selected, onSelect }) {
 function TopDebtors({ debtors }) {
   return (
     <Card>
-      <CardHeader title="Top debtors" description="Customers with the largest open balance" />
+      <CardHeader title="Top debtors" />
       {debtors.length === 0 ? (
-        <EmptyState icon="checkCircle" title="Nobody owes you money" description="Every invoice is settled." />
+        <EmptyState icon="checkCircle" title="Nobody owes you money" />
       ) : (
         <ol className="divide-y" style={{ borderColor: "var(--border-color)" }}>
           {debtors.slice(0, 6).map((debtor) => (
@@ -196,9 +194,7 @@ export default function Receivables() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Sales"
         title="Receivables"
-        description="Money customers owe you, how late it is, and who to follow up with."
         actions={
           <>
             <Button icon="download" onClick={handleExport} disabled={filtered.length === 0}>
@@ -211,7 +207,7 @@ export default function Receivables() {
 
       {error && <ErrorState message={`${error} Showing the last loaded data.`} onRetry={reload} />}
 
-      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Outstanding" value={compactMoney(report.outstanding)} hint={`${number(invoices.length)} open invoices incl. VAT`} icon="wallet" tone="primary" />
         <StatCard
           label="Overdue"
@@ -254,7 +250,7 @@ export default function Receivables() {
               setSearch(value);
               table.setPage(1);
             }}
-            placeholder="Search order # or customer…"
+            placeholder="Search order # or customer..."
             className="sm:w-80"
           />
         </div>
@@ -265,7 +261,7 @@ export default function Receivables() {
           <EmptyState
             icon={invoices.length ? "search" : "checkCircle"}
             title={invoices.length ? "No invoices match" : "All invoices are paid"}
-            description={invoices.length ? "Try another age bucket or search." : "There is nothing left to collect."}
+            description={invoices.length ? "Try another age bucket or search." : "No open balances."}
           />
         ) : (
           <div className="overflow-x-auto">

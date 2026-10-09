@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "./ui/Icon";
 import { Popover, toneStyle } from "./ui/primitives";
-import { money, timeAgo, useResource } from "../lib/api";
+import { formatDate, money, timeAgo, useResource } from "../lib/api";
 
 const SEEN_KEY = "b2b-seen-notifications";
 
@@ -26,7 +26,7 @@ function buildNotifications(stats) {
       tone: out ? "danger" : "warning",
       icon: out ? "ban" : "alert",
       title: out ? `${product.name} is out of stock` : `${product.name} is running low`,
-      body: out ? "Restock to accept new orders." : `Only ${product.stock} units left.`,
+      body: out ? "Out of stock" : `Only ${product.stock} units left.`,
       to: "/inventory",
     });
   }
@@ -51,7 +51,7 @@ function buildNotifications(stats) {
       tone: "warning",
       icon: "fileText",
       title: `Quote for ${quote.company_name} ${days === 0 ? "expires today" : `expires in ${days} day${days === 1 ? "" : "s"}`}`,
-      body: "Follow up before the offer lapses.",
+      body: `Valid until ${formatDate(`${quote.valid_until}T00:00:00`)}`,
       to: `/quotes?view=${quote.id}`,
     });
   }
@@ -63,7 +63,7 @@ function buildNotifications(stats) {
       tone: "danger",
       icon: "truck",
       title: `${lateDeliveries} supplier deliver${lateDeliveries === 1 ? "y is" : "ies are"} overdue`,
-      body: "Follow up with the supplier before you run out.",
+      body: "Past the expected delivery date",
       to: "/purchase-orders?status=late",
     });
   }
@@ -87,7 +87,7 @@ function buildNotifications(stats) {
       tone: "primary",
       icon: "clock",
       title: `${pending} order${pending === 1 ? "" : "s"} awaiting processing`,
-      body: "Review and move them forward.",
+      body: "Waiting to be processed",
       to: "/orders?status=Pending",
     });
   }
@@ -155,7 +155,7 @@ export default function NotificationsMenu() {
           <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
             <div>
               <p className="text-sm font-bold app-text">Notifications</p>
-              <p className="text-xs app-text-muted">{unread ? `${unread} unread` : "You're all caught up"}</p>
+              <p className="text-xs app-text-muted">{unread ? `${unread} unread` : "No unread notifications"}</p>
             </div>
             {unread > 0 && (
               <button type="button" onClick={markAllSeen} className="text-xs font-semibold hover:underline" style={{ color: "var(--primary)" }}>
@@ -182,8 +182,8 @@ export default function NotificationsMenu() {
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl" style={toneStyle("success")}>
                   <Icon name="checkCircle" size={22} />
                 </div>
-                <p className="text-sm font-semibold app-text">Nothing needs your attention</p>
-                <p className="mt-1 text-xs app-text-secondary">Stock levels and orders look healthy.</p>
+                <p className="text-sm font-semibold app-text">No notifications</p>
+                <p className="mt-1 text-xs app-text-secondary">Low stock, overdue invoices and pending orders show up here.</p>
               </div>
             ) : (
               notifications.map((item) => {

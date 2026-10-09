@@ -14,8 +14,6 @@ const methodIcons = {
   Card: "lock",
 };
 
-/* ---------- Record payment ---------- */
-
 export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }) {
   const toast = useToast();
   const [form, setForm] = useState({ amount: "", method: "Bank transfer", paid_at: localDateInput(), reference: "", note: "" });
@@ -168,7 +166,7 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
             </Field>
           </div>
 
-          <Field label="Reference" hint="Transfer reference, cheque number…">
+          <Field label="Reference" hint="Transfer reference, cheque number...">
             {(id) => <input id={id} value={form.reference} onChange={update("reference")} maxLength={100} placeholder="e.g. VIR-20261009-4821" className="app-input" />}
           </Field>
           <Field label="Note">
@@ -179,8 +177,6 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
     </Modal>
   );
 }
-
-/* ---------- Void payment ---------- */
 
 function VoidPaymentModal({ payment, onClose, onVoided }) {
   const toast = useToast();
@@ -246,7 +242,7 @@ function VoidPaymentModal({ payment, onClose, onVoided }) {
               onChange={(event) => setReason(event.target.value)}
               rows={3}
               maxLength={255}
-              placeholder="e.g. Recorded twice, cheque bounced…"
+              placeholder="e.g. Recorded twice, cheque bounced..."
               className="app-input resize-none"
             />
           )}
@@ -256,12 +252,6 @@ function VoidPaymentModal({ payment, onClose, onVoided }) {
   );
 }
 
-/* ---------- Panel ---------- */
-
-/**
- * Billing summary, payment history, and payment actions for one order.
- * `version` changes force a reload; `onChanged` lets the parent refresh lists.
- */
 export default function PaymentPanel({ order, version = 0, canRecord, canVoid, onChanged }) {
   const [localVersion, setLocalVersion] = useState(0);
   const { data, loading, error } = useResource(order ? `/orders/${order.id}/payments?v=${version}-${localVersion}` : null);

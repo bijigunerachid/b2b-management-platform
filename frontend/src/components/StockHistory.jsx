@@ -8,8 +8,6 @@ import { Field, InlineAlert, SegmentedControl, toneStyle } from "./ui/primitives
 import { api, formatDate, number, timeAgo, useResource } from "../lib/api";
 import { ADJUSTMENT_REASONS, MOVEMENT_TYPES } from "../lib/purchasing";
 
-/* ---------- Stock adjustment ---------- */
-
 export function StockAdjustModal({ product, onClose, onAdjusted }) {
   const toast = useToast();
   const [direction, setDirection] = useState("remove");
@@ -62,7 +60,6 @@ export function StockAdjustModal({ product, onClose, onAdjusted }) {
       busy={saving}
       size="sm"
       icon="edit"
-      eyebrow="Stock adjustment"
       title={product?.name ?? ""}
       description={`Currently ${number(stock)} in stock. Every change is recorded with its reason.`}
       footer={
@@ -118,8 +115,6 @@ export function StockAdjustModal({ product, onClose, onAdjusted }) {
   );
 }
 
-/* ---------- Movement list ---------- */
-
 export function MovementRow({ movement, showProduct = true }) {
   const meta = MOVEMENT_TYPES[movement.type] ?? MOVEMENT_TYPES.adjustment;
   const positive = movement.quantity > 0;
@@ -169,8 +164,6 @@ export function MovementRow({ movement, showProduct = true }) {
   );
 }
 
-/* ---------- Product stock drawer ---------- */
-
 export function StockHistoryDrawer({ product, onClose, canAdjust, onChanged }) {
   const [version, setVersion] = useState(0);
   const [adjusting, setAdjusting] = useState(null);
@@ -183,7 +176,6 @@ export function StockHistoryDrawer({ product, onClose, canAdjust, onChanged }) {
       <Drawer
         open={Boolean(product)}
         onClose={onClose}
-        eyebrow="Stock history"
         title={product?.name ?? ""}
         description={product ? `${number(current)} in stock · reorder at ${number(product.reorder_point ?? 5)}${Number(product.on_order) > 0 ? ` · ${number(product.on_order)} on order` : ""}` : ""}
         icon="box"

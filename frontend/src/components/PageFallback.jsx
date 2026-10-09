@@ -1,6 +1,5 @@
 import { Spinner } from "./ui/Button";
 
-/** Shown while a lazily loaded page downloads. */
 export function PageFallback({ fullScreen = false }) {
   if (fullScreen) {
     return (

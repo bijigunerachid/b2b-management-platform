@@ -28,29 +28,19 @@ export default function PortalHome() {
 
   return (
     <div className="space-y-6">
-      <section
-        className="relative overflow-hidden rounded-2xl p-6 text-white sm:p-8"
-        style={{ background: "linear-gradient(120deg, #1e40af 0%, #2563eb 55%, #7c3aed 100%)" }}
-      >
-        <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-white/75">{summary.customer.company_name}</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Welcome back, {user?.first_name}</h1>
-            <p className="mt-2 max-w-xl text-sm text-white/80">
-              {summary.quotes_awaiting > 0
-                ? `You have ${summary.quotes_awaiting} quote${summary.quotes_awaiting === 1 ? "" : "s"} waiting for your answer.`
-                : "Browse the catalog, follow your orders, and download your invoices."}
-            </p>
-          </div>
-          <Link
-            to="/portal/catalog"
-            className="inline-flex h-11 items-center gap-2 self-start rounded-xl bg-white px-5 text-sm font-semibold text-blue-700 shadow-sm transition hover:-translate-y-0.5 sm:self-auto"
-          >
-            <Icon name="products" size={17} /> Place an order
-          </Link>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight app-text">{summary.customer.company_name}</h1>
+          <p className="mt-1 text-sm app-text-secondary">Signed in as {user?.first_name} {user?.last_name}</p>
         </div>
-      </section>
+        <Link
+          to="/portal/catalog"
+          className="inline-flex h-10 items-center gap-2 self-start rounded-lg px-4 text-sm font-semibold sm:self-auto"
+          style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
+        >
+          <Icon name="products" size={17} /> Place an order
+        </Link>
+      </div>
 
       {summary.overdue > 0 && (
         <div
@@ -67,11 +57,11 @@ export default function PortalHome() {
         </div>
       )}
 
-      <div className="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Open balance" value={compactMoney(summary.balance)} hint="Incl. VAT, across open invoices" icon="wallet" tone="primary" />
-        <StatCard label="Past due" value={compactMoney(summary.overdue)} hint={summary.overdue ? `${summary.overdue_count} invoice${summary.overdue_count === 1 ? "" : "s"}` : "Nothing overdue. Thank you!"} icon="alert" tone={summary.overdue ? "danger" : "success"} />
-        <StatCard label="Orders in progress" value={number(summary.orders_in_progress)} hint="Pending or being prepared" icon="truck" tone="info" />
-        <StatCard label="Quotes to review" value={number(summary.quotes_awaiting)} hint="Waiting for your answer" icon="fileText" tone="warning" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Open balance" value={compactMoney(summary.balance)} hint="Including VAT" icon="wallet" tone="primary" />
+        <StatCard label="Past due" value={compactMoney(summary.overdue)} hint={summary.overdue ? `${summary.overdue_count} invoice${summary.overdue_count === 1 ? "" : "s"}` : "Nothing overdue"} icon="alert" tone={summary.overdue ? "danger" : "success"} />
+        <StatCard label="Orders in progress" value={number(summary.orders_in_progress)} hint="Pending or processing" icon="truck" tone="info" />
+        <StatCard label="Quotes to review" value={number(summary.quotes_awaiting)} hint="Waiting for your reply" icon="fileText" tone="warning" />
       </div>
 
       <Card>
@@ -84,7 +74,7 @@ export default function PortalHome() {
           }
         />
         {summary.recent_orders.length === 0 ? (
-          <EmptyState icon="orders" title="No orders yet" description="Your orders will appear here." />
+          <EmptyState icon="orders" title="No orders yet" />
         ) : (
           <ul>
             {summary.recent_orders.map((order) => {

@@ -87,9 +87,7 @@ export default function PortalCatalog() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Catalog"
         title="Order products"
-        description="Prices exclude VAT. Add products to your cart, then place your order."
         actions={
           <Button variant="primary" icon="orders" onClick={() => cart.setOpen(true)}>
             Cart {cart.units > 0 ? `(${cart.units})` : ""}
@@ -104,7 +102,7 @@ export default function PortalCatalog() {
             setSearch(value);
             setPage(1);
           }}
-          placeholder="Search products…"
+          placeholder="Search products..."
           className="sm:w-96"
         />
         <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Categories">

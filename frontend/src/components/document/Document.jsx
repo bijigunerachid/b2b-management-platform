@@ -1,6 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-// Shared building blocks for printable business documents (invoices,
-// quotes). The sheet is paper: fixed light colors regardless of app theme.
+// Printed documents always use light colors, even in dark mode.
 
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -66,7 +65,6 @@ export function CustomerBlock({ title, customer, fallbackName }) {
   );
 }
 
-/** rows: [label, value, { danger }?] */
 export function DetailsBlock({ rows }) {
   return (
     <PartyBlock title="Details">
@@ -84,7 +82,6 @@ export function DetailsBlock({ rows }) {
   );
 }
 
-/** A4 sheet with optional diagonal watermark (e.g. VOID). */
 export function Sheet({ label, watermark, children }) {
   return (
     <article
@@ -110,7 +107,7 @@ export function DocumentHeader({ title, number, stamp }) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-6 border-b pb-7" style={{ borderColor: paper.rule }}>
       <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl text-white" style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)" }}>
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl text-white" style={{ backgroundColor: "#2563eb" }}>
           <Icon name="box" size={24} strokeWidth={2} />
         </div>
         <div>
@@ -141,10 +138,6 @@ export function DocumentHeader({ title, number, stamp }) {
 
 const th = "px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.12em]";
 
-/**
- * lines: { productId, description, quantity, unitPrice, amount, listPrice? }.
- * When `showDiscount` is set, a column shows the discount vs list price.
- */
 export function LineTable({ lines, showDiscount = false }) {
   return (
     <table className="w-full border-collapse text-[12.5px]">
@@ -205,7 +198,6 @@ export function LineTable({ lines, showDiscount = false }) {
   );
 }
 
-/** Subtotal, VAT, and highlighted total; `after` renders extra rows below. */
 export function TotalsBlock({ subtotal, vatRate, vat, total, before, after }) {
   return (
     <dl className="w-full max-w-[280px] text-[13px]">
@@ -242,10 +234,7 @@ export function LegalFooter() {
   );
 }
 
-/**
- * Full-page shell: toolbar with back link and print button (hidden when
- * printing), plus loading/error states. `title` becomes the PDF file name.
- */
+// document.title becomes the default file name when saving as PDF.
 export function DocumentPage({ backTo, backLabel, number, title, invalid, error, onRetry, ready, children }) {
   useEffect(() => {
     if (!title) return undefined;

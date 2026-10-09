@@ -1,6 +1,3 @@
-// Printable invoice and quote for portal clients: the same documents staff
-// print, loaded through the client-scoped portal API.
-
 import { useParams } from "react-router-dom";
 import { DocumentPage } from "../../components/document/Document";
 import { InvoiceSheet } from "../../pages/Invoice";

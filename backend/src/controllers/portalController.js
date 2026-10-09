@@ -328,13 +328,13 @@ function decide(decision) {
         const action = decision === "Accepted" ? "accept" : "reject";
         if (!canPerform(quote, action)) {
             const status = effectiveStatus(quote);
-            throw new HttpError(409, status === "Expired" ? "This quote has expired. Ask us for an updated offer." : `This quote is already ${status.toLowerCase()}.`);
+            throw new HttpError(409, status === "Expired" ? "This quote has expired. Contact us for a new one." : `This quote is already ${status.toLowerCase()}.`);
         }
 
         await connection.query("UPDATE quotes SET status = ?, decided_at = NOW() WHERE id = ?", [decision, quote.id]);
         return {
             body: {
-                message: decision === "Accepted" ? "Thank you! We'll confirm your order shortly." : "We've recorded that you declined this quote."
+                message: decision === "Accepted" ? "Quote accepted. We'll turn it into an order." : "Quote declined."
             }
         };
     }, "Your answer could not be recorded.");

@@ -6,12 +6,6 @@ import Icon from "../components/ui/Icon";
 import Button from "../components/ui/Button";
 import { InlineAlert } from "../components/ui/primitives";
 
-const highlights = [
-    { icon: "customers", title: "Customer directory", text: "Every account, contact, and order history in one place." },
-    { icon: "products", title: "Live inventory", text: "Stock alerts before you run out, not after." },
-    { icon: "revenue", title: "Revenue insights", text: "Track monthly performance and top-selling products." },
-];
-
 export default function Login() {
     const { user, login } = useAuth();
     const navigate = useNavigate();
@@ -24,7 +18,6 @@ export default function Login() {
     const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
-    // Portal clients and staff each land in their own area.
     const from = location.state?.from;
     const homeFor = (account) => {
         const isClient = account?.role === "Customer";
@@ -59,62 +52,18 @@ export default function Login() {
 
     return (
         <main className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]" style={{ backgroundColor: "var(--app-bg)" }}>
-            {/* Brand panel */}
-            <section
-                className="relative hidden overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between"
-                style={{ background: "linear-gradient(145deg, #1e3a8a 0%, #2563eb 48%, #7c3aed 100%)" }}
-            >
-                <div
-                    className="pointer-events-none absolute inset-0 opacity-[0.12]"
-                    style={{
-                        backgroundImage:
-                            "linear-gradient(rgb(255 255 255) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255) 1px, transparent 1px)",
-                        backgroundSize: "44px 44px",
-                        maskImage: "radial-gradient(ellipse at 30% 40%, black 20%, transparent 75%)",
-                    }}
-                />
-                <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-                <div className="pointer-events-none absolute -bottom-32 left-10 h-80 w-80 rounded-full bg-fuchsia-400/20 blur-3xl" />
-
-                <div className="relative flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/25 backdrop-blur">
-                        <Icon name="box" size={22} strokeWidth={2} />
+            <section className="hidden flex-col justify-between p-12 text-white lg:flex" style={{ backgroundColor: "#1e3a8a" }}>
+                <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/15">
+                        <Icon name="box" size={20} strokeWidth={2} />
                     </div>
-                    <div>
-                        <p className="font-bold">B2B Platform</p>
-                        <p className="text-xs text-white/70">Business Management</p>
-                    </div>
+                    <p className="font-semibold">B2B Platform</p>
                 </div>
-
-                <div className="relative max-w-lg">
-                    <h2 className="text-4xl font-bold leading-tight tracking-tight xl:text-5xl">
-                        Run your wholesale business from one workspace.
-                    </h2>
-                    <p className="mt-4 text-base leading-7 text-white/75">
-                        Customers, catalog, orders, and your team — organized, secure, and always up to date.
-                    </p>
-
-                    <div className="stagger mt-10 space-y-3">
-                        {highlights.map((item) => (
-                            <div
-                                key={item.title}
-                                className="flex items-start gap-4 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-sm"
-                            >
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
-                                    <Icon name={item.icon} size={19} />
-                                </div>
-                                <div>
-                                    <p className="font-semibold">{item.title}</p>
-                                    <p className="mt-0.5 text-sm text-white/70">{item.text}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                <div className="max-w-md">
+                    <p className="text-2xl font-semibold leading-snug">Quotes, orders, invoices and stock for your wholesale business.</p>
+                    <p className="mt-3 text-sm text-white/70">Clients can sign in here too, to order and see their invoices.</p>
                 </div>
-
-                <p className="relative text-xs text-white/60">
-                    © {new Date().getFullYear()} B2B Management Platform
-                </p>
+                <p className="text-xs text-white/50">© {new Date().getFullYear()} B2B Platform</p>
             </section>
 
             {/* Sign-in form */}
@@ -125,15 +74,15 @@ export default function Login() {
                     <div className="mb-8 flex items-center gap-3 lg:hidden">
                         <div
                             className="flex h-11 w-11 items-center justify-center rounded-xl text-white"
-                            style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))" }}
+                            style={{ backgroundColor: "var(--primary)" }}
                         >
                             <Icon name="box" size={22} strokeWidth={2} />
                         </div>
                         <p className="text-lg font-bold app-text">B2B Platform</p>
                     </div>
 
-                    <h1 className="text-3xl font-bold tracking-tight app-text">Welcome back</h1>
-                    <p className="mt-2 text-sm app-text-secondary">Sign in to your account to continue.</p>
+                    <h1 className="text-2xl font-bold tracking-tight app-text">Sign in</h1>
+                    <p className="mt-1 text-sm app-text-secondary">Use the email address your account was created with.</p>
 
                     <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate={false}>
                         <InlineAlert>{error}</InlineAlert>
@@ -195,17 +144,11 @@ export default function Login() {
                         </div>
 
                         <Button type="submit" variant="primary" size="lg" loading={submitting} iconRight="arrowRight" className="w-full">
-                            {submitting ? "Signing in…" : "Sign in"}
+                            {submitting ? "Signing in..." : "Sign in"}
                         </Button>
                     </form>
 
-                    <div
-                        className="mt-8 flex items-center gap-3 rounded-xl border p-3.5 text-xs app-text-secondary"
-                        style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface)" }}
-                    >
-                        <Icon name="users" size={18} style={{ color: "var(--success)" }} />
-                        Secure session with an HttpOnly cookie. Access is limited to authorized team members.
-                    </div>
+                    <p className="mt-6 text-xs app-text-muted">Forgot your password? Ask your administrator to reset it.</p>
                 </div>
             </section>
         </main>

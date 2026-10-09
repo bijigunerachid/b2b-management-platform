@@ -212,9 +212,7 @@ export default function Users() {
     return (
         <div className="space-y-6">
             <PageHeader
-                eyebrow="Administration"
                 title="Users & access"
-                description="Manage team accounts, roles, and who can sign in."
                 actions={
                     <Button variant="primary" icon="userPlus" onClick={openCreate}>
                         Invite user
@@ -222,7 +220,7 @@ export default function Users() {
                 }
             />
 
-            <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCard label="Team members" value={number(users.length)} hint={`${number(activeCount)} active`} icon="customers" loading={loading && !data} />
                 {ROLES.map((role) => (
                     <StatCard
@@ -248,7 +246,7 @@ export default function Users() {
                             setSearch(value);
                             table.setPage(1);
                         }}
-                        placeholder="Search name or email…"
+                        placeholder="Search name or email..."
                         className="lg:w-80"
                     />
                     <SegmentedControl
@@ -360,7 +358,6 @@ export default function Users() {
                 busy={saving}
                 size="lg"
                 icon={isEditing ? "edit" : "userPlus"}
-                eyebrow="Account"
                 title={isEditing ? `Edit ${editing.first_name} ${editing.last_name}` : "Invite a team member"}
                 description={isEditing ? "Update details, role, or reset the password." : "Create an account and choose what they can access."}
                 footer={

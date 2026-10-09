@@ -58,7 +58,7 @@ function Logo({ compact }) {
     <Link to="/" className="flex items-center gap-3 outline-none">
       <div
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-md"
-        style={{ background: "linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)" }}
+        style={{ backgroundColor: "var(--primary)" }}
       >
         <Icon name="box" size={21} strokeWidth={2} />
       </div>
@@ -227,7 +227,6 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--app-bg)" }}>
-      {/* Desktop sidebar */}
       <aside
         className="fixed inset-y-0 left-0 z-40 hidden border-r transition-[width] duration-200 lg:block"
         style={{
@@ -254,7 +253,6 @@ export default function Layout() {
         </button>
       </aside>
 
-      {/* Mobile sidebar */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
@@ -286,7 +284,6 @@ export default function Layout() {
         </div>
       )}
 
-      {/* Main column */}
       <div
         className={`flex min-h-screen min-w-0 flex-col transition-[padding] duration-200 ${
           collapsed ? "lg:pl-20" : "lg:pl-[var(--sidebar-width)]"
@@ -323,7 +320,7 @@ export default function Layout() {
               aria-label="Open command palette"
             >
               <Icon name="search" size={17} />
-              <span className="hidden flex-1 text-left md:block">Search anything…</span>
+              <span className="hidden flex-1 text-left md:block">Search anything...</span>
               <span className="hidden items-center gap-0.5 md:flex">
                 <span className="kbd">{isMac ? "⌘" : "Ctrl"}</span>
                 <span className="kbd">K</span>

@@ -31,7 +31,6 @@ function ReorderSuggestions({ canWrite, onCreated }) {
   const groups = data?.data ?? [];
   const orderable = groups.filter((group) => group.supplier_id);
 
-  // Every supplier group starts selected; unticking excludes it.
   const [excluded, setExcluded] = useState(() => new Set());
   const [creating, setCreating] = useState(false);
   const selected = orderable.filter((group) => !excluded.has(group.supplier_id));
@@ -84,7 +83,7 @@ function ReorderSuggestions({ canWrite, onCreated }) {
             {productCount > 0 && <Badge tone="warning">{productCount}</Badge>}
           </>
         }
-        description="Products at or below their reorder point, counting stock already on order. Quantities top up to 3× the reorder point."
+        description="At or below the reorder point, counting what's already on order"
         actions={
           canWrite &&
           orderable.length > 0 && (
@@ -106,7 +105,7 @@ function ReorderSuggestions({ canWrite, onCreated }) {
           ))}
         </div>
       ) : groups.length === 0 ? (
-        <EmptyState icon="checkCircle" title="Nothing to reorder" description="Every product is above its reorder point, or already on order." />
+        <EmptyState icon="checkCircle" title="Nothing to reorder" />
       ) : (
         <div className="space-y-4 p-4">
           {groups.map((group) => {
@@ -185,7 +184,7 @@ function MovementsLedger({ version }) {
 
   return (
     <Card>
-      <CardHeader title="Stock ledger" description="Every change to stock, newest first. Stock only changes through these entries." />
+      <CardHeader title="Stock ledger" description="Newest first" />
       <div className="border-b p-4" style={{ borderColor: "var(--border-color)" }}>
         <SegmentedControl
           label="Filter by movement type"
@@ -236,9 +235,7 @@ export default function Inventory() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Inventory"
         title="Stock"
-        description="What's in stock, what needs reordering, and every movement that changed it."
         actions={
           <>
             <Link
@@ -255,7 +252,7 @@ export default function Inventory() {
 
       {error && <ErrorState message={error} onRetry={reload} />}
 
-      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Units in stock" value={number(summary?.units)} hint={`${compactMoney(summary?.retail_value)} at selling price`} icon="box" loading={!summary} />
         <StatCard label="Below reorder point" value={number(summary?.below_reorder)} hint={`${number(summary?.out_of_stock)} completely out of stock`} icon="alert" tone="warning" loading={!summary} />
         <StatCard label="On order" value={number(summary?.units_on_order)} hint={`${number(summary?.open_orders)} open purchase orders`} icon="truck" tone="info" loading={!summary} />

@@ -3,23 +3,12 @@ import { useEffect, useId, useRef, useState } from "react";
 import Icon from "./Icon";
 import Button from "./Button";
 
-/* ---------- Layout ---------- */
-
-export function PageHeader({ eyebrow, title, description, actions }) {
+export function PageHeader({ title, description, actions }) {
   return (
-    <div className="flex flex-col gap-4 animate-rise lg:flex-row lg:items-end lg:justify-between">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
-        {eyebrow && (
-          <p
-            className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em]"
-            style={{ color: "var(--primary)" }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--primary)" }} />
-            {eyebrow}
-          </p>
-        )}
-        <h1 className="text-2xl font-bold tracking-tight app-text sm:text-[28px]">{title}</h1>
-        {description && <p className="mt-1.5 max-w-2xl text-sm app-text-secondary">{description}</p>}
+        <h1 className="text-2xl font-bold tracking-tight app-text">{title}</h1>
+        {description && <p className="mt-1 max-w-2xl text-sm app-text-secondary">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -50,8 +39,6 @@ export function CardHeader({ title, description, actions, children }) {
   );
 }
 
-/* ---------- Data display ---------- */
-
 const tones = {
   primary: ["var(--primary-soft)", "var(--primary)"],
   success: ["var(--success-soft)", "var(--success)"],
@@ -73,15 +60,9 @@ export function StatCard({ label, value, hint, icon, tone = "primary", loading =
     <Component
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      className={`app-surface group relative w-full overflow-hidden p-5 text-left transition duration-200 ${
-        onClick ? "hover:-translate-y-0.5 hover:border-[var(--border-strong)]" : ""
-      }`}
+      className={`app-surface w-full p-5 text-left transition-colors ${onClick ? "hover:border-[var(--border-strong)]" : ""}`}
     >
-      <div
-        className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-60 blur-2xl transition-opacity group-hover:opacity-100"
-        style={{ backgroundColor: tones[tone]?.[0] }}
-      />
-      <div className="relative flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium app-text-secondary">{label}</p>
           {loading ? (
@@ -90,11 +71,11 @@ export function StatCard({ label, value, hint, icon, tone = "primary", loading =
             <p className="mt-2 break-words text-2xl font-bold leading-tight tracking-tight tabular-nums app-text">{value}</p>
           )}
         </div>
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={toneStyle(tone)}>
-          <Icon name={icon} size={21} />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={toneStyle(tone)}>
+          <Icon name={icon} size={18} />
         </div>
       </div>
-      {hint && <p className="relative mt-3 text-xs app-text-secondary">{hint}</p>}
+      {hint && <p className="mt-3 text-xs app-text-secondary">{hint}</p>}
     </Component>
   );
 }
@@ -144,23 +125,15 @@ export function DetailItem({ icon, label, children }) {
   );
 }
 
-/* ---------- Feedback states ---------- */
-
 export function EmptyState({ icon = "search", title, description, action }) {
   return (
-    <div className="flex flex-col items-center px-6 py-14 text-center animate-fade-in">
-      <div className="relative mb-5">
-        <div className="absolute inset-0 scale-150 rounded-full opacity-50 blur-xl" style={{ backgroundColor: "var(--primary-soft)" }} />
-        <div
-          className="relative flex h-16 w-16 items-center justify-center rounded-2xl border"
-          style={{ ...toneStyle("primary"), borderColor: "var(--border-color)" }}
-        >
-          <Icon name={icon} size={28} strokeWidth={1.6} />
-        </div>
+    <div className="flex flex-col items-center px-6 py-12 text-center">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl app-muted app-text-secondary">
+        <Icon name={icon} size={22} />
       </div>
-      <h3 className="text-base font-semibold app-text">{title}</h3>
-      {description && <p className="mt-1.5 max-w-sm text-sm app-text-secondary">{description}</p>}
-      {action && <div className="mt-5">{action}</div>}
+      <h3 className="text-sm font-semibold app-text">{title}</h3>
+      {description && <p className="mt-1 max-w-sm text-sm app-text-secondary">{description}</p>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
@@ -218,8 +191,6 @@ export function TableSkeleton({ rows = 5, columns = 5 }) {
   );
 }
 
-/* ---------- Forms ---------- */
-
 export function Field({ label, required, hint, error, children, className = "" }) {
   const id = useId();
 
@@ -266,7 +237,6 @@ export function SearchInput({ value, onChange, placeholder = "Search...", classN
   );
 }
 
-/** Pill-style tabs used for status filters. */
 export function SegmentedControl({ options, value, onChange, label }) {
   return (
     <div role="tablist" aria-label={label} className="flex max-w-full gap-1 overflow-x-auto rounded-xl p-1 app-muted">
@@ -299,8 +269,6 @@ export function SegmentedControl({ options, value, onChange, label }) {
     </div>
   );
 }
-
-/* ---------- Tables ---------- */
 
 export function SortHeader({ label, column, sort, onSort, align = "left" }) {
   const active = sort.key === column;
@@ -353,8 +321,8 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, la
   for (let current = 1; current <= totalPages; current += 1) {
     if (current === 1 || current === totalPages || Math.abs(current - page) <= 1) {
       pages.push(current);
-    } else if (pages[pages.length - 1] !== "…") {
-      pages.push("…");
+    } else if (pages[pages.length - 1] !== "...") {
+      pages.push("...");
     }
   }
 
@@ -373,9 +341,9 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, la
         <nav className="flex items-center gap-1" aria-label="Pagination">
           <Button size="icon-sm" variant="ghost" icon="chevronLeft" aria-label="Previous page" disabled={page <= 1} onClick={() => onPageChange(page - 1)} />
           {pages.map((item, index) =>
-            item === "…" ? (
+            item === "..." ? (
               <span key={`gap-${index}`} className="px-1 text-sm app-text-muted">
-                …
+                ...
               </span>
             ) : (
               <button
@@ -399,7 +367,6 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, la
   );
 }
 
-/** Small icon button with an accessible label and native tooltip. */
 export function IconAction({ icon, label, tone, onClick, disabled }) {
   return (
     <button
@@ -419,12 +386,6 @@ export function IconAction({ icon, label, tone, onClick, disabled }) {
   );
 }
 
-/* ---------- Popover ---------- */
-
-/**
- * Click-to-open floating panel anchored to its trigger. Closes on outside
- * click and Escape. `trigger` receives ({ open, toggle, props }).
- */
 export function Popover({ trigger, children, align = "right", width = 320, label }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
@@ -484,8 +445,6 @@ export function Popover({ trigger, children, align = "right", width = 320, label
     </div>
   );
 }
-
-/* ---------- Switch ---------- */
 
 export function Switch({ checked, onChange, label, disabled, size = "md" }) {
   const small = size === "sm";

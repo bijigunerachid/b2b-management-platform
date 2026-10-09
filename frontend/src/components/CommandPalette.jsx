@@ -5,10 +5,6 @@ import Icon from "./ui/Icon";
 import { api, can, money, toList } from "../lib/api";
 import { useTheme } from "../context/ThemeContext";
 
-/**
- * Global ⌘K / Ctrl+K launcher: navigation, quick actions, and live record
- * search across customers, products, and orders.
- */
 export default function CommandPalette({ open, onClose, user, links, onLogout }) {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -18,7 +14,6 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
-  // Load searchable records the first time the palette opens.
   useEffect(() => {
     if (!open || records) return undefined;
 
@@ -247,7 +242,7 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
               setQuery(event.target.value);
               setActive(0);
             }}
-            placeholder="Search pages, actions, customers, orders…"
+            placeholder="Search pages, actions, customers, orders..."
             aria-label="Search commands"
             role="combobox"
             aria-expanded="true"
@@ -263,7 +258,7 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
             <div className="px-4 py-10 text-center">
               <p className="text-sm font-medium app-text">No results for “{query}”</p>
               <p className="mt-1 text-xs app-text-secondary">
-                {records ? "Try a company name, product, or order number." : "Loading records…"}
+                {records ? "Try a company name, product, or order number." : "Loading records..."}
               </p>
             </div>
           ) : (

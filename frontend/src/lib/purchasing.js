@@ -1,5 +1,3 @@
-// Display rules for purchasing and the stock ledger. Statuses, "late",
-// and allowed actions come from the API.
 
 export const PO_STATUS = {
   Draft: { tone: "neutral", icon: "edit", description: "Being prepared" },
@@ -29,7 +27,6 @@ export const ADJUSTMENT_REASONS = [
   "Other",
 ];
 
-/** Cost to prefill when nothing better is known (the API suggests real ones). */
 export function estimatedCost(price) {
   return Math.round(Number(price) * 0.6 * 100) / 100;
 }

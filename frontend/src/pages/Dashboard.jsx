@@ -15,14 +15,7 @@ import {
 import { can, compactMoney, money, number, timeAgo, useResource } from "../lib/api";
 import { ORDER_STATUS } from "../lib/orderStatus";
 
-function greeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
-}
-
-/** Rounds `value` up to a 1/2/2.5/5 × 10ⁿ step so axis ticks read cleanly. */
+// Round the axis max up to 1, 2, 2.5 or 5 x 10^n so the ticks are readable.
 function niceMax(value) {
   if (value <= 0) return 1;
   const magnitude = 10 ** Math.floor(Math.log10(value));
@@ -34,8 +27,6 @@ function monthLabel(key, style = "short") {
   const [year, month] = key.split("-").map(Number);
   return new Date(year, month - 1, 1).toLocaleString("en", { month: style });
 }
-
-/* ---------- Monthly bar chart ---------- */
 
 function MonthlyChart({ months }) {
   const [measure, setMeasure] = useState("revenue");
@@ -107,7 +98,6 @@ function MonthlyChart({ months }) {
             </div>
           ))}
 
-          {/* Bars */}
           <div className="relative flex h-full items-end gap-2 sm:gap-4">
             {months.map((month, index) => {
               const value = month[measure];
@@ -205,8 +195,6 @@ function MonthlyChart({ months }) {
   );
 }
 
-/* ---------- Order status breakdown ---------- */
-
 function StatusBreakdown({ counts }) {
   const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
 
@@ -253,16 +241,14 @@ function StatusBreakdown({ counts }) {
   );
 }
 
-/* ---------- Top products ---------- */
-
 function TopProducts({ products }) {
   const max = Math.max(...products.map((product) => product.quantity), 1);
 
   return (
     <Card>
-      <CardHeader title="Top products" description="By units sold, excluding cancelled orders" />
+      <CardHeader title="Top products" description="By units sold" />
       {products.length === 0 ? (
-        <EmptyState icon="products" title="No sales yet" description="Best sellers will appear once orders come in." />
+        <EmptyState icon="products" title="No sales yet" />
       ) : (
         <ol className="space-y-4 p-5">
           {products.map((product, index) => (
@@ -289,8 +275,6 @@ function TopProducts({ products }) {
     </Card>
   );
 }
-
-/* ---------- Page ---------- */
 
 function DashboardSkeleton() {
   return (
@@ -335,72 +319,29 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
-      <section
-        className="relative overflow-hidden rounded-2xl p-6 text-white sm:p-8"
-        style={{ background: "linear-gradient(120deg, #1e40af 0%, #2563eb 55%, #7c3aed 100%)" }}
-      >
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.1]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgb(255 255 255) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255) 1px, transparent 1px)",
-            backgroundSize: "36px 36px",
-            maskImage: "linear-gradient(90deg, transparent, black 70%)",
-          }}
-        />
-        <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
-
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-white/75">{today}</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-              {greeting()}, {user?.first_name || "there"} 👋
-            </h1>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-white/80">
-              {pending > 0
-                ? `You have ${pending} pending order${pending === 1 ? "" : "s"} and ${lowStock.length} low-stock alert${lowStock.length === 1 ? "" : "s"} to review.`
-                : "Everything is on track. Here's how your business is performing."}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {can(user, "orders.write") && (
-              <button
-                type="button"
-                onClick={() => navigate("/orders?new=1")}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-blue-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <Icon name="plus" size={17} /> New order
-              </button>
-            )}
-            {can(user, "customers.write") && (
-              <button
-                type="button"
-                onClick={() => navigate("/customers?new=1")}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-4 text-sm font-semibold ring-1 ring-white/30 backdrop-blur transition hover:bg-white/25"
-              >
-                <Icon name="userPlus" size={17} /> Add customer
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={reload}
-              disabled={loading}
-              aria-label="Refresh dashboard"
-              title="Refresh"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/30 transition hover:bg-white/25 disabled:opacity-60"
-            >
-              <Icon name="refresh" size={17} className={loading ? "animate-spin" : ""} />
-            </button>
-          </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight app-text">Dashboard</h1>
+          <p className="mt-1 text-sm app-text-secondary">{today}</p>
         </div>
-      </section>
+        <div className="flex flex-wrap gap-2">
+          <Button size="icon" variant="ghost" icon="refresh" onClick={reload} disabled={loading} aria-label="Refresh" title="Refresh" className={loading ? "[&_svg]:animate-spin" : ""} />
+          {can(user, "customers.write") && (
+            <Button icon="userPlus" onClick={() => navigate("/customers?new=1")}>
+              Add customer
+            </Button>
+          )}
+          {can(user, "orders.write") && (
+            <Button variant="primary" icon="plus" onClick={() => navigate("/orders?new=1")}>
+              New order
+            </Button>
+          )}
+        </div>
+      </div>
 
       {error && <ErrorState message={`${error} Showing the last loaded data.`} onRetry={reload} />}
 
-      {/* KPIs */}
-      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Revenue"
           value={compactMoney(stats.totalRevenue)}
@@ -420,7 +361,6 @@ export default function Dashboard() {
         <StatCard
           label="Customers"
           value={number(stats.totalCustomers)}
-          hint="Registered business accounts"
           icon="customers"
           tone="info"
           onClick={() => navigate("/customers")}
@@ -435,7 +375,6 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Charts */}
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <MonthlyChart months={stats.monthlyRevenue ?? []} />
@@ -443,12 +382,10 @@ export default function Dashboard() {
         <StatusBreakdown counts={counts} />
       </div>
 
-      {/* Activity */}
       <div className="grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader
             title="Recent orders"
-            description="The latest activity across your accounts"
             actions={
               <Button size="sm" variant="ghost" iconRight="arrowRight" onClick={() => navigate("/orders")}>
                 View all
@@ -456,7 +393,7 @@ export default function Dashboard() {
             }
           />
           {recentOrders.length === 0 ? (
-            <EmptyState icon="orders" title="No orders yet" description="New orders will show up here." />
+            <EmptyState icon="orders" title="No orders yet" />
           ) : (
             <ul>
               {recentOrders.map((order) => {
@@ -498,10 +435,10 @@ export default function Dashboard() {
                 {lowStock.length > 0 && <Badge tone="warning">{lowStock.length}</Badge>}
               </>
             }
-            description="Active products with 5 or fewer units"
+            description="Active products at or below their reorder point"
           />
           {lowStock.length === 0 ? (
-            <EmptyState icon="checkCircle" title="Stock looks healthy" description="No active products are running low." />
+            <EmptyState icon="checkCircle" title="Stock looks healthy" />
           ) : (
             <ul className="space-y-3 p-5">
               {lowStock.map((product) => {

@@ -5,10 +5,6 @@ import Icon from "./Icon";
 import { Modal } from "./Modal";
 import Button from "./Button";
 
-/* ========================================
-   Toasts
-   ======================================== */
-
 const ToastContext = createContext(null);
 
 const toastTones = {
@@ -126,10 +122,6 @@ export function useToast() {
   return context;
 }
 
-/* ========================================
-   Confirm dialog
-   ======================================== */
-
 const ConfirmContext = createContext(null);
 
 export function ConfirmProvider({ children }) {
@@ -183,10 +175,7 @@ export function ConfirmProvider({ children }) {
   );
 }
 
-/**
- * Returns `confirm({ title, message, confirmLabel, tone })` which resolves to
- * true or false. `tone` is "danger" (default), "primary" or "warning".
- */
+// confirm({ title, message, confirmLabel, tone }) resolves to true or false.
 export function useConfirm() {
   const context = useContext(ConfirmContext);
   if (!context) throw new Error("useConfirm must be used inside ConfirmProvider");

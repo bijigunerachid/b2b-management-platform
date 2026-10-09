@@ -26,14 +26,13 @@ function OrderDrawer({ orderId, open, onClose }) {
   const cancelled = order?.status === "Cancelled";
   const reached = order ? STATUS_FLOW.indexOf(order.status) : -1;
 
-  // Takes the order as an argument: the React Compiler memoizes this
-  // function, and reading order.items here directly would run while the
-  // order is still loading (undefined).
+  // Pass the order in: the React Compiler memoizes this function and would
+  // otherwise read order.items while the order is still loading.
   function reorder(current) {
     const available = current.items.filter((item) => item.product_active);
     available.forEach((item) => cart.add({ id: item.product_id, name: item.product_name, price: item.unit_price }, item.quantity));
     const skipped = current.items.length - available.length;
-    toast.success(`${available.length} product${available.length === 1 ? "" : "s"} added to your cart${skipped ? ` (${skipped} no longer available)` : ""}. Prices are updated when you order.`, { title: "Ready to reorder" });
+    toast.success(`${available.length} product${available.length === 1 ? "" : "s"} added to your cart${skipped ? ` (${skipped} no longer available)` : ""}. Prices are updated when you order.`, { title: "Added to cart" });
     onClose();
     cart.setOpen(true);
   }
@@ -42,9 +41,8 @@ function OrderDrawer({ orderId, open, onClose }) {
     <Drawer
       open={open}
       onClose={onClose}
-      eyebrow="Order"
       title={orderId ? `Order #${orderId}` : ""}
-      description={order ? `Placed ${formatDate(order.created_at, true)}` : "Loading…"}
+      description={order ? `Placed ${formatDate(order.created_at, true)}` : "Loading..."}
       icon="orders"
       footer={
         order && (
@@ -185,7 +183,7 @@ export default function PortalOrders() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Orders" title="Your orders" description="Track deliveries, see what's left to pay, and download invoices." />
+      <PageHeader title="Your orders" />
       {error && <ErrorState message={error} onRetry={reload} />}
       <Card>
         <div className="border-b p-4" style={{ borderColor: "var(--border-color)" }}>
@@ -202,7 +200,7 @@ export default function PortalOrders() {
         {loading && !data ? (
           <TableSkeleton columns={5} />
         ) : filtered.length === 0 ? (
-          <EmptyState icon="orders" title="No orders here" description="Orders you place appear in this list." />
+          <EmptyState icon="orders" title="No orders here" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">

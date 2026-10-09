@@ -9,7 +9,6 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { PageFallback } from "./components/PageFallback";
 
-// Pages load on demand so the first visit only downloads what it shows.
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Customers = lazy(() => import("./pages/Customers"));
 const Products = lazy(() => import("./pages/Products"));
@@ -24,7 +23,6 @@ const Inventory = lazy(() => import("./pages/Inventory"));
 const PurchaseOrders = lazy(() => import("./pages/PurchaseOrders"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 
-// Customer portal (separate area for client accounts).
 const PortalLayout = lazy(() => import("./portal/PortalLayout"));
 const PortalHome = lazy(() => import("./portal/pages/PortalHome"));
 const PortalCatalog = lazy(() => import("./portal/pages/PortalCatalog"));

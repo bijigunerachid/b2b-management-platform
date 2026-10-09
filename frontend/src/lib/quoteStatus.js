@@ -1,5 +1,3 @@
-// Display rules for quote statuses. The status itself (including the
-// derived "Expired") and the allowed actions come from the API.
 
 export const QUOTE_STATUS = {
   Draft: { tone: "neutral", icon: "edit", description: "Being prepared" },
@@ -12,7 +10,6 @@ export const QUOTE_STATUS = {
 
 export const QUOTE_STATUS_ORDER = ["Draft", "Sent", "Accepted", "Expired", "Rejected", "Converted"];
 
-/** Short validity label, e.g. "3 days left", "Expires today", "Expired 4 days ago". */
 export function validityLabel(quote) {
   if (!["Draft", "Sent", "Expired"].includes(quote.status)) return null;
   const days = quote.days_left;

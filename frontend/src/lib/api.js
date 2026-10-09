@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
-// Backend origin, set per environment in frontend/.env (see .env.example).
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
 
 export const API_URL = `${API_ORIGIN}/api`;
 
-/**
- * Fetch wrapper for the backend: sends the auth cookie, encodes JSON, and
- * throws an Error carrying the server's most specific message.
- */
 export async function api(path, { body, ...options } = {}) {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -27,8 +22,7 @@ export async function api(path, { body, ...options } = {}) {
       ? result.errors.map((error) => error.message).join(" ")
       : "";
 
-    // A 401 on any protected call means the session ended (expired,
-    // revoked, or deactivated): let AuthContext sign the user out.
+    // Session expired or was revoked: AuthContext signs the user out.
     if (response.status === 401 && !path.startsWith("/auth/")) {
       window.dispatchEvent(new CustomEvent("auth:expired", { detail: result.message }));
     }
@@ -43,7 +37,6 @@ export async function api(path, { body, ...options } = {}) {
   return result;
 }
 
-/** Normalizes the different list shapes the API returns into an array. */
 export function toList(result, key) {
   if (Array.isArray(result)) return result;
   if (Array.isArray(result?.data)) return result.data;
@@ -51,11 +44,7 @@ export function toList(result, key) {
   return [];
 }
 
-/**
- * Loads `path` and reloads whenever it changes or `reload()` is called.
- * `loading` is derived from whether the latest request has settled, so no
- * state is set synchronously inside the effect.
- */
+// `loading` is derived instead of stored so the effect never sets state synchronously.
 export function useResource(path) {
   const [version, setVersion] = useState(0);
   const [state, setState] = useState({
@@ -100,8 +89,6 @@ export function useResource(path) {
     reload,
   };
 }
-
-/* ---------- Formatting ---------- */
 
 const moneyFormatter = new Intl.NumberFormat("fr-MA", {
   style: "currency",
@@ -179,8 +166,6 @@ export function isActiveFlag(value) {
   return value === true || value === 1 || value === "1";
 }
 
-/* ---------- CSV export ---------- */
-
 function csvCell(value) {
   const text = value === null || value === undefined ? "" : String(value);
   // Neutralize spreadsheet formula injection, then quote.
@@ -188,10 +173,7 @@ function csvCell(value) {
   return `"${safe.replaceAll('"', '""')}"`;
 }
 
-/**
- * Downloads `rows` as a CSV file.
- * `columns` is a list of [header, (row) => value] pairs.
- */
+// columns: [header, (row) => value]
 export function exportCsv(filename, columns, rows) {
   const lines = [
     columns.map(([header]) => csvCell(header)).join(","),
@@ -214,8 +196,6 @@ export function exportCsv(filename, columns, rows) {
   URL.revokeObjectURL(url);
 }
 
-/* ---------- Permissions (mirror the backend route guards) ---------- */
-
 const permissions = {
   "customers.write": ["Admin", "Manager"],
   "customers.delete": ["Admin"],
@@ -237,10 +217,7 @@ export function can(user, permission) {
   return Boolean(user && permissions[permission]?.includes(user.role));
 }
 
-/**
- * Loads every page of active products (the API caps a page at 100), sorted
- * by name, for product pickers. Reloads when `enabled` turns on.
- */
+// The API returns at most 100 products per page, so pickers load every page.
 export function useActiveProducts(enabled = true) {
   const [state, setState] = useState({ key: null, products: [], error: "" });
   const [version, setVersion] = useState(0);
