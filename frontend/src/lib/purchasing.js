@@ -14,6 +14,7 @@ export const MOVEMENT_TYPES = {
   sale_cancelled: { label: "Sale cancelled", tone: "warning", icon: "refresh" },
   purchase_receipt: { label: "Purchase receipt", tone: "success", icon: "truck" },
   adjustment: { label: "Adjustment", tone: "info", icon: "edit" },
+  customer_return: { label: "Customer return", tone: "success", icon: "undo" },
 };
 
 // Mirrors ADJUSTMENT_REASONS in backend/src/services/inventory.js.

@@ -94,7 +94,7 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
 
           <div className="grid grid-cols-3 gap-2 rounded-xl p-3 text-center app-muted">
             {[
-              ["Invoice total", billing.total_due],
+              [billing.credited > 0 ? "After credits" : "Invoice total", billing.total_due],
               ["Already paid", billing.amount_paid],
               ["Balance due", billing.balance],
             ].map(([label, value]) => (
@@ -290,7 +290,9 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
             <p className="text-xs font-medium uppercase tracking-wide app-text-muted">Balance due</p>
             <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums app-text">{money(billing.balance)}</p>
             <p className="mt-0.5 text-xs app-text-secondary">
-              of {money(billing.total_due)} incl. VAT
+              {billing.payment_status === "Credited"
+                ? `Invoice of ${money(billing.invoice_total)} fully credited`
+                : `of ${money(billing.total_due)} incl. VAT${billing.credited > 0 ? `, after ${money(billing.credited)} credited` : ""}`}
               {!isVoid && billing.balance > 0 && (
                 <>
                   {" · "}
@@ -310,7 +312,7 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
           </Badge>
         </div>
 
-        {!isVoid && (
+        {!isVoid && billing.total_due > 0 && (
           <div className="mt-4">
             <div className="h-2 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }}>
               <div
@@ -320,6 +322,7 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
             </div>
             <p className="mt-1.5 text-xs app-text-muted">
               {money(billing.amount_paid)} paid · {progress.toFixed(0)}%
+              {billing.refunded > 0 && ` · ${money(billing.refunded)} refunded`}
             </p>
           </div>
         )}

@@ -37,10 +37,11 @@ async function getDashboardStats(req, res) {
       "SELECT COUNT(*) AS total FROM orders"
     );
 
+    // Net of credit notes (returns), excluding VAT.
     const [revenueRows] = await pool.query(`
-      SELECT COALESCE(SUM(total_amount), 0) AS revenue
-      FROM orders
-      WHERE status = 'Completed'
+      SELECT
+        (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'Completed')
+        - (SELECT COALESCE(SUM(subtotal), 0) FROM credit_notes) AS revenue
     `);
 
     const [lowStockRows] = await pool.query(`
@@ -64,14 +65,20 @@ async function getDashboardStats(req, res) {
       LIMIT 5
     `);
 
-    // Completed revenue and order volume for the last six calendar months.
+    // Completed revenue (net of returns, counted in the order's month) and
+    // order volume for the last six calendar months.
     const [monthlyRows] = await pool.query(`
       SELECT
-        DATE_FORMAT(created_at, '%Y-%m') AS month,
+        DATE_FORMAT(o.created_at, '%Y-%m') AS month,
         COUNT(*) AS orders,
-        COALESCE(SUM(CASE WHEN status = 'Completed' THEN total_amount END), 0) AS revenue
-      FROM orders
-      WHERE created_at >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 5 MONTH)
+        COALESCE(SUM(CASE WHEN o.status = 'Completed' THEN o.total_amount - COALESCE(cr.credited, 0) END), 0) AS revenue
+      FROM orders o
+      LEFT JOIN (
+        SELECT order_id, SUM(subtotal) AS credited
+        FROM credit_notes
+        GROUP BY order_id
+      ) cr ON cr.order_id = o.id
+      WHERE o.created_at >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 5 MONTH)
       GROUP BY month
       ORDER BY month
     `);

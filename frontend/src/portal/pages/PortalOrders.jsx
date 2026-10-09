@@ -110,7 +110,9 @@ function OrderDrawer({ orderId, open, onClose }) {
                     <p className="text-xs font-medium uppercase tracking-wide app-text-muted">Balance due</p>
                     <p className="text-xl font-bold tabular-nums app-text">{money(order.billing.balance)}</p>
                     <p className="text-xs app-text-secondary">
-                      of {money(order.billing.total_due)} incl. VAT
+                      {order.billing.payment_status === "Credited"
+                        ? `Invoice of ${money(order.billing.invoice_total)} fully credited`
+                        : `of ${money(order.billing.total_due)} incl. VAT${order.billing.credited > 0 ? `, after ${money(order.billing.credited)} credited` : ""}`}
                       {order.billing.balance > 0 && ` · due ${formatDate(order.billing.due_date)}`}
                     </p>
                   </div>
@@ -126,6 +128,23 @@ function OrderDrawer({ orderId, open, onClose }) {
                           {formatDate(`${payment.paid_at}T00:00:00`)} · {payment.method}
                         </span>
                         <span className="font-semibold tabular-nums app-text">{money(payment.amount)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {order.credit_notes.length > 0 && (
+                  <ul className="mt-3 space-y-1 border-t pt-3 text-xs app-text-secondary" style={{ borderColor: "var(--border-color)" }}>
+                    {order.credit_notes.map((note) => (
+                      <li key={note.id} className="flex justify-between gap-3">
+                        <span>
+                          <a href={`/portal/credit-notes/${note.id}/print`} target="_blank" rel="noopener" className="font-semibold hover:underline" style={{ color: "var(--primary)" }}>
+                            {note.number}
+                          </a>
+                          {" · "}
+                          {note.reason}
+                          {note.refund_amount > 0 && `, ${money(note.refund_amount)} refunded`}
+                        </span>
+                        <span className="font-semibold tabular-nums app-text">−{money(note.total)}</span>
                       </li>
                     ))}
                   </ul>

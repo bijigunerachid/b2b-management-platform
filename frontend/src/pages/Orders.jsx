@@ -28,6 +28,7 @@ import { api, can, compactMoney, exportCsv, formatDate, initials, money, number,
 import { ORDER_STATUS, STATUS_FLOW, nextStatuses } from "../lib/orderStatus";
 import { paymentBadge } from "../lib/billing";
 import PaymentPanel from "../components/PaymentPanel";
+import ReturnsPanel from "../components/ReturnsPanel";
 import useTable from "../lib/useTable";
 
 const STATUSES = Object.keys(ORDER_STATUS);
@@ -53,6 +54,7 @@ const paymentFilters = {
   overdue: { label: "Overdue", match: (b) => b?.overdue },
   partial: { label: "Partially paid", match: (b) => b?.payment_status === "Partially paid" },
   paid: { label: "Paid", match: (b) => b?.payment_status === "Paid" },
+  credited: { label: "Credited", match: (b) => b?.credited > 0 },
 };
 
 const actionLabels = {
@@ -104,7 +106,7 @@ function StatusTimeline({ status }) {
   );
 }
 
-function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating, canWrite, canRecordPayments, canVoidPayments, onPaymentsChanged }) {
+function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating, canWrite, canRecordPayments, canVoidPayments, canReturn, onPaymentsChanged, onReturned }) {
   // `version` changes the request key so the drawer refetches after updates.
   const { data, loading, error } = useResource(orderId ? `/orders/${orderId}?v=${version}` : null);
   const order = data?.data ?? null;
@@ -233,6 +235,8 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
               canVoid={canVoidPayments}
               onChanged={onPaymentsChanged}
             />
+
+            <ReturnsPanel order={order} version={version} canCreate={canReturn} onChanged={onReturned} />
           </div>
         )
       )}
@@ -821,7 +825,12 @@ export default function Orders() {
         onChangeStatus={changeStatus}
         canRecordPayments={can(user, "payments.write")}
         canVoidPayments={can(user, "payments.void")}
+        canReturn={can(user, "returns.write")}
         onPaymentsChanged={reload}
+        onReturned={() => {
+          setDrawerVersion((value) => value + 1);
+          reload();
+        }}
         updating={updating}
         canWrite={canWrite}
       />

@@ -2,11 +2,10 @@ const pool = require("../config/database");
 const {
     EPSILON,
     ageingReport,
-    billingSummary,
     round2,
     withBilling
 } = require("../billing/billing");
-const { ORDER_BILLING_COLUMNS, PAID_JOIN, loadOpenInvoices } = require("../billing/queries");
+const { BILLING_JOINS, ORDER_BILLING_COLUMNS, loadOpenInvoices, loadOrderBilling } = require("../billing/queries");
 
 function parseId(value) {
     const id = Number(value);
@@ -54,7 +53,7 @@ const getOrderPayments = async (req, res) => {
             `SELECT ${ORDER_BILLING_COLUMNS}
              FROM orders o
              INNER JOIN customers c ON c.id = o.customer_id
-             ${PAID_JOIN}
+             ${BILLING_JOINS}
              WHERE o.id = ?`,
             [orderId]
         );
@@ -127,17 +126,7 @@ const recordPayment = async (req, res) => {
             return res.status(400).json({ success: false, message: "Payment date can't be before the order date." });
         }
 
-        const [[{ paid }]] = await connection.query(
-            "SELECT COALESCE(SUM(amount), 0) AS paid FROM payments WHERE order_id = ? AND voided_at IS NULL",
-            [orderId]
-        );
-
-        const billing = billingSummary({
-            status: order.status,
-            totalAmount: order.total_amount,
-            createdAt: order.created_at,
-            paid
-        });
+        const billing = await loadOrderBilling(connection, order);
 
         if (billing.balance <= EPSILON) {
             await connection.rollback();
@@ -158,6 +147,7 @@ const recordPayment = async (req, res) => {
             [orderId, amount, method, reference, paidAt, note, req.user.userId]
         );
 
+        const updated = await loadOrderBilling(connection, order);
         await connection.commit();
 
         return res.status(201).json({
@@ -165,12 +155,7 @@ const recordPayment = async (req, res) => {
             message: "Payment recorded",
             data: {
                 paymentId: result.insertId,
-                billing: billingSummary({
-                    status: order.status,
-                    totalAmount: order.total_amount,
-                    createdAt: order.created_at,
-                    paid: round2(Number(paid) + amount)
-                })
+                billing: updated
             }
         });
     } catch (error) {
@@ -190,25 +175,54 @@ const voidPayment = async (req, res) => {
         return res.status(400).json({ success: false, message: "Invalid payment ID" });
     }
 
+    let connection;
+
     try {
-        const [result] = await pool.query(
-            `UPDATE payments
-             SET voided_at = NOW(), voided_by = ?, void_reason = ?
-             WHERE id = ? AND voided_at IS NULL`,
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        const [payments] = await connection.query("SELECT id, order_id, amount, voided_at FROM payments WHERE id = ?", [paymentId]);
+        const payment = payments[0];
+
+        if (!payment) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, message: "Payment not found" });
+        }
+
+        const [orders] = await connection.query(
+            "SELECT id, status, total_amount, created_at FROM orders WHERE id = ? FOR UPDATE",
+            [payment.order_id]
+        );
+        const [[current]] = await connection.query("SELECT voided_at FROM payments WHERE id = ?", [paymentId]);
+
+        if (current.voided_at) {
+            await connection.rollback();
+            return res.status(409).json({ success: false, message: "This payment is already voided." });
+        }
+
+        // Refunds on credit notes were paid out of this money, so it can't disappear.
+        const billing = await loadOrderBilling(connection, orders[0]);
+        if (billing.amount_paid - Number(payment.amount) < -EPSILON) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "Part of this payment was refunded on a credit note, so it can't be voided."
+            });
+        }
+
+        await connection.query(
+            "UPDATE payments SET voided_at = NOW(), voided_by = ?, void_reason = ? WHERE id = ?",
             [req.user.userId, req.body.reason.trim(), paymentId]
         );
-
-        if (result.affectedRows === 0) {
-            const [rows] = await pool.query("SELECT id FROM payments WHERE id = ?", [paymentId]);
-            return rows.length === 0
-                ? res.status(404).json({ success: false, message: "Payment not found" })
-                : res.status(409).json({ success: false, message: "This payment is already voided." });
-        }
+        await connection.commit();
 
         return res.json({ success: true, message: "Payment voided" });
     } catch (error) {
+        if (connection) await connection.rollback().catch(() => {});
         console.error("Void payment error:", error);
         return res.status(500).json({ success: false, message: "Failed to void payment" });
+    } finally {
+        if (connection) connection.release();
     }
 };
 

@@ -21,6 +21,7 @@ const sections = [
       { label: "Quotes", path: "/quotes", icon: "fileText", roles: ["Admin", "Manager", "Employee"] },
       { label: "Orders", path: "/orders", icon: "orders", roles: ["Admin", "Manager", "Employee"] },
       { label: "Receivables", path: "/receivables", icon: "wallet", roles: ["Admin", "Manager", "Employee"] },
+      { label: "Credit notes", path: "/credit-notes", icon: "undo", roles: ["Admin", "Manager", "Employee"] },
       { label: "Customers", path: "/customers", icon: "customers", roles: ["Admin", "Manager", "Employee"] },
     ],
   },

@@ -21,6 +21,7 @@ const stamps = {
   partial: { label: "PARTIALLY PAID", color: paper.info },
   overdue: { label: "OVERDUE", color: paper.danger },
   void: { label: "VOID", color: paper.danger },
+  credited: { label: "CREDITED", color: paper.muted },
   due: { label: "PAYMENT DUE", color: paper.warning },
 };
 
@@ -71,6 +72,7 @@ export function InvoiceSheet({ order, customer, payments }) {
             </>
           )}
           {invoice.state === "paid" && <p>Paid in full. Thank you for your business.</p>}
+          {invoice.state === "credited" && <p>All goods on this invoice were returned. Nothing is due.</p>}
           {invoice.state === "void" && <p>No payment is due for this document.</p>}
         </div>
 
@@ -81,14 +83,24 @@ export function InvoiceSheet({ order, customer, payments }) {
           total={invoice.total}
           after={
             invoice.state !== "void" &&
-            invoice.amountPaid > 0 && (
+            (invoice.amountPaid > 0 || invoice.credited > 0) && (
               <>
-                <div className="flex justify-between px-3 pt-3 text-[13px]">
+                {invoice.credited > 0 && (
+                  <div className="flex justify-between px-3 pt-3 text-[13px]">
+                    <dt style={{ color: paper.muted }}>Credit notes</dt>
+                    <dd className="tabular-nums" style={{ color: paper.success }}>
+                      − {money(invoice.credited)}
+                    </dd>
+                  </div>
+                )}
+                {invoice.amountPaid > 0 && (
+                <div className={`flex justify-between px-3 text-[13px] ${invoice.credited > 0 ? "pt-1.5" : "pt-3"}`}>
                   <dt style={{ color: paper.muted }}>Amount paid</dt>
                   <dd className="tabular-nums" style={{ color: paper.success }}>
                     − {money(invoice.amountPaid)}
                   </dd>
                 </div>
+                )}
                 <div className="flex justify-between px-3 pt-1.5 text-[14px] font-bold">
                   <dt>Balance due</dt>
                   <dd className="tabular-nums">{money(invoice.balance)}</dd>
@@ -114,6 +126,14 @@ export function InvoiceSheet({ order, customer, payments }) {
                   <td className="py-1.5 text-right font-semibold tabular-nums">{money(payment.amount)}</td>
                 </tr>
               ))}
+              {invoice.refunded > 0 && (
+                <tr className="border-b" style={{ borderColor: paper.rule }}>
+                  <td className="py-1.5 pr-3" colSpan={3} style={{ color: paper.muted }}>
+                    Refunded on credit notes
+                  </td>
+                  <td className="py-1.5 text-right font-semibold tabular-nums">− {money(invoice.refunded)}</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </section>

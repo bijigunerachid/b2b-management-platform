@@ -103,7 +103,7 @@ const getMovements = async (req, res) => {
         const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM stock_movements m ${where}`, params);
         const [rows] = await pool.query(
             `SELECT m.id, m.product_id, p.name AS product_name, m.quantity, m.type, m.reason,
-                    m.balance_after, m.order_id, m.purchase_order_id, m.created_at,
+                    m.balance_after, m.order_id, m.purchase_order_id, m.credit_note_id, m.created_at,
                     CONCAT(u.first_name, ' ', u.last_name) AS created_by_name
              FROM stock_movements m
              INNER JOIN products p ON p.id = m.product_id

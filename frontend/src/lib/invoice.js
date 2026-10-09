@@ -34,7 +34,9 @@ export function buildInvoice(order, { vatRate = company.vatRate, termsDays = com
   const state =
     order.status === "Cancelled"
       ? "void"
-      : billing?.payment_status === "Paid"
+      : billing?.payment_status === "Credited"
+        ? "credited"
+        : billing?.payment_status === "Paid"
         ? "paid"
         : billing?.overdue
           ? "overdue"
@@ -53,6 +55,8 @@ export function buildInvoice(order, { vatRate = company.vatRate, termsDays = com
     total,
     state,
     amountPaid: billing?.amount_paid ?? 0,
+    credited: billing?.credited ?? 0,
+    refunded: billing?.refunded ?? 0,
     balance: billing?.balance ?? total,
     daysOverdue: billing?.days_overdue ?? 0,
   };

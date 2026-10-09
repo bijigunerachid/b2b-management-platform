@@ -4,9 +4,10 @@
 
 const pool = require("../config/database");
 const { ageingReport, invoiceTotals, withBilling } = require("../billing/billing");
-const { ORDER_BILLING_COLUMNS, PAID_JOIN } = require("../billing/queries");
+const { ORDER_BILLING_COLUMNS, BILLING_JOINS } = require("../billing/queries");
 const { HttpError, withTransaction } = require("../services/transaction");
 const { placeOrder } = require("../services/orderPlacement");
+const { loadCreditNote, serializeCreditNote } = require("../services/creditNotes");
 const { allowedActions, canPerform, daysLeft, dateOnly, effectiveStatus, quoteNumber } = require("../quotes/quoteRules");
 
 const CATALOG_PAGE_SIZE = 24;
@@ -64,7 +65,7 @@ const getSummary = async (req, res) => {
             `SELECT ${ORDER_BILLING_COLUMNS}
              FROM orders o
              INNER JOIN customers c ON c.id = o.customer_id
-             ${PAID_JOIN}
+             ${BILLING_JOINS}
              WHERE o.customer_id = ?
              ORDER BY o.id DESC`,
             [customerId]
@@ -169,7 +170,7 @@ const listOrders = async (req, res) => {
             `SELECT ${ORDER_BILLING_COLUMNS}, COUNT(oi.id) AS item_count
              FROM orders o
              INNER JOIN customers c ON c.id = o.customer_id
-             ${PAID_JOIN}
+             ${BILLING_JOINS}
              LEFT JOIN order_items oi ON oi.order_id = o.id
              WHERE o.customer_id = ?
              GROUP BY o.id
@@ -195,7 +196,7 @@ const getOrder = async (req, res) => {
             `SELECT ${ORDER_BILLING_COLUMNS}
              FROM orders o
              INNER JOIN customers c ON c.id = o.customer_id
-             ${PAID_JOIN}
+             ${BILLING_JOINS}
              WHERE o.id = ? AND o.customer_id = ?`,
             [orderId, req.user.customerId]
         );
@@ -223,10 +224,36 @@ const getOrder = async (req, res) => {
             [req.user.customerId]
         );
 
-        return res.json({ success: true, data: { ...withBilling(rows[0]), items, payments, customer } });
+        const [creditNotes] = await pool.query(
+            "SELECT id, reason, total, refund_amount, refund_method, created_at FROM credit_notes WHERE order_id = ? ORDER BY id",
+            [orderId]
+        );
+
+        return res.json({
+            success: true,
+            data: { ...withBilling(rows[0]), items, payments, credit_notes: creditNotes.map(serializeCreditNote), customer }
+        });
     } catch (error) {
         console.error("Portal order error:", error);
         return res.status(500).json({ success: false, message: "Could not load the order." });
+    }
+};
+
+// GET /api/portal/credit-notes/:id
+const getCreditNote = async (req, res) => {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(404).json({ success: false, message: "Credit note not found" });
+
+    try {
+        const creditNote = await loadCreditNote(pool, id, req.user.customerId);
+        if (!creditNote) return res.status(404).json({ success: false, message: "Credit note not found" });
+
+        // Staff names stay internal.
+        delete creditNote.created_by_name;
+        return res.json({ success: true, data: creditNote });
+    } catch (error) {
+        console.error("Portal credit note error:", error);
+        return res.status(500).json({ success: false, message: "Could not load the credit note." });
     }
 };
 
@@ -344,6 +371,7 @@ module.exports = {
     acceptQuote: decide("Accepted"),
     availability,
     getCatalog,
+    getCreditNote,
     getOrder,
     getQuote,
     getSummary,

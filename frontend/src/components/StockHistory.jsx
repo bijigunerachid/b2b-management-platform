@@ -139,6 +139,14 @@ export function MovementRow({ movement, showProduct = true }) {
               </Link>
             </>
           )}
+          {movement.credit_note_id && (
+            <>
+              {" · "}
+              <Link to={`/credit-notes/${movement.credit_note_id}/print`} target="_blank" rel="noopener" className="hover:underline" style={{ color: "var(--primary)" }}>
+                View credit note
+              </Link>
+            </>
+          )}
           {movement.purchase_order_id && (
             <>
               {" · "}

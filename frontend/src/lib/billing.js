@@ -5,6 +5,7 @@ export const PAYMENT_STATUS = {
   Unpaid: { tone: "neutral", icon: "clock" },
   Overdue: { tone: "danger", icon: "alert" },
   Void: { tone: "neutral", icon: "ban" },
+  Credited: { tone: "neutral", icon: "undo" },
 };
 
 export const PAYMENT_METHODS = ["Bank transfer", "Cheque", "Cash", "Card"];

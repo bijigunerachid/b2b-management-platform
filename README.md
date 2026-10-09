@@ -15,10 +15,11 @@ On the staff side you can:
 - prepare quotes with negotiated prices, send them, and turn accepted ones into orders (the order keeps the quoted prices)
 - follow orders from pending to completed and print A4 invoices
 - record payments, including partial ones, and see who owes what in a receivables report grouped by how late it is
+- take back goods from a delivered order: the credit note lowers what the client owes (or records a refund if they already paid), and items in good condition go back into stock
 - track stock through a ledger: every sale, cancellation, delivery and correction is a separate entry with the resulting balance
 - order from suppliers, receive deliveries into stock, and get reorder suggestions based on recent sales
 
-Clients get their own login. They can browse the catalog, place orders, download their invoices and accept or decline the quotes you send them. They only ever see their own company's data.
+Clients get their own login. They can browse the catalog, place orders, download their invoices and credit notes, and accept or decline the quotes you send them. They only ever see their own company's data.
 
 There are four roles: Admin, Manager, Employee (read-only on most things) and Customer (portal only).
 
@@ -131,13 +132,13 @@ cd backend
 npm run seed:large
 ```
 
-This fills the database with about 400 customers, 350 products and 5,000 orders over 18 months. It also adds the matching payments, quotes, suppliers, purchase orders, 24 staff accounts and 3 client logins (`buyer@<company>.portal.example`). They all share one password, which is printed at the end. You can set it yourself with `SEED_USER_PASSWORD` in `.env`.
+This fills the database with about 400 customers, 350 products and 5,000 orders over 18 months. It also adds the matching payments, quotes, returns, suppliers, purchase orders, 24 staff accounts and 3 client logins (`buyer@<company>.portal.example`). They all share one password, which is printed at the end. You can set it yourself with `SEED_USER_PASSWORD` in `.env`.
 
 Other options:
 
 - `npm run seed:large -- --orders=20000` to change the volumes
 - `npm run seed:large -- --reset` to wipe customers, products, orders and everything linked to them first (your real accounts are kept)
-- `npm run seed:payments`, `seed:quotes`, `seed:purchasing`, `seed:portal` to add just one part to an existing database. Running them twice is safe.
+- `npm run seed:payments`, `seed:quotes`, `seed:purchasing`, `seed:portal`, `seed:returns` to add just one part to an existing database. Running them twice is safe.
 
 ## Docker
 
@@ -191,7 +192,6 @@ For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behin
 ## What I'd add next
 
 - Customer-specific prices and volume discounts
-- Returns that put items back in stock and issue a credit note
 - A French and Arabic interface
 - Playwright tests for the main flows
 

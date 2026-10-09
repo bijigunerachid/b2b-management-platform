@@ -16,6 +16,8 @@ const Categories = lazy(() => import("./pages/Categories"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Quotes = lazy(() => import("./pages/Quotes"));
 const Receivables = lazy(() => import("./pages/Receivables"));
+const CreditNotes = lazy(() => import("./pages/CreditNotes"));
+const CreditNoteDocument = lazy(() => import("./pages/CreditNoteDocument"));
 const Users = lazy(() => import("./pages/Users"));
 const Invoice = lazy(() => import("./pages/Invoice"));
 const QuoteDocument = lazy(() => import("./pages/QuoteDocument"));
@@ -31,6 +33,7 @@ const PortalQuotes = lazy(() => import("./portal/pages/PortalQuotes"));
 const PortalAccount = lazy(() => import("./portal/pages/PortalAccount"));
 const PortalInvoice = lazy(() => import("./portal/pages/PortalDocuments").then((module) => ({ default: module.PortalInvoice })));
 const PortalQuoteDocument = lazy(() => import("./portal/pages/PortalDocuments").then((module) => ({ default: module.PortalQuoteDocument })));
+const PortalCreditNote = lazy(() => import("./portal/pages/PortalDocuments").then((module) => ({ default: module.PortalCreditNote })));
 
 export default function App() {
     return (
@@ -46,6 +49,7 @@ export default function App() {
                                 {/* Full-page document, outside the app shell so it prints cleanly. */}
                                 <Route path="/orders/:id/invoice" element={<Invoice />} />
                                 <Route path="/quotes/:id/print" element={<QuoteDocument />} />
+                                <Route path="/credit-notes/:id/print" element={<CreditNoteDocument />} />
 
                                 <Route element={<Layout />}>
                                     <Route path="/" element={<Dashboard />} />
@@ -54,6 +58,7 @@ export default function App() {
                                     <Route path="/categories" element={<Categories />} />
                                     <Route path="/orders" element={<Orders />} />
                                     <Route path="/receivables" element={<Receivables />} />
+                                    <Route path="/credit-notes" element={<CreditNotes />} />
                                     <Route path="/quotes" element={<Quotes />} />
                                     <Route path="/inventory" element={<Inventory />} />
                                     <Route path="/purchase-orders" element={<PurchaseOrders />} />
@@ -70,6 +75,7 @@ export default function App() {
                             <Route element={<ProtectedRoute area="portal" />}>
                                 <Route path="/portal/orders/:id/invoice" element={<PortalInvoice />} />
                                 <Route path="/portal/quotes/:id/print" element={<PortalQuoteDocument />} />
+                                <Route path="/portal/credit-notes/:id/print" element={<PortalCreditNote />} />
                                 <Route path="/portal" element={<PortalLayout />}>
                                     <Route index element={<PortalHome />} />
                                     <Route path="catalog" element={<PortalCatalog />} />
