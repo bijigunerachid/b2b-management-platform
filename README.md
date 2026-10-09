@@ -1,5 +1,7 @@
 # B2B Management Platform
 
+[![CI](https://github.com/bijigunerachid/b2b-management-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/bijigunerachid/b2b-management-platform/actions/workflows/ci.yml)
+
 A full-stack web application for managing business customers, products, categories, orders, and users through a centralized dashboard.
 
 ## Features
@@ -127,6 +129,15 @@ npm run dev
 ```
 
 Open the local URL displayed by Vite, usually `http://localhost:5173`.
+
+## Testing
+
+```bash
+cd backend && npm test          # 52 API, security, and data-generator tests
+cd frontend && npm run lint     # ESLint, including React hooks rules
+```
+
+GitHub Actions runs the backend tests, a dependency audit, and the frontend lint and production build on every push and pull request.
 
 ## API Routes
 
