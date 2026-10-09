@@ -11,7 +11,8 @@
     "create-admin": "node src/scripts/createAdmin.js",
     "seed:large": "node src/scripts/seedLarge.js",
     "seed:payments": "node src/scripts/seedPayments.js",
-    "seed:quotes": "node src/scripts/seedQuotes.js"
+    "seed:quotes": "node src/scripts/seedQuotes.js",
+    "seed:purchasing": "node src/scripts/seedPurchasing.js"
   },
   "keywords": [],
   "author": "",

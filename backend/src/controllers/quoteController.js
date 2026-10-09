@@ -281,7 +281,7 @@ const convertQuote = inTransaction(async (connection, req) => {
         items.map((item) => [item.product_id, { quantity: item.quantity, unitPrice: Number(item.unit_price) }])
     );
 
-    const { orderId, total } = await placeOrder(connection, quote.customer_id, lines);
+    const { orderId, total } = await placeOrder(connection, quote.customer_id, lines, { userId: req.user.userId });
 
     await connection.query(
         "UPDATE quotes SET status = 'Converted', converted_at = NOW(), order_id = ? WHERE id = ?",

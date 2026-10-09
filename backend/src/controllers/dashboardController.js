@@ -44,10 +44,10 @@ async function getDashboardStats(req, res) {
     `);
 
     const [lowStockRows] = await pool.query(`
-      SELECT id, name, stock
+      SELECT id, name, stock, reorder_point
       FROM products
-      WHERE is_active = 1 AND stock <= 5
-      ORDER BY stock ASC
+      WHERE is_active = 1 AND reorder_point > 0 AND stock <= reorder_point
+      ORDER BY stock / reorder_point ASC, stock ASC
       LIMIT 10
     `);
 
@@ -110,6 +110,10 @@ async function getDashboardStats(req, res) {
       LIMIT 5
     `);
 
+    const [[{ lateOrders }]] = await pool.query(
+      "SELECT COUNT(*) AS lateOrders FROM purchase_orders WHERE status = 'Ordered' AND expected_at < CURDATE()"
+    );
+
     const [[{ readyToConvert }]] = await pool.query(
       "SELECT COUNT(*) AS readyToConvert FROM quotes WHERE status = 'Accepted'"
     );
@@ -127,6 +131,9 @@ async function getDashboardStats(req, res) {
         ordersByStatus: Object.fromEntries(
           statusRows.map((row) => [row.status, Number(row.total)])
         ),
+        purchasing: {
+          lateOrders: Number(lateOrders),
+        },
         quotes: {
           expiringSoon: expiringQuotes,
           readyToConvert: Number(readyToConvert),

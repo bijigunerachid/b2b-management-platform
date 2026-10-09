@@ -26,6 +26,7 @@ import {
   Th,
 } from "../components/ui/primitives";
 import { api, can, exportCsv, initials, isActiveFlag, money, number, toList, useResource } from "../lib/api";
+import { StockAdjustModal, StockHistoryDrawer } from "../components/StockHistory";
 
 const PAGE_SIZE = 10;
 const LOW_STOCK = 5;
@@ -36,26 +37,37 @@ const emptyForm = {
   category_id: "",
   price: "",
   stock: "",
+  reorder_point: "5",
+  supplier_id: "",
   is_active: true,
 };
 
 // UI sort keys → backend `sort` values (whitelisted server-side).
 const sortKeys = { name: "name", category: "category", price: "price", stock: "stock" };
 
-function StockMeter({ stock }) {
-  const tone = stock === 0 ? "danger" : stock <= LOW_STOCK ? "warning" : "success";
-  const width = Math.min(100, (stock / 50) * 100);
+function StockMeter({ stock, reorderPoint = 5, onOrder = 0 }) {
+  const low = reorderPoint > 0 && stock <= reorderPoint;
+  const tone = stock === 0 ? "danger" : low ? "warning" : "success";
+  // Full bar = 3× the reorder point (the level reorders top up to).
+  const width = Math.min(100, (stock / Math.max(reorderPoint * 3, 1)) * 100);
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-10 text-right font-semibold tabular-nums app-text">{stock}</span>
-      <div className="h-1.5 w-20 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }}>
-        <div className="h-full rounded-full" style={{ width: `${Math.max(width, stock > 0 ? 4 : 0)}%`, backgroundColor: `var(--${tone})` }} />
+    <div>
+      <div className="flex items-center gap-3">
+        <span className="w-10 text-right font-semibold tabular-nums app-text">{stock}</span>
+        <div className="h-1.5 w-20 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }} title={`Reorder point: ${reorderPoint}`}>
+          <div className="h-full rounded-full" style={{ width: `${Math.max(width, stock > 0 ? 4 : 0)}%`, backgroundColor: `var(--${tone})` }} />
+        </div>
+        {(stock === 0 || low) && (
+          <Badge tone={tone} className="!px-2 !py-0.5 text-[11px]">
+            {stock === 0 ? "Out" : "Low"}
+          </Badge>
+        )}
       </div>
-      {stock <= LOW_STOCK && (
-        <Badge tone={tone} className="!px-2 !py-0.5 text-[11px]">
-          {stock === 0 ? "Out" : "Low"}
-        </Badge>
+      {onOrder > 0 && (
+        <p className="mt-0.5 pl-[52px] text-[11px] font-medium" style={{ color: "var(--primary)" }}>
+          +{onOrder} on order
+        </p>
       )}
     </div>
   );
@@ -73,6 +85,7 @@ export default function Products() {
   const [search, setSearch] = useState(() => params.get("q") ?? "");
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [categoryId, setCategoryId] = useState(() => params.get("category") ?? "");
+  const [supplierFilter, setSupplierFilter] = useState(() => params.get("supplier") ?? "");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState({ key: null, direction: "asc" });
   const [page, setPage] = useState(1);
@@ -96,6 +109,7 @@ export default function Products() {
     const next = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
     if (debouncedSearch.trim()) next.set("search", debouncedSearch.trim());
     if (categoryId) next.set("category_id", categoryId);
+    if (supplierFilter) next.set("supplier_id", supplierFilter);
     if (status === "active" || status === "inactive") next.set("status", status);
     if (status === "low") next.set("stock", "low");
     if (sort.key) {
@@ -103,10 +117,15 @@ export default function Products() {
       next.set("order", sort.direction);
     }
     return next.toString();
-  }, [page, debouncedSearch, categoryId, status, sort]);
+  }, [page, debouncedSearch, categoryId, supplierFilter, status, sort]);
 
   const productsResource = useResource(`/products?${query}`);
   const categoriesResource = useResource("/categories");
+  const suppliersResource = useResource("/suppliers");
+  const suppliers = toList(suppliersResource.data).filter((supplier) => supplier.is_active);
+  const [historyFor, setHistoryFor] = useState(null);
+  const [adjusting, setAdjusting] = useState(null);
+  const canAdjust = can(user, "inventory.adjust");
   const lowResource = useResource("/products?stock=low&limit=1");
   const inactiveResource = useResource("/products?status=inactive&limit=1");
   const allResource = useResource("/products?limit=1");
@@ -156,6 +175,8 @@ export default function Products() {
       category_id: product.category_id ? String(product.category_id) : "",
       price: String(product.price ?? ""),
       stock: String(product.stock ?? ""),
+      reorder_point: String(product.reorder_point ?? 5),
+      supplier_id: product.supplier_id ? String(product.supplier_id) : "",
       is_active: isActiveFlag(product.is_active),
     });
     setFormError("");
@@ -181,7 +202,9 @@ export default function Products() {
     const stock = Number(form.stock);
 
     if (!Number.isFinite(price) || price < 0) return setFormError("Enter a valid, non-negative price.");
-    if (!Number.isInteger(stock) || stock < 0) return setFormError("Stock must be a whole number of 0 or more.");
+    if (!isEditing && (!Number.isInteger(stock) || stock < 0)) return setFormError("Stock must be a whole number of 0 or more.");
+    const reorderPoint = Number(form.reorder_point);
+    if (!Number.isInteger(reorderPoint) || reorderPoint < 0) return setFormError("Reorder point must be a whole number of 0 or more.");
     if (!form.category_id) return setFormError("Choose a category for this product.");
 
     setSaving(true);
@@ -191,7 +214,10 @@ export default function Products() {
       description: form.description.trim(),
       category_id: Number(form.category_id),
       price,
-      stock,
+      // Stock is only set on creation; later changes are ledger adjustments.
+      ...(isEditing ? {} : { stock }),
+      reorder_point: reorderPoint,
+      supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
       is_active: Boolean(form.is_active),
     };
 
@@ -223,7 +249,6 @@ export default function Products() {
           description: product.description ?? "",
           category_id: Number(product.category_id),
           price: Number(product.price),
-          stock: Number(product.stock),
           is_active: nextActive,
         },
       });
@@ -297,7 +322,7 @@ export default function Products() {
     setPage(1);
   }
 
-  const filtering = Boolean(debouncedSearch.trim() || categoryId || status !== "all");
+  const filtering = Boolean(debouncedSearch.trim() || categoryId || supplierFilter || status !== "all");
   const initialLoading = productsResource.loading && !productsResource.data;
   const totalAll = allResource.data?.pagination?.total;
   const lowCount = lowResource.data?.pagination?.total;
@@ -329,7 +354,7 @@ export default function Products() {
         <StatCard
           label="Low stock"
           value={number(lowCount)}
-          hint={`${LOW_STOCK} or fewer units left`}
+          hint="At or below their reorder point"
           icon="alert"
           tone="warning"
           loading={lowCount === undefined}
@@ -381,6 +406,22 @@ export default function Products() {
               </option>
             ))}
           </select>
+          <select
+            value={supplierFilter}
+            onChange={(event) => {
+              setSupplierFilter(event.target.value);
+              setPage(1);
+            }}
+            aria-label="Filter by supplier"
+            className="app-input h-10 py-0 xl:w-48"
+          >
+            <option value="">All suppliers</option>
+            {toList(suppliersResource.data).map((supplier) => (
+              <option key={supplier.id} value={supplier.id}>
+                {supplier.name}
+              </option>
+            ))}
+          </select>
           <SegmentedControl
             label="Status filter"
             value={status}
@@ -420,6 +461,7 @@ export default function Products() {
                     setSearch("");
                     setDebouncedSearch("");
                     setCategoryId("");
+                    setSupplierFilter("");
                     setStatus("all");
                     setPage(1);
                   }}
@@ -469,7 +511,7 @@ export default function Products() {
                       </td>
                       <td className="whitespace-nowrap px-5 py-3.5 font-semibold tabular-nums app-text">{money(product.price)}</td>
                       <td className="px-5 py-3.5">
-                        <StockMeter stock={stock} />
+                        <StockMeter stock={stock} reorderPoint={Number(product.reorder_point ?? LOW_STOCK)} onOrder={Number(product.on_order ?? 0)} />
                       </td>
                       <td className="px-5 py-3.5">
                         {canWrite ? (
@@ -488,6 +530,7 @@ export default function Products() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex justify-end gap-1">
+                          <IconAction icon="box" label="Stock history" onClick={() => setHistoryFor(product)} />
                           {canWrite && <IconAction icon="edit" label="Edit product" onClick={() => openEdit(product)} />}
                           {canDelete && <IconAction icon="trash" label="Delete product" tone="danger" onClick={() => handleDelete(product)} />}
                           {!canWrite && !canDelete && <span className="text-xs app-text-muted">View only</span>}
@@ -572,13 +615,45 @@ export default function Products() {
               )}
             </Field>
 
-            <Field label="Stock quantity" required hint={Number(form.stock) <= LOW_STOCK && form.stock !== "" ? "This will show as low stock." : "Units currently available"}>
+            {isEditing ? (
+              <Field label="Stock" hint="Changes are recorded in the stock ledger with a reason.">
+                {(id) => (
+                  <div className="flex items-center gap-2">
+                    <input id={id} value={number(editing.stock)} readOnly className="app-input tabular-nums app-muted" />
+                    {canAdjust && (
+                      <Button icon="edit" onClick={() => setAdjusting(editing)}>
+                        Adjust
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </Field>
+            ) : (
+              <Field label="Opening stock" required hint="Recorded as the opening balance in the stock ledger">
+                {(id) => (
+                  <div className="flex items-center gap-2">
+                    <Button size="icon" icon="minus" aria-label="Decrease stock" onClick={() => setForm((f) => ({ ...f, stock: String(Math.max(0, (Number(f.stock) || 0) - 1)) }))} />
+                    <input id={id} name="stock" type="number" min="0" step="1" value={form.stock} onChange={handleChange} required placeholder="0" className="app-input text-center tabular-nums" />
+                    <Button size="icon" icon="plus" aria-label="Increase stock" onClick={() => setForm((f) => ({ ...f, stock: String((Number(f.stock) || 0) + 1) }))} />
+                  </div>
+                )}
+              </Field>
+            )}
+
+            <Field label="Reorder point" hint="Flag as low stock and suggest a reorder at or below this level (0 = never)">
+              {(id) => <input id={id} name="reorder_point" type="number" min="0" step="1" value={form.reorder_point} onChange={handleChange} className="app-input tabular-nums" />}
+            </Field>
+
+            <Field label="Preferred supplier" hint="Used to group reorder suggestions">
               {(id) => (
-                <div className="flex items-center gap-2">
-                  <Button size="icon" icon="minus" aria-label="Decrease stock" onClick={() => setForm((f) => ({ ...f, stock: String(Math.max(0, (Number(f.stock) || 0) - 1)) }))} />
-                  <input id={id} name="stock" type="number" min="0" step="1" value={form.stock} onChange={handleChange} required placeholder="0" className="app-input text-center tabular-nums" />
-                  <Button size="icon" icon="plus" aria-label="Increase stock" onClick={() => setForm((f) => ({ ...f, stock: String((Number(f.stock) || 0) + 1) }))} />
-                </div>
+                <select id={id} name="supplier_id" value={form.supplier_id} onChange={handleChange} className="app-input">
+                  <option value="">No preferred supplier</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name} · {supplier.lead_time_days} days lead time
+                    </option>
+                  ))}
+                </select>
               )}
             </Field>
 
@@ -602,6 +677,16 @@ export default function Products() {
           )}
         </form>
       </Modal>
+
+      <StockHistoryDrawer product={historyFor} onClose={() => setHistoryFor(null)} canAdjust={canAdjust} onChanged={reloadAll} />
+      <StockAdjustModal
+        product={adjusting}
+        onClose={() => setAdjusting(null)}
+        onAdjusted={() => {
+          reloadAll();
+          setFormOpen(false);
+        }}
+      />
     </div>
   );
 }

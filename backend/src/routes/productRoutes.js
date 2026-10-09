@@ -7,7 +7,8 @@ const {
     getProductById,
     createProduct,
     updateProduct,
-    deleteProduct
+    deleteProduct,
+    adjustStock
 } = require("../controllers/productController");
 
 const { protect } = require("../middleware/authMiddleware");
@@ -15,6 +16,7 @@ const { authorize } = require("../middleware/roleMiddleware");
 const validate = require("../middleware/validate");
 
 const productRules = require("../validation/productRules");
+const { productUpdateRules } = productRules;
 
 router.use(protect);
 
@@ -40,8 +42,15 @@ router.post(
 router.put(
     "/:id",
     authorize("Admin", "Manager"),
-    validate(productRules),
+    validate(productUpdateRules),
     updateProduct
+);
+
+// Stock corrections with a reason, recorded in the ledger.
+router.post(
+    "/:id/adjustments",
+    authorize("Admin", "Manager"),
+    adjustStock
 );
 
 router.delete(

@@ -1,5 +1,18 @@
 
 const pool = require("../config/database");
+const { ADJUSTMENT_REASONS, InventoryError, recordMovement } = require("../services/inventory");
+
+/** Validates optional reorder_point / supplier_id; returns an error message or null. */
+async function checkInventoryFields(connection, { reorder_point, supplier_id }) {
+    if (reorder_point !== undefined && reorder_point !== null && (!Number.isSafeInteger(Number(reorder_point)) || Number(reorder_point) < 0)) {
+        return "Reorder point must be a whole number of 0 or more.";
+    }
+    if (supplier_id !== undefined && supplier_id !== null) {
+        const [suppliers] = await connection.query("SELECT id FROM suppliers WHERE id = ?", [Number(supplier_id)]);
+        if (suppliers.length === 0) return "Supplier does not exist.";
+    }
+    return null;
+}
 
 // GET /api/products
 const getProducts = async (req, res, next) => {
@@ -41,6 +54,13 @@ const getProducts = async (req, res, next) => {
             params.push(categoryId);
         }
 
+        const supplierId = Number.parseInt(req.query.supplier_id, 10);
+
+        if (Number.isSafeInteger(supplierId) && supplierId > 0) {
+            conditions.push("p.supplier_id = ?");
+            params.push(supplierId);
+        }
+
         if (req.query.status === "active") {
             conditions.push("p.is_active = 1");
         } else if (req.query.status === "inactive") {
@@ -48,7 +68,8 @@ const getProducts = async (req, res, next) => {
         }
 
         if (req.query.stock === "low") {
-            conditions.push("p.stock <= 5");
+            // Same definition as the dashboard and inventory summary.
+            conditions.push("p.is_active = 1 AND p.reorder_point > 0 AND p.stock <= p.reorder_point");
         }
 
         const whereClause = conditions.length
@@ -77,9 +98,20 @@ const getProducts = async (req, res, next) => {
             `SELECT
                 p.id, p.name, p.description, p.price, p.stock,
                 p.category_id, p.is_active, p.created_at,
-                c.name AS category_name
+                p.reorder_point, p.supplier_id,
+                c.name AS category_name,
+                s.name AS supplier_name,
+                COALESCE(oo.on_order, 0) AS on_order
              FROM products p
              LEFT JOIN categories c ON c.id = p.category_id
+             LEFT JOIN suppliers s ON s.id = p.supplier_id
+             LEFT JOIN (
+                SELECT poi.product_id, SUM(poi.quantity) AS on_order
+                FROM purchase_order_items poi
+                INNER JOIN purchase_orders po ON po.id = poi.purchase_order_id
+                WHERE po.status = 'Ordered'
+                GROUP BY poi.product_id
+             ) oo ON oo.product_id = p.id
              ${whereClause}
              ORDER BY ${sortColumn} ${sortDirection}, p.id DESC
              LIMIT ? OFFSET ?`,
@@ -115,9 +147,10 @@ const getProductById = async (req, res) => {
         }
 
         const [products] = await pool.query(
-            `SELECT p.*, c.name AS category_name
+            `SELECT p.*, c.name AS category_name, s.name AS supplier_name
              FROM products p
              LEFT JOIN categories c ON p.category_id = c.id
+             LEFT JOIN suppliers s ON s.id = p.supplier_id
              WHERE p.id = ?`,
             [id]
         );
@@ -152,7 +185,9 @@ const createProduct = async (req, res) => {
             price,
             stock,
             category_id,
-            is_active
+            is_active,
+            reorder_point,
+            supplier_id
         } = req.body;
 
         const parsedPrice = Number(price);
@@ -215,19 +250,50 @@ const createProduct = async (req, res) => {
             });
         }
 
-        const [result] = await pool.query(
-            `INSERT INTO products
-             (name, description, price, stock, category_id, is_active)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-                name.trim(),
-                description || null,
-                parsedPrice,
-                parsedStock,
-                parsedCategoryId,
-                is_active === false || is_active === 0 ? 0 : 1
-            ]
-        );
+        const inventoryError = await checkInventoryFields(pool, { reorder_point, supplier_id });
+        if (inventoryError) {
+            return res.status(400).json({ success: false, message: inventoryError });
+        }
+
+        // Insert at zero stock, then record the initial stock in the ledger.
+        const connection = await pool.getConnection();
+        let result;
+
+        try {
+            await connection.beginTransaction();
+
+            [result] = await connection.query(
+                `INSERT INTO products
+                 (name, description, price, stock, category_id, is_active, reorder_point, supplier_id)
+                 VALUES (?, ?, ?, 0, ?, ?, ?, ?)`,
+                [
+                    name.trim(),
+                    description || null,
+                    parsedPrice,
+                    parsedCategoryId,
+                    is_active === false || is_active === 0 ? 0 : 1,
+                    reorder_point ?? 5,
+                    supplier_id ?? null
+                ]
+            );
+
+            if (parsedStock > 0) {
+                await recordMovement(connection, {
+                    productId: result.insertId,
+                    quantity: parsedStock,
+                    type: "opening",
+                    reason: "Initial stock",
+                    userId: req.user.userId
+                });
+            }
+
+            await connection.commit();
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
 
         res.status(201).json({
             success: true,
@@ -246,144 +312,167 @@ const createProduct = async (req, res) => {
 
 // PUT /api/products/:id
 const updateProduct = async (req, res) => {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id) || id < 1) {
+        return res.status(400).json({ success: false, message: "Invalid product ID" });
+    }
+
+    const { name, description, price, stock, category_id, is_active, reorder_point, supplier_id } = req.body;
+
+    if (typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({ success: false, message: "Product name is required" });
+    }
+
+    const parsedPrice = Number(price);
+    const parsedCategoryId = Number(category_id);
+
+    if (price === undefined || price === null || price === "" || !Number.isFinite(parsedPrice) || parsedPrice < 0) {
+        return res.status(400).json({ success: false, message: "Invalid price" });
+    }
+
+    // Stock is optional here; when it differs from the current value the
+    // change is recorded in the ledger as an adjustment.
+    if (stock !== undefined && (!Number.isSafeInteger(Number(stock)) || Number(stock) < 0)) {
+        return res.status(400).json({ success: false, message: "Invalid stock" });
+    }
+
+    if (category_id === undefined || !Number.isInteger(parsedCategoryId) || parsedCategoryId < 1) {
+        return res.status(400).json({ success: false, message: "Invalid category_id" });
+    }
+
+    if (is_active !== undefined && ![0, 1, true, false].includes(is_active)) {
+        return res.status(400).json({ success: false, message: "is_active must be true or false" });
+    }
+
+    let connection;
+
     try {
-        const id = Number(req.params.id);
-
-        if (!Number.isInteger(id) || id < 1) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid product ID"
-            });
-        }
-
-        const {
-            name,
-            description,
-            price,
-            stock,
-            category_id,
-            is_active
-        } = req.body;
-
-        if (typeof name !== "string" || !name.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: "Product name is required"
-            });
-        }
-
-        const parsedPrice = Number(price);
-        const parsedStock = Number(stock);
-        const parsedCategoryId = Number(category_id);
-
-        if (
-            price === undefined ||
-            price === null ||
-            price === "" ||
-            !Number.isFinite(parsedPrice) ||
-            parsedPrice < 0
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid price"
-            });
-        }
-
-        if (
-            stock === undefined ||
-            stock === null ||
-            stock === "" ||
-            !Number.isInteger(parsedStock) ||
-            parsedStock < 0
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid stock"
-            });
-        }
-
-        if (
-            category_id === undefined ||
-            !Number.isInteger(parsedCategoryId) ||
-            parsedCategoryId < 1
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid category_id"
-            });
-        }
-
-        if (
-            is_active !== undefined &&
-            ![0, 1, true, false].includes(is_active)
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: "is_active must be true or false"
-            });
-        }
-
-        const [categories] = await pool.query(
-            "SELECT id FROM categories WHERE id = ?",
-            [parsedCategoryId]
-        );
+        const [categories] = await pool.query("SELECT id FROM categories WHERE id = ?", [parsedCategoryId]);
 
         if (categories.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Category does not exist"
-            });
+            return res.status(400).json({ success: false, message: "Category does not exist" });
         }
 
-        const [result] = await pool.query(
+        const inventoryError = await checkInventoryFields(pool, { reorder_point, supplier_id });
+        if (inventoryError) {
+            return res.status(400).json({ success: false, message: inventoryError });
+        }
+
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        const [existing] = await connection.query(
+            "SELECT id, stock, supplier_id FROM products WHERE id = ? FOR UPDATE",
+            [id]
+        );
+
+        if (existing.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, message: "Product not found" });
+        }
+
+        await connection.query(
             `UPDATE products
              SET name = ?,
                  description = ?,
                  price = ?,
-                 stock = ?,
                  category_id = ?,
-                 is_active = COALESCE(?, is_active)
+                 is_active = COALESCE(?, is_active),
+                 reorder_point = COALESCE(?, reorder_point),
+                 supplier_id = ?
              WHERE id = ?`,
             [
                 name.trim(),
                 description || null,
                 parsedPrice,
-                parsedStock,
                 parsedCategoryId,
-                is_active === undefined
-                    ? null
-                    : Number(is_active),
+                is_active === undefined ? null : Number(is_active),
+                reorder_point ?? null,
+                // Omitted keeps the current supplier; null clears it.
+                supplier_id === undefined ? existing[0].supplier_id : supplier_id,
                 id
             ]
         );
 
-        if (result.affectedRows === 0) {
-            const [existing] = await pool.query(
-                "SELECT id FROM products WHERE id = ?",
-                [id]
-            );
+        const delta = stock === undefined ? 0 : Number(stock) - Number(existing[0].stock);
 
-            if (existing.length === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: "Product not found"
-                });
-            }
+        if (delta !== 0) {
+            await recordMovement(connection, {
+                productId: id,
+                quantity: delta,
+                type: "adjustment",
+                reason: "Edited on product form",
+                userId: req.user.userId
+            });
         }
 
-        res.json({
-            success: true,
-            message: "Product updated successfully"
-        });
-    } catch (error) {
-        console.error(error);
+        await connection.commit();
 
-        res.status(500).json({
-            success: false,
-            message: "Failed to update product"
-        });
+        return res.json({ success: true, message: "Product updated successfully" });
+    } catch (error) {
+        if (connection) await connection.rollback().catch(() => {});
+        console.error("Update product error:", error);
+
+        return res.status(500).json({ success: false, message: "Failed to update product" });
+    } finally {
+        if (connection) connection.release();
     }
 };
+
+// POST /api/products/:id/adjustments { quantity: signed int, reason, note? }
+const adjustStock = async (req, res) => {
+    const id = Number(req.params.id);
+    const quantity = Number(req.body?.quantity);
+    const reason = req.body?.reason;
+    const note = typeof req.body?.note === "string" ? req.body.note.trim() : "";
+
+    if (!Number.isInteger(id) || id < 1) {
+        return res.status(400).json({ success: false, message: "Invalid product ID" });
+    }
+    if (!Number.isSafeInteger(quantity) || quantity === 0 || Math.abs(quantity) > 1000000) {
+        return res.status(400).json({ success: false, message: "Enter a non-zero whole quantity." });
+    }
+    if (!ADJUSTMENT_REASONS.includes(reason)) {
+        return res.status(400).json({ success: false, message: `Choose a reason: ${ADJUSTMENT_REASONS.join(", ")}.` });
+    }
+    if (reason === "Other" && note.length < 3) {
+        return res.status(400).json({ success: false, message: "Describe the reason in the note." });
+    }
+    if (note.length > 200) {
+        return res.status(400).json({ success: false, message: "The note can be at most 200 characters." });
+    }
+
+    let connection;
+
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        const balance = await recordMovement(connection, {
+            productId: id,
+            quantity,
+            type: "adjustment",
+            reason: note ? `${reason}: ${note}` : reason,
+            userId: req.user.userId
+        });
+
+        await connection.commit();
+        return res.status(201).json({ success: true, message: "Stock adjusted", data: { stock: balance } });
+    } catch (error) {
+        if (connection) await connection.rollback().catch(() => {});
+
+        if (error instanceof InventoryError) {
+            return res.status(error.status).json({ success: false, message: error.message });
+        }
+
+        console.error("Adjust stock error:", error);
+        return res.status(500).json({ success: false, message: "Failed to adjust stock" });
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 
 // DELETE /api/products/:id
 const deleteProduct = async (req, res) => {
@@ -419,7 +508,7 @@ const deleteProduct = async (req, res) => {
         if (error.code === "ER_ROW_IS_REFERENCED_2") {
             return res.status(409).json({
                 success: false,
-                message: "Cannot delete a product used in an order"
+                message: "This product is used in orders or purchase orders. Deactivate it instead."
             });
         }
 
@@ -478,6 +567,7 @@ module.exports = {
     getProductById,
     createProduct,
     updateProduct,
+    adjustStock,
     deleteProduct,
     validateProduct
 };

@@ -84,6 +84,18 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
         label: "Create new quote",
         run: go("/quotes?new=1"),
       },
+      can(user, "purchasing.write") && {
+        id: "new-purchase-order",
+        icon: "truck",
+        label: "Create purchase order",
+        run: go("/purchase-orders?new=1"),
+      },
+      {
+        id: "reorder",
+        icon: "box",
+        label: "Review reorder suggestions",
+        run: go("/inventory"),
+      },
       can(user, "orders.write") && {
         id: "new-order",
         icon: "orders",
