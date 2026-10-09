@@ -108,7 +108,7 @@ function TopDebtors({ debtors }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold app-text">{debtor.company_name}</p>
                   <p className="text-xs app-text-muted">
-                    {debtor.invoices} open invoice{debtor.invoices === 1 ? "" : "s"}
+                    {debtor.invoices} open
                     {debtor.oldest_days_overdue > 0 && ` · oldest ${debtor.oldest_days_overdue}d late`}
                   </p>
                 </div>
@@ -225,11 +225,13 @@ export default function Receivables() {
         <StatCard label="Average delay" value={`${averageDaysLate} days`} hint="Across overdue invoices" icon="clock" tone="info" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
+      <div className="grid gap-6 xl:grid-cols-5">
+        <div className="xl:col-span-3">
           <AgeingChart buckets={report.buckets} outstanding={report.outstanding} selected={bucket} onSelect={(value) => { setBucket(value); table.setPage(1); }} />
         </div>
-        <TopDebtors debtors={report.top_debtors} />
+        <div className="xl:col-span-2">
+          <TopDebtors debtors={report.top_debtors} />
+        </div>
       </div>
 
       <Card>

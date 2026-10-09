@@ -1,90 +1,119 @@
 # B2B Management Platform
 
 [![CI](https://github.com/bijigunerachid/b2b-management-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/bijigunerachid/b2b-management-platform/actions/workflows/ci.yml)
+![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white)
+![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![MySQL 8](https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 
-A full-stack web application for managing business customers, products, categories, orders, and users through a centralized dashboard.
+An end-to-end platform for a wholesale business: **quotes → orders → invoices → payments**, a **stock ledger with purchasing**, and a **self-service portal** where clients order and accept quotes themselves.
+
+![Dashboard](docs/screenshots/02-dashboard.png)
+
+## Highlights
+
+- **The whole sales cycle.** Quotes with negotiated prices convert into orders at the quoted price, orders produce A4 invoices with 20% VAT, and payments drive paid / partially paid / overdue status and a receivables ageing report.
+- **Inventory you can audit.** Every stock change is a ledger entry (sale, cancellation, purchase receipt, adjustment with a reason), and the ledger always sums to current stock. Reorder points come from real sales; suggestions turn into purchase orders in one click.
+- **A real client portal.** Customers sign in to browse the catalog, place orders, download invoices, and accept quotes online, fully isolated from internal data.
+- **Built to be trusted.** Session revocation, rate-limited login, CSRF protection, strict CSP, role-based access checked on every request, and row locks wherever two people could race.
+- **Tested and shippable.** 132 Jest tests run in CI with a dependency audit, lint, and production build; one command starts the Docker stack, and another adds automatic HTTPS.
+
+## Tour
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/06-quote.png" alt="Quote with negotiated prices"><br><sub><b>Quotes:</b> negotiated prices, discount vs list price, one-click conversion to an order.</sub></td>
+    <td width="50%"><img src="docs/screenshots/04-order-drawer.png" alt="Order with partial payment"><br><sub><b>Orders &amp; payments:</b> partial payments, balance due, and guarded status changes.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/07-invoice.png" alt="Printable invoice"><br><sub><b>Invoices:</b> A4 print/PDF with VAT, payment stamp, and payments received.</sub></td>
+    <td><img src="docs/screenshots/05-receivables.png" alt="Receivables ageing"><br><sub><b>Receivables:</b> ageing buckets, top debtors, and open invoices.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/08-reorder-suggestions.png" alt="Reorder suggestions"><br><sub><b>Reordering:</b> demand-based reorder points grouped by supplier.</sub></td>
+    <td><img src="docs/screenshots/09-purchase-order.png" alt="Purchase order"><br><sub><b>Purchasing:</b> overdue tracking; receiving adds stock through the ledger.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/11-portal-home.png" alt="Client portal home"><br><sub><b>Client portal:</b> balances, overdue alerts, and order tracking for customers.</sub></td>
+    <td><img src="docs/screenshots/12-portal-cart.png" alt="Client portal cart"><br><sub><b>Self-service ordering:</b> catalog, cart, and checkout with VAT.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/10-command-palette.png" alt="Command palette"><br><sub><b>Command palette:</b> <kbd>Ctrl</kbd>+<kbd>K</kbd> to jump anywhere or search records.</sub></td>
+    <td><img src="docs/screenshots/03-dashboard-dark.png" alt="Dark mode"><br><sub><b>Dark mode:</b> follows the OS, with a toggle.</sub></td>
+  </tr>
+</table>
+
+## Architecture
+
+```mermaid
+flowchart LR
+    staff([Staff]) --> nginx
+    client([Client]) --> nginx
+    subgraph Docker
+        nginx["nginx<br/>React SPA + /api proxy<br/>strict CSP"] --> api
+        subgraph api["Node.js / Express API"]
+            direction TB
+            auth["Auth guards<br/>staff · portal · any"] --> domain
+            domain["Domain services<br/>billing · quotes · purchasing<br/>order placement · stock ledger"]
+        end
+        api --> db[("MySQL 8")]
+    end
+    caddy["Caddy (production)<br/>automatic HTTPS"] -.-> nginx
+```
+
+- **One origin.** nginx serves the app and proxies `/api`, so the session cookie stays first-party (`SameSite=Strict`) with no CORS to configure. Only nginx is exposed; the API and database stay on a private network.
+- **Domain logic in pure modules.** Billing, quote lifecycle, and purchasing rules have no database access, so the money math and state machines are unit tested directly.
+- **Shared services for anything that changes stock.** Order placement and the stock ledger are single code paths, used by staff orders, quote conversion, portal checkout, and purchase receipts alike.
+
+## Engineering decisions
+
+| Problem | Decision |
+| --- | --- |
+| Stock numbers drift and nobody knows why | Stock only changes through `recordMovement()`, which writes a ledger row with the resulting balance, so `SUM(movements) = stock` holds by construction. The demo seed rebuilds histories that preserve it. |
+| Two people convert the same quote, or receive the same delivery | Transactions with `SELECT … FOR UPDATE`, so a second concurrent request sees the new state and is refused. Products are always locked in id order to avoid deadlocks. |
+| Rounding errors in totals | Prices are summed in integer cents; VAT is applied once per invoice and rounded the same way on the server and the printed invoice. |
+| "Overdue" and "Expired" get out of sync | Derived from dates on every read, never stored. |
+| A stolen cookie stays valid after logout | Each user has a `token_version`; logout, password and role changes, and deactivation bump it, ending all sessions at once. |
+| Client accounts reaching internal data | `protect` is staff-only by default, so every internal route refuses portal accounts without per-route changes. Portal queries are scoped to the session's company, never to request input. |
+| Node and MySQL disagreeing about time | UTC end to end: the driver and every MySQL session use UTC, and calendar dates are plain `YYYY-MM-DD` strings. |
+| Slow first load | Route-level code splitting: each page, including the whole client portal, is its own chunk, so the main bundle is 307 KB. |
 
 ## Features
 
-* **Dashboard:** Revenue and order-volume charts for the last six months, orders-by-status breakdown, top products, low-stock alerts, and recent activity.
-* **Customer Management:** Sortable table or card grid, country filter, CSV export, and a profile drawer with order history and lifetime value.
-* **Product Management:** Server-side search, filters (category, active, low stock) and sorting, stock meters, quick activate/deactivate, and CSV export.
-* **Category Management:** Card grid with product counts and catalog share; jump straight to a category's products.
-* **Quotes (devis):** Build offers with negotiated per-line prices and discounts against list price, send them, record acceptance or rejection, and convert accepted quotes into orders in one click at the quoted prices. Sent quotes expire automatically after their validity date. Printable A4 quote with an acceptance signature block, plus pipeline KPIs (open pipeline, win rate, expiring soon).
-* **Customer portal:** Clients sign in to their own area to browse the catalog and place orders, track deliveries, see balances and download invoices, and accept or decline quotes online. Staff grant and revoke portal access from the customer profile. Portal accounts are isolated: every staff endpoint refuses them, and portal endpoints only read the signed-in client's own records.
-* **Inventory ledger & purchasing:** Every stock change is a recorded movement (sale, cancelled sale, purchase receipt, adjustment with a reason) with the resulting balance, so the ledger always sums to current stock. Suppliers with lead times, purchase orders (draft → ordered → received) that add stock on receipt, per-product reorder points, and reorder suggestions that become draft purchase orders in one click.
-* **Payments & Receivables:** Record full or partial payments (bank transfer, cheque, cash, card), void mistakes with an audit trail, and see paid / partially paid / overdue status everywhere. A receivables page shows ageing buckets (not yet due, 1–30, 31–60, 61–90, 90+ days), top debtors, and open invoices.
-* **Order Management:** Status tabs with counts, date-range and payment filters, status timeline, one-click status changes, an order builder with live totals and stock checks, and printable A4 invoices with 20% VAT.
-* **User Management:** Role picker, password strength meter, and safe account activation/deactivation.
-* **Command palette:** Press `Ctrl+K` / `⌘K` to jump to any page, run quick actions, or search customers, products, and orders.
-* **Notifications:** Bell menu for low stock, pending orders, and new orders, with read tracking.
-* **Polished UI:** Animated modals, drawers, confirm dialogs and toasts; collapsible sidebar; light/dark theme that follows the OS by default; responsive down to phone width.
-* **Authentication:** Login and logout using JWT authentication stored in an HttpOnly cookie.
-* **Role-Based Access Control:** Admin, Manager, and Employee permissions, enforced by the API and reflected in the UI (actions a role can't perform are hidden). A fourth role, Customer, is limited to the client portal.
-* **Input Validation:** Validate incoming data and reject invalid operations.
+**Sales**
+- **Quotes (devis):** draft → sent → accepted/rejected → converted, with automatic expiry, discounts against list price, a printable quote with an acceptance block, and win-rate KPIs.
+- **Orders:** an order builder with stock checks, a status timeline, and payment and date filters.
+- **Invoices:** printable A4 documents with 20% VAT and a payment stamp.
+- **Payments:** full or partial; mistakes are voided with an audit trail, never deleted.
+- **Receivables:** ageing buckets (current, 1–30, 31–60, 61–90, 90+), top debtors, and CSV export.
+- **Customers:** profiles with order history, lifetime value, outstanding balance, and portal access management.
 
-## Technologies
+**Catalog & inventory**
+- **Products:** server-side search, filters and sorting, per-product reorder points, a preferred supplier, and stock history.
+- **Stock ledger:** every movement filterable by type, with reasons required for adjustments.
+- **Purchasing:** suppliers with lead times, purchase orders (draft → ordered → received), overdue deliveries, and reorder suggestions that become draft purchase orders.
 
-### Frontend
+**Client portal**
+- **Shopping:** catalog with availability (never exact stock), a cart, and checkout.
+- **Self-service:** order tracking, reordering in one click, invoice downloads, quote acceptance, and password changes.
 
-* React
-* Vite
-* JavaScript
-* Tailwind CSS
-* React Router
+**Platform**
+- **Dashboard:** revenue and order charts, status breakdown, top products, and alerts.
+- **Productivity:** a `Ctrl`/`⌘`+`K` command palette, notifications, and dark mode.
+- **Interface:** responsive layout with animated modals, drawers, and toasts.
+- **Roles:** Admin, Manager, Employee, and Customer, each enforced by the API and reflected in the UI.
 
-### Backend
+## Tech stack
 
-* Node.js
-* Express.js
-* MySQL2
-* JWT
-* bcrypt
+| Layer | Technologies |
+| --- | --- |
+| Frontend | React 19 (with React Compiler), React Router 7, Vite, Tailwind CSS 4 |
+| Backend | Node.js 22, Express 5, mysql2, JWT, bcrypt, Helmet, express-rate-limit |
+| Database | MySQL 8 with idempotent SQL migrations |
+| Quality | Jest + Supertest, ESLint, GitHub Actions |
+| Delivery | Docker Compose, nginx, Caddy (automatic HTTPS) |
 
-### Database
-
-* MySQL
-
-## Project Structure
-
-```text
-b2b-management-platform/
-├── .github/workflows/      # CI: tests, audit, lint, build
-├── deploy/Caddyfile        # HTTPS reverse proxy for production
-├── docker-compose.yml      # MySQL + API + nginx stack
-├── docker-compose.prod.yml # adds Caddy with automatic HTTPS
-├── .env.example            # settings for docker compose
-├── backend/
-│   ├── .env.example        # documented environment variables
-│   ├── Dockerfile
-│   └── src/
-│       ├── __tests__/      # Jest + Supertest suites
-│       ├── config/         # database pool, env checks, security settings
-│       ├── controllers/    # request handlers
-│       ├── middleware/     # auth, roles, validation, security, errors
-│       ├── routes/         # Express routers
-│       ├── scripts/        # migrate, create-admin, seed:large
-│       ├── seed/           # demo data generator
-│       ├── validation/     # request validation rules
-│       └── server.js
-├── database/
-│   ├── schema.sql          # tables and roles
-│   ├── seed.sql            # small sample dataset
-│   └── migrations/         # incremental schema changes
-├── frontend/
-│   ├── .env.example        # VITE_API_URL
-│   ├── Dockerfile          # build, then serve with nginx
-│   ├── nginx/              # server config and security headers
-│   └── src/
-│       ├── components/     # app shell, UI kit (modals, toasts, drawers)
-│       ├── config/         # company details printed on invoices
-│       ├── context/        # auth and theme providers
-│       ├── lib/            # API client, formatting, invoices, tables
-│       └── pages/
-└── README.md
-```
-
-## Installation
+## Getting started
 
 ### Prerequisites
 
@@ -105,7 +134,7 @@ cd b2b-management-platform
 mysql -u root -p < database/schema.sql
 ```
 
-This creates the `b2b_management` database, all tables, and the Admin, Manager, and Employee roles.
+This creates the `b2b_management` database, all tables, and the Admin, Manager, Employee, and Customer roles.
 
 ### 3. Configure and start the backend
 
@@ -153,27 +182,32 @@ Open `http://localhost:5173` and sign in with your admin account. `VITE_API_URL`
 
 ### Optional: load demo data
 
-Fill the database with a large, realistic dataset (400 customers, 350 products, 5,000 orders over 18 months, 24 team members):
-
 ```bash
 cd backend
 npm run seed:large
 ```
 
-The dataset includes realistic payment history: most older invoices are collected, recent ones are often still open, and a few are overdue. It also builds a quote pipeline (converted quotes are derived from real orders). For an existing database, `npm run seed:quotes` adds quotes once and skips if any exist. Suppliers, demand-based reorder points, and purchase-order history are included too; for an existing database run `npm run seed:purchasing` (skips if suppliers exist). Three demo client logins (`buyer@<company>.portal.example`, same password as the seeded team) are created too; for an existing database run `npm run seed:portal`. To add payment history to orders that already exist (for example from an older seed run), run `npm run seed:payments`; it is safe to run repeatedly.
+This builds a realistic business:
+- **Volume:** 400 customers, 350 products, and 5,000 orders over 18 months.
+- **Payments:** older invoices are mostly paid, recent ones are often open, and a few are overdue.
+- **Quotes:** a pipeline whose converted quotes are derived from real orders.
+- **Purchasing:** suppliers, reorder points based on real sales, and purchase-order history.
+- **Accounts:** 24 team members and 3 client portal logins (`buyer@<company>.portal.example`).
 
-Customize volumes with `npm run seed:large -- --orders=20000 --customers=1000`. The script appends inside one transaction. `--reset` first deletes **all** customers, products, categories, and orders (real user accounts are kept). Seeded users use the `@seed.b2b.local` domain and share one password, printed once; set `SEED_USER_PASSWORD` in `.env` to choose it.
+The seeded accounts share one password, which is printed once. Set `SEED_USER_PASSWORD` in `.env` to choose it.
+
+| Command | Purpose |
+| --- | --- |
+| `npm run seed:large -- --orders=20000 --customers=1000` | Custom volumes (appends in one transaction) |
+| `npm run seed:large -- --reset` | Delete **all** business data first (real user accounts are kept) |
+| `npm run seed:payments` / `seed:quotes` / `seed:purchasing` / `seed:portal` | Add one area to an existing database; each is safe to re-run |
 
 ## Deployment (Docker)
-
-The stack runs as three containers. Only nginx is exposed; the API and database stay on a private network.
 
 ```text
 browser ──► nginx (frontend)  ── /        → built React app
                               └─ /api/*   → backend (Node.js) ──► MySQL 8
 ```
-
-Serving the app and API from one origin keeps the session cookie first-party (`SameSite=Strict`) and avoids CORS entirely.
 
 ### Run locally
 
@@ -182,7 +216,7 @@ cp .env.example .env        # fill in the three secrets
 docker compose up -d --build
 ```
 
-Open `http://localhost:8080`. On first start MySQL loads `database/schema.sql`, and the backend applies migrations before it starts.
+Open `http://localhost:8080`. On first start, MySQL loads `database/schema.sql` and the backend applies migrations before it starts.
 
 Create the first admin and, optionally, demo data:
 
@@ -202,71 +236,95 @@ cp .env.example .env        # set secrets, DOMAIN, and PUBLIC_URL=https://<DOMAI
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-[Caddy](https://caddyserver.com) obtains and renews the TLS certificate automatically. Health is exposed at `/api/health`, which is useful for uptime monitors.
+[Caddy](https://caddyserver.com) obtains and renews the TLS certificate automatically. Health is exposed at `/api/health` for uptime monitors.
 
 ### What the containers enforce
 
-* Backend runs as a non-root user, applies idempotent migrations on start, and only becomes healthy once the database answers.
+* The backend runs as a non-root user, applies idempotent migrations on start, and only becomes healthy once the database answers.
 * The API connects with a dedicated MySQL account, never root; the database has no published port.
-* nginx serves hashed assets with long-term caching, never caches `index.html`, and sends a strict Content-Security-Policy (no inline scripts), `X-Frame-Options: DENY`, and related headers.
+* nginx serves hashed assets with long-term caching and never caches `index.html`. It also sends a strict Content-Security-Policy (no inline scripts), `X-Frame-Options: DENY`, and related headers.
 * Compose refuses to start when a required secret is missing.
 
 ## Testing
 
 ```bash
-cd backend && npm test          # 132 API, security, billing, quote, purchasing, and data tests
+cd backend && npm test          # 132 Jest tests: API security, billing, quotes, purchasing, order placement, seeding
 cd frontend && npm run lint     # ESLint, including React hooks rules
 ```
 
-GitHub Actions runs the backend tests, a dependency audit, and the frontend lint and production build on every push and pull request.
+GitHub Actions runs on every push and pull request:
+- the backend tests
+- a dependency audit
+- the frontend lint
+- the production build
 
-## API Routes
+## API overview
 
-| Resource       | Endpoint          |
-| -------------- | ----------------- |
-| Authentication | `/api/auth`       |
-| Users          | `/api/users`      |
-| Customers      | `/api/customers`  |
-| Products       | `/api/products`   |
-| Categories     | `/api/categories` |
-| Orders         | `/api/orders`     |
-| Dashboard      | `/api/dashboard`  |
+| Area | Endpoints |
+| --- | --- |
+| Auth | `/api/auth` (login, logout, me, password) |
+| Sales | `/api/customers`, `/api/orders`, `/api/quotes`, `/api/payments`, `/api/receivables` |
+| Catalog | `/api/products`, `/api/categories` |
+| Inventory | `/api/inventory`, `/api/purchase-orders`, `/api/suppliers` |
+| Administration | `/api/users`, `/api/portal-users`, `/api/dashboard` |
+| Client portal | `/api/portal` (summary, catalog, orders, quotes) |
+| Operations | `/api/health` |
 
 ## Security
 
-* **Passwords:** bcrypt (cost 12); minimum 10 characters with a letter and a number, max 72 bytes.
-* **Sessions:** HS256 JWT in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` in production), 1-hour lifetime.
+* **Passwords:** bcrypt (cost 12); minimum 10 characters with a letter and a number, maximum 72 bytes.
+* **Sessions:** HS256 JWT in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` in production), with a 1-hour lifetime.
 * **Revocation:** each user has a `token_version`. Logout, password change, role change, and deactivation bump it, ending every existing session instantly.
-* **Login protection:** rate limited per account (5 failures / 15 min) and per IP (30 / 15 min); constant-time responses that never reveal whether an email exists.
+* **Login protection:** rate limited per account (5 failures per 15 minutes) and per IP (30 per 15 minutes). Responses take the same time either way, so they never reveal whether an email exists.
 * **CSRF:** state-changing requests must come from an allowed `Origin`/`Referer`, on top of `SameSite=Strict`.
-* **Headers:** Helmet with a locked-down CSP, `nosniff`, frame protection; `X-Powered-By` removed; API responses are `Cache-Control: no-store`.
-* **Input:** every write route validates types, lengths, and ranges; bodies are limited to 100 KB; all SQL is parameterized and sort columns are whitelisted.
-* **Authorization:** roles are read from the database on every request (never trusted from the token); the last active admin can't be demoted or deactivated.
-* **Secrets:** environment variables keep credentials out of source code; the server refuses to start with a short `JWT_SECRET`.
-
-### Security configuration
+* **Headers:** Helmet with a locked-down CSP, `nosniff`, and frame protection. `X-Powered-By` is removed, and API responses are `Cache-Control: no-store`.
+* **Input:** every write route validates types, lengths, and ranges. Bodies are limited to 100 KB, all SQL is parameterized, and sort columns are whitelisted.
+* **Authorization:** roles are read from the database on every request, never trusted from the token. Staff routes refuse portal accounts by default, and the last active admin can't be demoted or deactivated.
+* **Secrets:** environment variables keep credentials out of source code, and the server refuses to start with a short `JWT_SECRET`.
 
 | Variable | Purpose |
 | --- | --- |
 | `NODE_ENV=production` | Enables `Secure` cookies and stricter startup checks |
 | `CORS_ORIGIN` | Comma-separated frontend origins (required in production, `https://` only) |
-| `TRUST_PROXY` | Set (e.g. `1`) when running behind a reverse proxy so rate limits see real client IPs |
+| `TRUST_PROXY` | Set (e.g. `1`) behind a reverse proxy so rate limits see real client IPs |
 
-After pulling these changes, apply the database migration once:
+## Project structure
 
-```bash
-cd backend
-npm run migrate
+```text
+b2b-management-platform/
+├── .github/workflows/        # CI: tests, audit, lint, build
+├── deploy/Caddyfile          # HTTPS reverse proxy for production
+├── docker-compose.yml        # MySQL + API + nginx
+├── docker-compose.prod.yml   # adds Caddy with automatic HTTPS
+├── docs/screenshots/         # images used in this README
+├── backend/src/
+│   ├── __tests__/            # Jest + Supertest suites
+│   ├── billing/              # VAT, balances, ageing (pure)
+│   ├── quotes/               # quote lifecycle rules (pure)
+│   ├── purchasing/           # PO lifecycle, reorder suggestions (pure)
+│   ├── services/             # order placement, stock ledger, transactions
+│   ├── controllers/  routes/  middleware/  validation/
+│   ├── seed/  scripts/       # demo data, migrations, admin bootstrap
+│   └── server.js
+├── database/
+│   ├── schema.sql            # full schema for new installs
+│   └── migrations/           # idempotent incremental changes
+└── frontend/src/
+    ├── components/           # app shell, UI kit, printable documents
+    ├── pages/                # back-office screens
+    ├── portal/               # client portal (layout, cart, pages)
+    └── lib/                  # API client, formatting, display rules
 ```
 
-## Project Status
+## Roadmap
 
-Under development. Features and testing are being improved incrementally.
+- Customer-specific pricing and volume discounts
+- Returns (RMA) that restock items and issue credit notes
+- French / Arabic interface with right-to-left support
+- Browser end-to-end tests (Playwright) in CI
 
 ## Author
 
-**Rachid Bijigune**
+**Rachid Bijigune**: Full-Stack Development | Big Data
 
-Full-Stack Development | Big Data
-
-GitHub: https://github.com/bijigunerachid
+GitHub: [@bijigunerachid](https://github.com/bijigunerachid)

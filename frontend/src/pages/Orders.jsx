@@ -127,7 +127,10 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
         order && (
           <>
             {canWrite &&
-              nextStatuses(order.status).map((status) => (
+              nextStatuses(order.status)
+                // The API refuses to cancel an order with active payments.
+                .filter((status) => status !== "Cancelled" || !(order.billing?.amount_paid > 0))
+                .map((status) => (
                 <Button
                   key={status}
                   variant={status === "Cancelled" ? "danger-ghost" : "primary"}
@@ -139,6 +142,9 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
                   {actionLabels[status].label}
                 </Button>
               ))}
+            {canWrite && order.status !== "Cancelled" && order.status !== "Completed" && order.billing?.amount_paid > 0 && (
+              <span className="order-first mr-auto max-w-[180px] text-xs app-text-muted">To cancel, void its payments first.</span>
+            )}
             <Link
               to={`/orders/${order.id}/invoice`}
               target="_blank"
