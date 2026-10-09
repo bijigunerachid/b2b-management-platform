@@ -13,6 +13,7 @@ import Orders from "./pages/Orders";
 import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
 import Invoice from "./pages/Invoice";
+import Receivables from "./pages/Receivables";
 
 export default function App() {
     return (
@@ -33,6 +34,7 @@ export default function App() {
                                     <Route path="/products" element={<Products />} />
                                     <Route path="/categories" element={<Categories />} />
                                     <Route path="/orders" element={<Orders />} />
+                                    <Route path="/receivables" element={<Receivables />} />
                                     <Route
                                         path="/users"
                                         element={<ProtectedRoute roles={["Admin"]} />}

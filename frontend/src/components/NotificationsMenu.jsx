@@ -31,6 +31,19 @@ function buildNotifications(stats) {
     });
   }
 
+  const overdueCount = stats.receivables?.overdueCount ?? 0;
+  if (overdueCount > 0) {
+    items.push({
+      // Re-notify when the overdue amount changes, not on every visit.
+      id: `overdue-${overdueCount}-${Math.round(stats.receivables.overdue)}`,
+      tone: "danger",
+      icon: "wallet",
+      title: `${overdueCount} overdue invoice${overdueCount === 1 ? "" : "s"}`,
+      body: `${money(stats.receivables.overdue)} past the 30-day payment terms.`,
+      to: "/receivables",
+    });
+  }
+
   const pending = stats.ordersByStatus?.Pending ?? 0;
   if (pending > 0) {
     items.push({

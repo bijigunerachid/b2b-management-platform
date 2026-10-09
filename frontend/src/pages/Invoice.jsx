@@ -16,6 +16,8 @@ const accent = "#2563eb";
 
 const stamps = {
   paid: { label: "PAID", color: "#15803d" },
+  partial: { label: "PARTIALLY PAID", color: "#0e7490" },
+  overdue: { label: "OVERDUE", color: "#b91c1c" },
   void: { label: "VOID", color: "#b91c1c" },
   due: { label: "PAYMENT DUE", color: "#b45309" },
 };
@@ -33,7 +35,7 @@ function PartyBlock({ title, children }) {
   );
 }
 
-function InvoiceSheet({ order, customer }) {
+function InvoiceSheet({ order, customer, payments }) {
   const invoice = buildInvoice(order);
   const stamp = stamps[invoice.state];
 
@@ -110,7 +112,9 @@ function InvoiceSheet({ order, customer }) {
             <dt style={{ color: muted }}>Issued</dt>
             <dd className="text-right font-medium">{formatDate(invoice.issued)}</dd>
             <dt style={{ color: muted }}>Due</dt>
-            <dd className="text-right font-medium">{invoice.state === "due" ? formatDate(invoice.due) : "—"}</dd>
+            <dd className="text-right font-medium" style={invoice.state === "overdue" ? { color: "#b91c1c" } : undefined}>
+              {invoice.balance > 0 && invoice.state !== "void" ? formatDate(invoice.due) : "—"}
+            </dd>
             <dt style={{ color: muted }}>Order</dt>
             <dd className="text-right font-medium">#{order.id}</dd>
             <dt style={{ color: muted }}>Customer</dt>
@@ -158,7 +162,7 @@ function InvoiceSheet({ order, customer }) {
       <section className="mt-6 flex flex-wrap items-start justify-between gap-8" style={{ breakInside: "avoid" }}>
         <div className="max-w-xs text-[12px] leading-5" style={{ color: muted }}>
           <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em]">Payment</p>
-          {invoice.state === "due" && (
+          {["due", "partial", "overdue"].includes(invoice.state) && (
             <>
               <p>
                 Bank transfer to {company.bank.name}
@@ -166,8 +170,16 @@ function InvoiceSheet({ order, customer }) {
                 RIB: <span style={{ color: ink }}>{company.bank.rib}</span>
               </p>
               <p className="mt-2">
-                Please reference <span className="font-semibold" style={{ color: ink }}>{invoice.number}</span> and pay by{" "}
-                <span className="font-semibold" style={{ color: ink }}>{formatDate(invoice.due)}</span>.
+                Please reference <span className="font-semibold" style={{ color: ink }}>{invoice.number}</span>
+                {invoice.state === "overdue" ? (
+                  <span className="font-semibold" style={{ color: "#b91c1c" }}>
+                    . Payment is {invoice.daysOverdue} days overdue.
+                  </span>
+                ) : (
+                  <>
+                    {" "}and pay by <span className="font-semibold" style={{ color: ink }}>{formatDate(invoice.due)}</span>.
+                  </>
+                )}
               </p>
             </>
           )}
@@ -190,8 +202,44 @@ function InvoiceSheet({ order, customer }) {
               {money(invoice.total)}
             </dd>
           </div>
+          {invoice.state !== "void" && invoice.amountPaid > 0 && (
+            <>
+              <div className="flex justify-between px-3 pt-3 text-[13px]">
+                <dt style={{ color: muted }}>Amount paid</dt>
+                <dd className="tabular-nums" style={{ color: "#15803d" }}>
+                  − {money(invoice.amountPaid)}
+                </dd>
+              </div>
+              <div className="flex justify-between px-3 pt-1.5 text-[14px] font-bold">
+                <dt>Balance due</dt>
+                <dd className="tabular-nums">{money(invoice.balance)}</dd>
+              </div>
+            </>
+          )}
         </dl>
       </section>
+
+      {invoice.state !== "void" && payments.length > 0 && (
+        <section className="mt-8" style={{ breakInside: "avoid" }}>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: muted }}>
+            Payments received
+          </p>
+          <table className="w-full text-[12px]">
+            <tbody>
+              {payments.map((payment) => (
+                <tr key={payment.id} className="border-b" style={{ borderColor: rule }}>
+                  <td className="py-1.5 pr-3">{formatDate(`${payment.paid_at}T00:00:00`)}</td>
+                  <td className="py-1.5 pr-3">{payment.method}</td>
+                  <td className="py-1.5 pr-3" style={{ color: muted }}>
+                    {payment.reference || "—"}
+                  </td>
+                  <td className="py-1.5 text-right font-semibold tabular-nums">{money(payment.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {invoice.state === "void" && (
         <p className="mt-6 mb-10 rounded-lg border px-4 py-3 text-[12px]" style={{ borderColor: "#fecaca", backgroundColor: "#fef2f2", color: "#991b1b" }}>
@@ -221,6 +269,9 @@ export default function Invoice() {
   const order = orderResource.data?.data;
   const customerResource = useResource(order ? `/customers/${order.customer_id}` : null);
   const customer = customerResource.data?.data;
+  const paymentsResource = useResource(order ? `/orders/${order.id}/payments` : null);
+  // Voided payments stay in the app's history but don't belong on the invoice.
+  const payments = (paymentsResource.data?.data?.payments ?? []).filter((payment) => !payment.voided_at);
 
   const number = order ? buildInvoice(order).number : null;
 
@@ -234,7 +285,7 @@ export default function Invoice() {
     };
   }, [number, order?.company_name]);
 
-  const ready = order && !customerResource.loading;
+  const ready = order && !customerResource.loading && !paymentsResource.loading;
 
   return (
     <div className="min-h-screen pb-12 print:min-h-0 print:bg-white print:pb-0" style={{ backgroundColor: "var(--app-bg)" }}>
@@ -271,7 +322,7 @@ export default function Invoice() {
           <div className="skeleton mx-auto aspect-[210/297] w-full max-w-[210mm] rounded-none" />
         ) : (
           <div className="animate-rise print:animate-none">
-            <InvoiceSheet order={order} customer={customer} />
+            <InvoiceSheet order={order} customer={customer} payments={payments} />
           </div>
         )}
       </div>

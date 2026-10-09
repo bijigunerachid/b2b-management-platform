@@ -27,6 +27,7 @@ import {
 } from "../components/ui/primitives";
 import { api, can, exportCsv, formatDate, initials, money, number, toList, useResource } from "../lib/api";
 import { ORDER_STATUS } from "../lib/orderStatus";
+import { paymentBadge } from "../lib/billing";
 import useTable from "../lib/useTable";
 
 const emptyForm = {
@@ -61,6 +62,8 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
   const orders = toList(data).filter((order) => Number(order.customer_id) === Number(customer?.id));
   const billable = orders.filter((order) => order.status !== "Cancelled");
   const lifetimeValue = billable.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+  const outstanding = billable.reduce((sum, order) => sum + (order.billing?.balance ?? 0), 0);
+  const overdue = billable.reduce((sum, order) => sum + (order.billing?.overdue ? order.billing.balance : 0), 0);
 
   return (
     <Drawer
@@ -101,10 +104,16 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {[
               { label: "Orders", value: loading ? "…" : orders.length },
-              { label: "Lifetime value", value: loading ? "…" : money(lifetimeValue) },
+              { label: "Lifetime value (HT)", value: loading ? "…" : money(lifetimeValue) },
+              {
+                label: "Outstanding",
+                value: loading ? "…" : money(outstanding),
+                danger: overdue > 0,
+                hint: overdue > 0 ? `${money(overdue)} overdue` : null,
+              },
               {
                 label: "Last order",
                 value: loading ? "…" : orders[0] ? formatDate(orders[0].created_at) : "—",
@@ -112,7 +121,10 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
             ].map((item) => (
               <div key={item.label} className="rounded-xl p-3 app-muted">
                 <p className="text-[11px] font-medium uppercase tracking-wide app-text-muted">{item.label}</p>
-                <p className="mt-1 truncate text-sm font-bold app-text">{item.value}</p>
+                <p className="mt-1 truncate text-sm font-bold app-text" style={item.danger ? { color: "var(--danger)" } : undefined}>
+                  {item.value}
+                </p>
+                {item.hint && <p className="truncate text-[11px] font-medium" style={{ color: "var(--danger)" }}>{item.hint}</p>}
               </div>
             ))}
           </div>
@@ -171,6 +183,11 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
                       <Badge tone={ORDER_STATUS[order.status]?.tone} dot>
                         {order.status}
                       </Badge>
+                      {order.billing?.overdue && (
+                        <Badge tone="danger" icon="alert">
+                          {paymentBadge(order.billing).label}
+                        </Badge>
+                      )}
                       <span className="w-28 text-right text-sm font-semibold tabular-nums app-text">{money(order.total_amount)}</span>
                     </button>
                   </li>

@@ -15,7 +15,7 @@ const { generateDataset } = require("../seed/generate");
  * Options: --customers --products --orders --users --months --seed --reset
  *
  * Everything runs in one transaction: it either all lands or nothing does.
- * --reset deletes ALL customers, products, categories, and orders, plus
+ * --reset deletes ALL customers, products, categories, orders, and payments, plus
  * previously seeded users (@seed.b2b.local). Real user accounts are kept.
  */
 
@@ -82,6 +82,7 @@ async function seed() {
 
         if (options.reset) {
             console.log("Resetting business data…");
+            await connection.query("DELETE FROM payments");
             await connection.query("DELETE FROM order_items");
             await connection.query("DELETE FROM orders");
             await connection.query("DELETE FROM products");
@@ -172,6 +173,23 @@ async function seed() {
             itemRows
         );
 
+        const paymentRows = data.payments.map((payment) => [
+            firstOrderId + payment.key,
+            payment.amount,
+            payment.method,
+            payment.reference,
+            payment.paid_at,
+            payment.note
+        ]);
+        console.log(`Inserting ${paymentRows.length} payments…`);
+        await insertChunks(
+            connection,
+            `INSERT INTO payments
+                (order_id, amount, method, reference, paid_at, note)
+             VALUES ?`,
+            paymentRows
+        );
+
         // Team members share one password so you can sign in as any role.
         let seededPassword = null;
         if (data.users.length > 0) {
@@ -213,6 +231,7 @@ async function seed() {
         console.log(`  Categories:  ${data.categories.length}`);
         console.log(`  Products:    ${data.products.length}`);
         console.log(`  Orders:      ${data.orders.length} (${itemRows.length} line items, ${options.months} months)`);
+        console.log(`  Payments:    ${paymentRows.length}`);
         console.log(`  Revenue:     ${revenue.toLocaleString("en", { maximumFractionDigits: 0 })} MAD completed`);
 
         if (seededPassword) {

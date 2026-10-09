@@ -18,6 +18,7 @@ const sections = [
     title: "Sales",
     links: [
       { label: "Orders", path: "/orders", icon: "orders", roles: ["Admin", "Manager", "Employee"] },
+      { label: "Receivables", path: "/receivables", icon: "wallet", roles: ["Admin", "Manager", "Employee"] },
       { label: "Customers", path: "/customers", icon: "customers", roles: ["Admin", "Manager", "Employee"] },
     ],
   },

@@ -26,6 +26,8 @@ import {
 } from "../components/ui/primitives";
 import { api, can, compactMoney, exportCsv, formatDate, initials, money, number, timeAgo, toList, useResource } from "../lib/api";
 import { ORDER_STATUS, STATUS_FLOW, nextStatuses } from "../lib/orderStatus";
+import { paymentBadge } from "../lib/billing";
+import PaymentPanel from "../components/PaymentPanel";
 import useTable from "../lib/useTable";
 
 const STATUSES = Object.keys(ORDER_STATUS);
@@ -43,6 +45,14 @@ const accessors = {
   date: (order) => new Date(order.created_at).getTime() || 0,
   total: (order) => Number(order.total_amount),
   status: (order) => STATUSES.indexOf(order.status),
+};
+
+const paymentFilters = {
+  all: { label: "All payments", match: () => true },
+  open: { label: "Open balance", match: (b) => b && b.balance > 0 },
+  overdue: { label: "Overdue", match: (b) => b?.overdue },
+  partial: { label: "Partially paid", match: (b) => b?.payment_status === "Partially paid" },
+  paid: { label: "Paid", match: (b) => b?.payment_status === "Paid" },
 };
 
 const actionLabels = {
@@ -98,7 +108,7 @@ function StatusTimeline({ status }) {
 
 /* ---------- Order drawer ---------- */
 
-function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating, canWrite }) {
+function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating, canWrite, canRecordPayments, canVoidPayments, onPaymentsChanged }) {
   // `version` changes the request key so the drawer refetches after updates.
   const { data, loading, error } = useResource(orderId ? `/orders/${orderId}?v=${version}` : null);
   const order = data?.data ?? null;
@@ -209,11 +219,19 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
                   </tbody>
                 </table>
                 <div className="flex items-center justify-between border-t px-4 py-3.5" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}>
-                  <span className="text-sm font-semibold app-text-secondary">Order total</span>
+                  <span className="text-sm font-semibold app-text-secondary">Order total (excl. VAT)</span>
                   <span className="text-lg font-bold tabular-nums app-text">{money(order.total_amount)}</span>
                 </div>
               </div>
             </div>
+
+            <PaymentPanel
+              order={order}
+              version={version}
+              canRecord={canRecordPayments}
+              canVoid={canVoidPayments}
+              onChanged={onPaymentsChanged}
+            />
           </div>
         )
       )}
@@ -502,6 +520,7 @@ export default function Orders() {
   const [search, setSearch] = useState("");
   // The cutoff is computed when a period is chosen, keeping render pure.
   const [period, setPeriod] = useState({ key: "all", cutoff: null });
+  const [paymentFilter, setPaymentFilter] = useState(() => (paymentFilters[params.get("payment")] ? params.get("payment") : "all"));
   const [status, setStatus] = useState(() => (STATUSES.includes(params.get("status")) ? params.get("status") : "All"));
   const [updating, setUpdating] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -546,9 +565,10 @@ export default function Orders() {
     return inPeriod.filter(
       (order) =>
         (status === "All" || order.status === status) &&
+        paymentFilters[paymentFilter].match(order.billing) &&
         (!term || String(order.id).includes(term) || order.company_name?.toLowerCase().includes(term))
     );
-  }, [inPeriod, status, search]);
+  }, [inPeriod, status, search, paymentFilter]);
 
   const table = useTable(filtered, { accessors, initialSort: { key: "date", direction: "desc" } });
 
@@ -668,6 +688,21 @@ export default function Orders() {
                 </option>
               ))}
             </select>
+            <select
+              value={paymentFilter}
+              onChange={(event) => {
+                setPaymentFilter(event.target.value);
+                table.setPage(1);
+              }}
+              aria-label="Filter by payment"
+              className="app-input h-10 py-0 sm:w-44"
+            >
+              {Object.entries(paymentFilters).map(([value, option]) => (
+                <option key={value} value={value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={`sm:ml-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
           </div>
         </div>
@@ -686,6 +721,7 @@ export default function Orders() {
                     setSearch("");
                     setStatus("All");
                     setPeriod({ key: "all", cutoff: null });
+                    setPaymentFilter("all");
                   }}
                 >
                   Clear filters
@@ -701,7 +737,7 @@ export default function Orders() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-left text-sm">
+            <table className="w-full min-w-[780px] text-left text-sm">
               <TableHead>
                 <SortHeader label="Order" column="id" sort={table.sort} onSort={table.toggleSort} />
                 <SortHeader label="Customer" column="customer" sort={table.sort} onSort={table.toggleSort} />
@@ -728,7 +764,7 @@ export default function Orders() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <Avatar label={initials(order.company_name)} seed={order.customer_id} size={34} rounded="rounded-lg" />
-                          <span className="max-w-[220px] truncate font-medium app-text">{order.company_name}</span>
+                          <span className="max-w-[170px] truncate font-medium app-text">{order.company_name}</span>
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-5 py-3.5">
@@ -736,9 +772,19 @@ export default function Orders() {
                         <p className="text-xs app-text-muted">{timeAgo(order.created_at)}</p>
                       </td>
                       <td className="px-5 py-3.5">
-                        <Badge tone={meta?.tone} icon={meta?.icon}>
-                          {order.status}
-                        </Badge>
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge tone={meta?.tone} icon={meta?.icon}>
+                            {order.status}
+                          </Badge>
+                          {order.status !== "Cancelled" && (() => {
+                            const badge = paymentBadge(order.billing);
+                            return (
+                              <Badge tone={badge.tone} icon={badge.icon} className="!py-0.5 text-[11px]">
+                                {badge.label}
+                              </Badge>
+                            );
+                          })()}
+                        </div>
                       </td>
                       <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold tabular-nums app-text">{money(order.total_amount)}</td>
                       <td className="px-5 py-3.5" onClick={(event) => event.stopPropagation()}>
@@ -783,6 +829,9 @@ export default function Orders() {
         open={Boolean(viewId)}
         onClose={() => updateParams({ view: null })}
         onChangeStatus={changeStatus}
+        canRecordPayments={can(user, "payments.write")}
+        canVoidPayments={can(user, "payments.void")}
+        onPaymentsChanged={reload}
         updating={updating}
         canWrite={canWrite}
       />

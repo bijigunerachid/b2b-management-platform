@@ -1,5 +1,7 @@
 
 const pool = require("../config/database");
+const { ageingReport } = require("../billing/billing");
+const { loadOpenInvoices } = require("../billing/queries");
 
 // Returns exactly six months (oldest first), with zeros for months without orders.
 function fillMonths(rows, now = new Date()) {
@@ -95,6 +97,8 @@ async function getDashboardStats(req, res) {
       LIMIT 5
     `);
 
+    const receivables = ageingReport(await loadOpenInvoices(pool));
+
     res.json({
       success: true,
       data: {
@@ -108,6 +112,11 @@ async function getDashboardStats(req, res) {
         ordersByStatus: Object.fromEntries(
           statusRows.map((row) => [row.status, Number(row.total)])
         ),
+        receivables: {
+          outstanding: receivables.outstanding,
+          overdue: receivables.overdue,
+          overdueCount: receivables.overdue_count,
+        },
         topProducts: topProducts.map((row) => ({
           id: row.id,
           name: row.name,

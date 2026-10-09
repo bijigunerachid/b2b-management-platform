@@ -1,6 +1,8 @@
 // Pure, deterministic generator for realistic demo data.
 // No database access here, so it can be unit tested.
 
+const { PAYMENT_TERMS_DAYS, invoiceTotals, round2: roundMoney } = require("../billing/billing");
+
 const STATUSES = ["Pending", "Processing", "Completed", "Cancelled"];
 
 const FIRST_NAMES = [
@@ -345,6 +347,80 @@ function generateUsers(random, count) {
     return users;
 }
 
+const DAY_MS = 86400000;
+
+function paymentReference(random, method, date) {
+    const ymd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+    if (method === "Bank transfer") return `VIR-${ymd}-${random.int(1000, 9999)}`;
+    if (method === "Cheque") return `CHQ-${random.int(100000, 999999)}`;
+    if (method === "Card") return `CB-****${random.int(1000, 9999)}`;
+    return null;
+}
+
+/**
+ * Realistic payment history for orders. Each input order needs status,
+ * total_amount (HT), and created_at; `key` is passed through to identify it.
+ * Older invoices are mostly settled; recent ones are often still open.
+ */
+function generatePayments(random, orders, now = new Date()) {
+    const payments = [];
+
+    for (const order of orders) {
+        if (order.status === "Cancelled") continue;
+
+        const created = new Date(order.created_at);
+        const { total } = invoiceTotals(order.total_amount);
+        const due = new Date(created.getTime() + PAYMENT_TERMS_DAYS * DAY_MS);
+        const daysPastDue = (now - due) / DAY_MS;
+
+        // Collection gets more complete with age, as in a healthy business:
+        // almost nothing older than 90 days past due is still open.
+        const outcome =
+            daysPastDue > 90
+                ? random.weighted([["full", 985], ["partial", 10], ["none", 5]])
+                : daysPastDue > 30
+                  ? random.weighted([["full", 88], ["partial", 7], ["none", 5]])
+                  : daysPastDue > 0
+                  ? random.weighted([["full", 80], ["partial", 10], ["none", 10]])
+                  : random.weighted([["full", 28], ["partial", 14], ["none", 58]]);
+
+        if (outcome === "none") continue;
+
+        // When the customer paid: usually around the due date, sometimes late.
+        const latest = Math.min(now.getTime(), due.getTime() + random.int(0, 45) * DAY_MS);
+        const earliest = created.getTime() + DAY_MS;
+        const payDate = () => new Date(earliest + random.next() * Math.max(0, latest - earliest));
+
+        let amounts;
+        if (outcome === "partial") {
+            amounts = [roundMoney(total * (0.25 + random.next() * 0.45))];
+        } else if (total > 5000 && random.chance(0.25)) {
+            const first = roundMoney(total * (0.4 + random.next() * 0.2));
+            amounts = [first, roundMoney(total - first)];
+        } else {
+            amounts = [total];
+        }
+
+        const dates = amounts.map(payDate).sort((a, b) => a - b);
+
+        amounts.forEach((amount, index) => {
+            if (amount <= 0) return;
+            const method = random.weighted([["Bank transfer", 68], ["Cheque", 16], ["Card", 10], ["Cash", 6]]);
+            const paidAt = dates[index] > now ? now : dates[index];
+            payments.push({
+                key: order.key,
+                amount,
+                method,
+                reference: paymentReference(random, method, paidAt),
+                paid_at: paidAt,
+                note: amounts.length > 1 ? `Installment ${index + 1} of ${amounts.length}` : null
+            });
+        });
+    }
+
+    return payments;
+}
+
 function generateDataset({ seed = 2026, customers = 400, products = 350, orders = 5000, users = 24, months = 18, now = new Date() } = {}) {
     const random = createRandom(seed);
     const earliest = new Date(now.getFullYear(), now.getMonth() - months - 6, 1);
@@ -354,18 +430,25 @@ function generateDataset({ seed = 2026, customers = 400, products = 350, orders 
     const productList = generateProducts(random, products, categoryList.length);
     const orderList = generateOrders(random, orders, { customers: customerList, products: productList, now, months });
     const userList = generateUsers(random, users);
+    const paymentList = generatePayments(
+        random,
+        orderList.map((order, index) => ({ ...order, key: index })),
+        now
+    );
 
     return {
         categories: categoryList,
         customers: customerList,
         products: productList,
         orders: orderList,
-        users: userList
+        users: userList,
+        payments: paymentList
     };
 }
 
 module.exports = {
     STATUSES,
     createRandom,
-    generateDataset
+    generateDataset,
+    generatePayments
 };

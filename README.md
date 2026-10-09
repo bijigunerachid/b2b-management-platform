@@ -10,7 +10,8 @@ A full-stack web application for managing business customers, products, categori
 * **Customer Management:** Sortable table or card grid, country filter, CSV export, and a profile drawer with order history and lifetime value.
 * **Product Management:** Server-side search, filters (category, active, low stock) and sorting, stock meters, quick activate/deactivate, and CSV export.
 * **Category Management:** Card grid with product counts and catalog share; jump straight to a category's products.
-* **Order Management:** Status tabs with counts, date-range filter, status timeline, one-click status changes, and an order builder with live totals and stock checks.
+* **Payments & Receivables:** Record full or partial payments (bank transfer, cheque, cash, card), void mistakes with an audit trail, and see paid / partially paid / overdue status everywhere. A receivables page shows ageing buckets (not yet due, 1–30, 31–60, 61–90, 90+ days), top debtors, and open invoices.
+* **Order Management:** Status tabs with counts, date-range and payment filters, status timeline, one-click status changes, an order builder with live totals and stock checks, and printable A4 invoices with 20% VAT.
 * **User Management:** Role picker, password strength meter, and safe account activation/deactivation.
 * **Command palette:** Press `Ctrl+K` / `⌘K` to jump to any page, run quick actions, or search customers, products, and orders.
 * **Notifications:** Bell menu for low stock, pending orders, and new orders, with read tracking.
@@ -156,6 +157,8 @@ cd backend
 npm run seed:large
 ```
 
+The dataset includes realistic payment history: most older invoices are collected, recent ones are often still open, and a few are overdue. To add payment history to orders that already exist (for example from an older seed run), run `npm run seed:payments`; it is safe to run repeatedly.
+
 Customize volumes with `npm run seed:large -- --orders=20000 --customers=1000`. The script appends inside one transaction. `--reset` first deletes **all** customers, products, categories, and orders (real user accounts are kept). Seeded users use the `@seed.b2b.local` domain and share one password, printed once; set `SEED_USER_PASSWORD` in `.env` to choose it.
 
 ## Deployment (Docker)
@@ -208,7 +211,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ## Testing
 
 ```bash
-cd backend && npm test          # 52 API, security, and data-generator tests
+cd backend && npm test          # 70 API, security, billing, and data-generator tests
 cd frontend && npm run lint     # ESLint, including React hooks rules
 ```
 
