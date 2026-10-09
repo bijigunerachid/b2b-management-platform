@@ -47,9 +47,14 @@ function MonthlyChart({ months }) {
   const format = measure === "revenue" ? compactMoney : number;
   const total = values.reduce((sum, value) => sum + value, 0);
 
-  const current = months[months.length - 1]?.[measure] ?? 0;
-  const previous = months[months.length - 2]?.[measure] ?? 0;
-  const change = previous > 0 ? ((current - previous) / previous) * 100 : null;
+  // The current month is still in progress, so compare the last two
+  // complete months to avoid a misleading month-to-date drop.
+  const lastFull = months[months.length - 2];
+  const priorFull = months[months.length - 3];
+  const change =
+    lastFull && priorFull && priorFull[measure] > 0
+      ? ((lastFull[measure] - priorFull[measure]) / priorFull[measure]) * 100
+      : null;
 
   return (
     <Card className="flex flex-col">
@@ -78,7 +83,7 @@ function MonthlyChart({ months }) {
         </div>
         {change !== null && (
           <Badge tone={change >= 0 ? "success" : "danger"} icon={change >= 0 ? "sortUp" : "sortDown"} className="mb-1">
-            {Math.abs(change).toFixed(0)}% vs last month
+            {Math.abs(change).toFixed(0)}% {monthLabel(lastFull.month)} vs {monthLabel(priorFull.month)}
           </Badge>
         )}
       </div>

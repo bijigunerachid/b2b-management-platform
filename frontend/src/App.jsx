@@ -12,6 +12,7 @@ import Categories from "./pages/Categories";
 import Orders from "./pages/Orders";
 import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
+import Invoice from "./pages/Invoice";
 
 export default function App() {
     return (
@@ -23,6 +24,9 @@ export default function App() {
                             <Route path="/login" element={<Login />} />
 
                             <Route element={<ProtectedRoute />}>
+                                {/* Full-page document, outside the app shell so it prints cleanly. */}
+                                <Route path="/orders/:id/invoice" element={<Invoice />} />
+
                                 <Route element={<Layout />}>
                                     <Route path="/" element={<Dashboard />} />
                                     <Route path="/customers" element={<Customers />} />
