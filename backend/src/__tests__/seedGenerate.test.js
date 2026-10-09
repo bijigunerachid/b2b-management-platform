@@ -65,3 +65,42 @@ describe("seed dataset generator", () => {
         }
     });
 });
+
+describe("payment generator", () => {
+    const { invoiceTotals } = require("../billing/billing");
+    const data = generateDataset({ seed: 11, customers: 40, products: 50, orders: 800, users: 2, months: 12, now });
+
+    const paidByOrder = new Map();
+    for (const payment of data.payments) {
+        paidByOrder.set(payment.key, (paidByOrder.get(payment.key) ?? 0) + payment.amount);
+    }
+
+    test("never pays cancelled orders or more than the invoice total", () => {
+        for (const [key, paid] of paidByOrder) {
+            const order = data.orders[key];
+            expect(order.status).not.toBe("Cancelled");
+            expect(paid).toBeLessThanOrEqual(invoiceTotals(order.total_amount).total + 0.005);
+        }
+    });
+
+    test("payments are positive and dated between the order and now", () => {
+        for (const payment of data.payments) {
+            const order = data.orders[payment.key];
+            expect(payment.amount).toBeGreaterThan(0);
+            expect(payment.paid_at.getTime()).toBeGreaterThanOrEqual(order.created_at.getTime());
+            expect(payment.paid_at.getTime()).toBeLessThanOrEqual(now.getTime());
+        }
+    });
+
+    test("older invoices are mostly settled, recent ones mostly open", () => {
+        const settledShare = (filter) => {
+            const orders = data.orders.map((order, key) => ({ order, key })).filter(({ order }) => order.status !== "Cancelled" && filter(order));
+            const settled = orders.filter(({ order, key }) => (paidByOrder.get(key) ?? 0) >= invoiceTotals(order.total_amount).total - 0.005);
+            return settled.length / orders.length;
+        };
+        const ageDays = (order) => (now - order.created_at) / 86400000;
+
+        expect(settledShare((order) => ageDays(order) > 90)).toBeGreaterThan(0.8);
+        expect(settledShare((order) => ageDays(order) < 20)).toBeLessThan(0.5);
+    });
+});

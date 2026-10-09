@@ -33,8 +33,18 @@ export function buildInvoice(order, { vatRate = company.vatRate, termsDays = com
   const due = new Date(issued);
   due.setDate(due.getDate() + termsDays);
 
+  // Payment state comes from the API's billing summary (recorded payments).
+  const billing = order.billing;
   const state =
-    order.status === "Cancelled" ? "void" : order.status === "Completed" ? "paid" : "due";
+    order.status === "Cancelled"
+      ? "void"
+      : billing?.payment_status === "Paid"
+        ? "paid"
+        : billing?.overdue
+          ? "overdue"
+          : billing?.payment_status === "Partially paid"
+            ? "partial"
+            : "due";
 
   return {
     number: invoiceNumber(order),
@@ -46,5 +56,8 @@ export function buildInvoice(order, { vatRate = company.vatRate, termsDays = com
     vat,
     total,
     state,
+    amountPaid: billing?.amount_paid ?? 0,
+    balance: billing?.balance ?? total,
+    daysOverdue: billing?.days_overdue ?? 0,
   };
 }

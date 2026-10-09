@@ -11,6 +11,12 @@ const {
 
 const { protect } = require("../middleware/authMiddleware");
 const { authorize } = require("../middleware/roleMiddleware");
+const validate = require("../middleware/validate");
+const { recordPaymentRules } = require("../validation/paymentRules");
+const {
+    getOrderPayments,
+    recordPayment
+} = require("../controllers/paymentController");
 
 router.use(protect);
 
@@ -35,6 +41,19 @@ router.patch(
     "/:id/status",
     authorize("Admin", "Manager"),
     updateOrderStatus
+);
+
+router.get(
+    "/:id/payments",
+    authorize("Admin", "Manager", "Employee"),
+    getOrderPayments
+);
+
+router.post(
+    "/:id/payments",
+    authorize("Admin", "Manager"),
+    validate(recordPaymentRules),
+    recordPayment
 );
 
 module.exports = router;

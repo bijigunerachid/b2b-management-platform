@@ -1,21 +1,21 @@
 
 const pool = require("../config/database");
+const { withBilling } = require("../billing/billing");
+const { ORDER_BILLING_COLUMNS, PAID_JOIN } = require("../billing/queries");
 
 // GET /api/orders
 const getOrders = async (req, res) => {
     try {
-        const [orders] = await pool.query(`
-            SELECT
-                o.id,
-                o.customer_id,
-                c.company_name,
-                o.status,
-                o.total_amount,
-                o.created_at
+        const [rows] = await pool.query(`
+            SELECT ${ORDER_BILLING_COLUMNS}
             FROM orders o
             INNER JOIN customers c ON c.id = o.customer_id
+            ${PAID_JOIN}
             ORDER BY o.id DESC
         `);
+
+        const now = new Date();
+        const orders = rows.map((row) => withBilling(row, now));
 
         return res.json({
             success: true,
@@ -45,15 +45,10 @@ const getOrderById = async (req, res) => {
         }
 
         const [orders] = await pool.query(
-            `SELECT
-                o.id,
-                o.customer_id,
-                c.company_name,
-                o.status,
-                o.total_amount,
-                o.created_at
+            `SELECT ${ORDER_BILLING_COLUMNS}
              FROM orders o
              INNER JOIN customers c ON c.id = o.customer_id
+             ${PAID_JOIN}
              WHERE o.id = ?`,
             [id]
         );
@@ -81,7 +76,7 @@ const getOrderById = async (req, res) => {
         return res.json({
             success: true,
             data: {
-                ...orders[0],
+                ...withBilling(orders[0]),
                 items
             }
         });
@@ -415,6 +410,27 @@ const updateOrderStatus = async (req, res) => {
                 message:
                     `Cannot change order status from ${currentStatus} to ${status}`
             });
+        }
+
+        // Money already received must be voided (refunded) before cancelling.
+        if (status === "Cancelled") {
+            const [[{ activePayments }]] = await connection.query(
+                `SELECT COUNT(*) AS activePayments
+                 FROM payments
+                 WHERE order_id = ? AND voided_at IS NULL`,
+                [orderId]
+            );
+
+            if (Number(activePayments) > 0) {
+                await connection.rollback();
+                transactionStarted = false;
+
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "This order has recorded payments. Void them before cancelling the order."
+                });
+            }
         }
 
         // Restore stock only when moving to Cancelled
