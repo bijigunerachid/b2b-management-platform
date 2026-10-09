@@ -11,6 +11,7 @@ A full-stack web application for managing business customers, products, categori
 * **Product Management:** Server-side search, filters (category, active, low stock) and sorting, stock meters, quick activate/deactivate, and CSV export.
 * **Category Management:** Card grid with product counts and catalog share; jump straight to a category's products.
 * **Quotes (devis):** Build offers with negotiated per-line prices and discounts against list price, send them, record acceptance or rejection, and convert accepted quotes into orders in one click at the quoted prices. Sent quotes expire automatically after their validity date. Printable A4 quote with an acceptance signature block, plus pipeline KPIs (open pipeline, win rate, expiring soon).
+* **Customer portal:** Clients sign in to their own area to browse the catalog and place orders, track deliveries, see balances and download invoices, and accept or decline quotes online. Staff grant and revoke portal access from the customer profile. Portal accounts are isolated: every staff endpoint refuses them, and portal endpoints only read the signed-in client's own records.
 * **Inventory ledger & purchasing:** Every stock change is a recorded movement (sale, cancelled sale, purchase receipt, adjustment with a reason) with the resulting balance, so the ledger always sums to current stock. Suppliers with lead times, purchase orders (draft → ordered → received) that add stock on receipt, per-product reorder points, and reorder suggestions that become draft purchase orders in one click.
 * **Payments & Receivables:** Record full or partial payments (bank transfer, cheque, cash, card), void mistakes with an audit trail, and see paid / partially paid / overdue status everywhere. A receivables page shows ageing buckets (not yet due, 1–30, 31–60, 61–90, 90+ days), top debtors, and open invoices.
 * **Order Management:** Status tabs with counts, date-range and payment filters, status timeline, one-click status changes, an order builder with live totals and stock checks, and printable A4 invoices with 20% VAT.
@@ -19,7 +20,7 @@ A full-stack web application for managing business customers, products, categori
 * **Notifications:** Bell menu for low stock, pending orders, and new orders, with read tracking.
 * **Polished UI:** Animated modals, drawers, confirm dialogs and toasts; collapsible sidebar; light/dark theme that follows the OS by default; responsive down to phone width.
 * **Authentication:** Login and logout using JWT authentication stored in an HttpOnly cookie.
-* **Role-Based Access Control:** Admin, Manager, and Employee permissions, enforced by the API and reflected in the UI (actions a role can't perform are hidden).
+* **Role-Based Access Control:** Admin, Manager, and Employee permissions, enforced by the API and reflected in the UI (actions a role can't perform are hidden). A fourth role, Customer, is limited to the client portal.
 * **Input Validation:** Validate incoming data and reject invalid operations.
 
 ## Technologies
@@ -159,7 +160,7 @@ cd backend
 npm run seed:large
 ```
 
-The dataset includes realistic payment history: most older invoices are collected, recent ones are often still open, and a few are overdue. It also builds a quote pipeline (converted quotes are derived from real orders). For an existing database, `npm run seed:quotes` adds quotes once and skips if any exist. Suppliers, demand-based reorder points, and purchase-order history are included too; for an existing database run `npm run seed:purchasing` (skips if suppliers exist). To add payment history to orders that already exist (for example from an older seed run), run `npm run seed:payments`; it is safe to run repeatedly.
+The dataset includes realistic payment history: most older invoices are collected, recent ones are often still open, and a few are overdue. It also builds a quote pipeline (converted quotes are derived from real orders). For an existing database, `npm run seed:quotes` adds quotes once and skips if any exist. Suppliers, demand-based reorder points, and purchase-order history are included too; for an existing database run `npm run seed:purchasing` (skips if suppliers exist). Three demo client logins (`buyer@<company>.portal.example`, same password as the seeded team) are created too; for an existing database run `npm run seed:portal`. To add payment history to orders that already exist (for example from an older seed run), run `npm run seed:payments`; it is safe to run repeatedly.
 
 Customize volumes with `npm run seed:large -- --orders=20000 --customers=1000`. The script appends inside one transaction. `--reset` first deletes **all** customers, products, categories, and orders (real user accounts are kept). Seeded users use the `@seed.b2b.local` domain and share one password, printed once; set `SEED_USER_PASSWORD` in `.env` to choose it.
 
@@ -213,7 +214,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ## Testing
 
 ```bash
-cd backend && npm test          # 119 API, security, billing, quote, purchasing, and data tests
+cd backend && npm test          # 132 API, security, billing, quote, purchasing, and data tests
 cd frontend && npm run lint     # ESLint, including React hooks rules
 ```
 

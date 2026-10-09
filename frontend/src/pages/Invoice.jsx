@@ -24,7 +24,7 @@ const stamps = {
   due: { label: "PAYMENT DUE", color: paper.warning },
 };
 
-function InvoiceSheet({ order, customer, payments }) {
+export function InvoiceSheet({ order, customer, payments }) {
   const invoice = buildInvoice(order);
 
   return (

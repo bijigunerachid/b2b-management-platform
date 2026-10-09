@@ -21,7 +21,10 @@ CREATE TABLE IF NOT EXISTS users (
     role_id INT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     token_version INT NOT NULL DEFAULT 0,
+    -- Portal accounts (role Customer) belong to a customer company; staff keep NULL.
+    customer_id INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_users_customer (customer_id),
     CONSTRAINT fk_users_role
         FOREIGN KEY (role_id) REFERENCES roles(id)
 );
@@ -38,6 +41,19 @@ CREATE TABLE IF NOT EXISTS customers (
     country VARCHAR(100) NOT NULL DEFAULT 'Morocco',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- users.customer_id can only reference customers once that table exists.
+-- Added conditionally so this script stays safe to run more than once.
+SET @has_fk := (
+    SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND CONSTRAINT_NAME = 'fk_users_customer'
+);
+SET @sql := IF(@has_fk = 0,
+    'ALTER TABLE users ADD CONSTRAINT fk_users_customer FOREIGN KEY (customer_id) REFERENCES customers(id)',
+    'SELECT 1');
+PREPARE statement FROM @sql;
+EXECUTE statement;
+DEALLOCATE PREPARE statement;
 
 -- 4. Categories
 CREATE TABLE IF NOT EXISTS categories (
@@ -241,7 +257,7 @@ CREATE TABLE IF NOT EXISTS stock_movements (
 
 -- Initial roles
 INSERT IGNORE INTO roles (name)
-VALUES ('Admin'), ('Manager'), ('Employee');
+VALUES ('Admin'), ('Manager'), ('Employee'), ('Customer');
 
 -- Verify tables and roles
 SHOW TABLES;

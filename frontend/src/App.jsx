@@ -24,6 +24,16 @@ const Inventory = lazy(() => import("./pages/Inventory"));
 const PurchaseOrders = lazy(() => import("./pages/PurchaseOrders"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 
+// Customer portal (separate area for client accounts).
+const PortalLayout = lazy(() => import("./portal/PortalLayout"));
+const PortalHome = lazy(() => import("./portal/pages/PortalHome"));
+const PortalCatalog = lazy(() => import("./portal/pages/PortalCatalog"));
+const PortalOrders = lazy(() => import("./portal/pages/PortalOrders"));
+const PortalQuotes = lazy(() => import("./portal/pages/PortalQuotes"));
+const PortalAccount = lazy(() => import("./portal/pages/PortalAccount"));
+const PortalInvoice = lazy(() => import("./portal/pages/PortalDocuments").then((module) => ({ default: module.PortalInvoice })));
+const PortalQuoteDocument = lazy(() => import("./portal/pages/PortalDocuments").then((module) => ({ default: module.PortalQuoteDocument })));
+
 export default function App() {
     return (
         <BrowserRouter>
@@ -56,6 +66,18 @@ export default function App() {
                                     >
                                         <Route index element={<Users />} />
                                     </Route>
+                                </Route>
+                            </Route>
+
+                            <Route element={<ProtectedRoute area="portal" />}>
+                                <Route path="/portal/orders/:id/invoice" element={<PortalInvoice />} />
+                                <Route path="/portal/quotes/:id/print" element={<PortalQuoteDocument />} />
+                                <Route path="/portal" element={<PortalLayout />}>
+                                    <Route index element={<PortalHome />} />
+                                    <Route path="catalog" element={<PortalCatalog />} />
+                                    <Route path="orders" element={<PortalOrders />} />
+                                    <Route path="quotes" element={<PortalQuotes />} />
+                                    <Route path="account" element={<PortalAccount />} />
                                 </Route>
                             </Route>
 

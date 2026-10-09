@@ -6,6 +6,7 @@ const pool = require("../config/database");
 const { generateDataset } = require("../seed/generate");
 const { seedQuotes } = require("../seed/quotes");
 const { seedPurchasing } = require("../seed/purchasing");
+const { seedPortal } = require("../seed/portal");
 
 /*
  * Seeds the database with a large, realistic demo dataset.
@@ -93,10 +94,11 @@ async function seed() {
             await connection.query("DELETE FROM order_items");
             await connection.query("DELETE FROM orders");
             await connection.query("DELETE FROM products");
+            await connection.query("DELETE FROM users WHERE customer_id IS NOT NULL");
             await connection.query("DELETE FROM customers");
             await connection.query("DELETE FROM categories");
             await connection.query("DELETE FROM suppliers");
-            await connection.query("DELETE FROM users WHERE email LIKE '%@seed.b2b.local'");
+            await connection.query("DELETE FROM users WHERE email LIKE '%@seed.b2b.local' OR email LIKE '%.portal.example'");
         }
 
         // Categories: names are unique, so reuse existing ones.
@@ -239,6 +241,7 @@ async function seed() {
 
         const quoteCount = await seedQuotes(connection, { now: new Date() });
         const purchasing = await seedPurchasing(connection, { now: new Date() });
+        const portal = await seedPortal(connection, { password: seededPassword ?? process.env.SEED_USER_PASSWORD });
         if (purchasing) console.log(`Inserted ${purchasing.suppliers} suppliers and purchase orders…`);
         if (quoteCount > 0) console.log(`Inserted ${quoteCount} quotes…`);
 
@@ -258,6 +261,12 @@ async function seed() {
         console.log(`  Quotes:      ${quoteCount}${quoteCount === 0 ? " (existing quotes kept)" : ""}`);
         console.log(`  Purchasing:  ${purchasing ? `${purchasing.suppliers} suppliers, ${purchasing.received + purchasing.ordered + purchasing.drafts + purchasing.cancelled} purchase orders` : "existing suppliers kept"}`);
         console.log(`  Revenue:     ${revenue.toLocaleString("en", { maximumFractionDigits: 0 })} MAD completed`);
+
+        if (portal) {
+            console.log("");
+            console.log("Customer portal logins (same password as the seeded team):");
+            for (const account of portal.accounts) console.log(`  ${account.email}  (${account.company})`);
+        }
 
         if (seededPassword) {
             const sample = data.users.find((user) => user.is_active && user.role === "Manager");

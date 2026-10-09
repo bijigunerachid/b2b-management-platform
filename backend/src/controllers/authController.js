@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const {
     BCRYPT_ROUNDS,
     SESSION_HOURS,
+    checkPasswordPolicy,
     clearSessionCookie,
     cookieOptions
 } = require("../config/security");
@@ -47,11 +48,15 @@ const login = async (req, res) => {
                 users.password,
                 users.role_id,
                 users.token_version,
+                users.customer_id,
+                customers.company_name,
                 roles.name AS role,
                 users.is_active
             FROM users
             INNER JOIN roles
                 ON users.role_id = roles.id
+            LEFT JOIN customers
+                ON customers.id = users.customer_id
             WHERE users.email = ?
             `,
             [email.trim().toLowerCase()]
@@ -102,7 +107,9 @@ const login = async (req, res) => {
                 first_name: user.first_name,
                 last_name: user.last_name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                customer_id: user.customer_id,
+                company_name: user.company_name
             }
         });
     } catch (error) {
@@ -124,10 +131,14 @@ const getCurrentUser = async (req, res) => {
                 users.first_name,
                 users.last_name,
                 users.email,
+                users.customer_id,
+                customers.company_name,
                 roles.name AS role
             FROM users
             INNER JOIN roles
                 ON users.role_id = roles.id
+            LEFT JOIN customers
+                ON customers.id = users.customer_id
             WHERE users.id = ?
             `,
             [req.user.userId]
@@ -186,7 +197,56 @@ const logout = async (req, res) => {
     });
 };
 
+// POST /api/auth/password { current_password, new_password }
+// Signs out every other session, then re-issues this device's cookie.
+const changePassword = async (req, res) => {
+    const { current_password: currentPassword, new_password: newPassword } = req.body || {};
+
+    if (typeof currentPassword !== "string" || !currentPassword) {
+        return res.status(400).json({ success: false, message: "Enter your current password." });
+    }
+
+    const policyError = checkPasswordPolicy(newPassword);
+    if (policyError) {
+        return res.status(400).json({ success: false, message: policyError });
+    }
+
+    if (newPassword === currentPassword) {
+        return res.status(400).json({ success: false, message: "Choose a password different from the current one." });
+    }
+
+    try {
+        const [users] = await pool.query("SELECT id, password, token_version FROM users WHERE id = ?", [req.user.userId]);
+        const user = users[0];
+
+        if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+            return res.status(400).json({ success: false, message: "Your current password is incorrect." });
+        }
+
+        const hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+        const nextVersion = user.token_version + 1;
+
+        await pool.query(
+            "UPDATE users SET password = ?, token_version = ? WHERE id = ? AND token_version = ?",
+            [hash, nextVersion, user.id, user.token_version]
+        );
+
+        const token = jwt.sign(
+            { userId: user.id, tokenVersion: nextVersion },
+            process.env.JWT_SECRET,
+            { algorithm: "HS256", expiresIn: `${SESSION_HOURS}h` }
+        );
+        res.cookie("token", token, cookieOptions());
+
+        return res.json({ success: true, message: "Password changed. Other devices were signed out." });
+    } catch (error) {
+        console.error("Change password error:", error);
+        return res.status(500).json({ success: false, message: "Could not change the password." });
+    }
+};
+
 module.exports = {
+    changePassword,
     login,
     getCurrentUser,
     logout

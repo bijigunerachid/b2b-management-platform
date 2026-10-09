@@ -28,6 +28,7 @@ import {
 import { api, can, exportCsv, formatDate, initials, money, number, toList, useResource } from "../lib/api";
 import { ORDER_STATUS } from "../lib/orderStatus";
 import { paymentBadge } from "../lib/billing";
+import PortalAccessPanel from "../components/PortalAccessPanel";
 import useTable from "../lib/useTable";
 
 const emptyForm = {
@@ -161,6 +162,8 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
               </DetailItem>
             </div>
           </div>
+
+          <PortalAccessPanel customer={customer} canManage={can(user, "customers.write")} />
 
           <div>
             <h3 className="mb-3 text-sm font-bold app-text">Order history</h3>

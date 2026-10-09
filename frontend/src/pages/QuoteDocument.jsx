@@ -24,7 +24,7 @@ const stamps = {
   Expired: { label: "EXPIRED", color: paper.warning },
 };
 
-function QuoteSheet({ quote, customer }) {
+export function QuoteSheet({ quote, customer }) {
   const lines = quote.items.map((item) => ({
     productId: item.product_id,
     description: item.product_name,

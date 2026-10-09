@@ -24,7 +24,15 @@ export default function Login() {
     const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
-    const redirectTo = location.state?.from || "/";
+    // Portal clients and staff each land in their own area.
+    const from = location.state?.from;
+    const homeFor = (account) => {
+        const isClient = account?.role === "Customer";
+        const home = isClient ? "/portal" : "/";
+        if (!from) return home;
+        return from.startsWith("/portal") === isClient ? from : home;
+    };
+    const redirectTo = homeFor(user);
 
     if (user) {
         return <Navigate to={redirectTo} replace />;
@@ -36,8 +44,8 @@ export default function Login() {
         setSubmitting(true);
 
         try {
-            await login(email.trim(), password);
-            navigate(redirectTo, { replace: true });
+            const account = await login(email.trim(), password);
+            navigate(homeFor(account), { replace: true });
         } catch (err) {
             setError(err.message || "Unable to sign in.");
         } finally {

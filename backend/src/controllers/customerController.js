@@ -225,7 +225,7 @@ const deleteCustomer = async (req, res) => {
         if (error.code === "ER_ROW_IS_REFERENCED_2") {
             return res.status(409).json({
                 success: false,
-                message: "Cannot delete a customer who has orders"
+                message: "This customer has orders, quotes, or portal accounts and can't be deleted."
             });
         }
 
