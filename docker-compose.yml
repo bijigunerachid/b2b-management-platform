@@ -1,0 +1,67 @@
+# Production-style stack: MySQL + API + nginx serving the built frontend.
+#
+#   cp .env.example .env      # then fill in the secrets
+#   docker compose up -d --build
+#
+# Open http://localhost:8080 (or the HTTP_PORT you set).
+
+name: b2b-platform
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: b2b_management
+      # Least-privilege account the API connects with (not root).
+      MYSQL_USER: b2b_app
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/mysql
+      # Runs once, on first start with an empty volume.
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      # TCP ping: fails while MySQL's init-time server (socket only) runs,
+      # so dependents wait for the real server.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    # No ports published: the database is only reachable inside the stack.
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: db
+      DB_USER: b2b_app
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: b2b_management
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (32+ characters)}
+      CORS_ORIGIN: ${PUBLIC_URL:-http://localhost:8080}
+      # nginx sits in front: trust one proxy hop for client IPs.
+      TRUST_PROXY: 1
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db-data:

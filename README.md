@@ -46,8 +46,13 @@ A full-stack web application for managing business customers, products, categori
 ```text
 b2b-management-platform/
 ├── .github/workflows/      # CI: tests, audit, lint, build
+├── deploy/Caddyfile        # HTTPS reverse proxy for production
+├── docker-compose.yml      # MySQL + API + nginx stack
+├── docker-compose.prod.yml # adds Caddy with automatic HTTPS
+├── .env.example            # settings for docker compose
 ├── backend/
 │   ├── .env.example        # documented environment variables
+│   ├── Dockerfile
 │   └── src/
 │       ├── __tests__/      # Jest + Supertest suites
 │       ├── config/         # database pool, env checks, security settings
@@ -64,6 +69,8 @@ b2b-management-platform/
 │   └── migrations/         # incremental schema changes
 ├── frontend/
 │   ├── .env.example        # VITE_API_URL
+│   ├── Dockerfile          # build, then serve with nginx
+│   ├── nginx/              # server config and security headers
 │   └── src/
 │       ├── components/     # app shell, UI kit (modals, toasts, drawers)
 │       ├── config/         # company details printed on invoices
@@ -150,6 +157,53 @@ npm run seed:large
 ```
 
 Customize volumes with `npm run seed:large -- --orders=20000 --customers=1000`. The script appends inside one transaction. `--reset` first deletes **all** customers, products, categories, and orders (real user accounts are kept). Seeded users use the `@seed.b2b.local` domain and share one password, printed once; set `SEED_USER_PASSWORD` in `.env` to choose it.
+
+## Deployment (Docker)
+
+The stack runs as three containers. Only nginx is exposed; the API and database stay on a private network.
+
+```text
+browser ──► nginx (frontend)  ── /        → built React app
+                              └─ /api/*   → backend (Node.js) ──► MySQL 8
+```
+
+Serving the app and API from one origin keeps the session cookie first-party (`SameSite=Strict`) and avoids CORS entirely.
+
+### Run locally
+
+```bash
+cp .env.example .env        # fill in the three secrets
+docker compose up -d --build
+```
+
+Open `http://localhost:8080`. On first start MySQL loads `database/schema.sql`, and the backend applies migrations before it starts.
+
+Create the first admin and, optionally, demo data:
+
+```bash
+docker compose exec -e ADMIN_EMAIL=you@example.com -e ADMIN_PASSWORD='a-strong-password-1' backend npm run create-admin
+docker compose exec backend npm run seed:large
+```
+
+### Deploy to a server with HTTPS
+
+On any Linux VPS with Docker installed and a DNS record pointing your domain at it:
+
+```bash
+git clone https://github.com/bijigunerachid/b2b-management-platform.git
+cd b2b-management-platform
+cp .env.example .env        # set secrets, DOMAIN, and PUBLIC_URL=https://<DOMAIN>
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+[Caddy](https://caddyserver.com) obtains and renews the TLS certificate automatically. Health is exposed at `/api/health`, which is useful for uptime monitors.
+
+### What the containers enforce
+
+* Backend runs as a non-root user, applies idempotent migrations on start, and only becomes healthy once the database answers.
+* The API connects with a dedicated MySQL account, never root; the database has no published port.
+* nginx serves hashed assets with long-term caching, never caches `index.html`, and sends a strict Content-Security-Policy (no inline scripts), `X-Frame-Options: DENY`, and related headers.
+* Compose refuses to start when a required secret is missing.
 
 ## Testing
 
