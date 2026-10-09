@@ -45,18 +45,31 @@ A full-stack web application for managing business customers, products, categori
 
 ```text
 b2b-management-platform/
-├── frontend/
+├── .github/workflows/      # CI: tests, audit, lint, build
 ├── backend/
+│   ├── .env.example        # documented environment variables
 │   └── src/
-│       ├── config/
-│       ├── controllers/
-│       ├── middleware/
-│       ├── models/
-│       ├── routes/
-│       ├── services/
+│       ├── __tests__/      # Jest + Supertest suites
+│       ├── config/         # database pool, env checks, security settings
+│       ├── controllers/    # request handlers
+│       ├── middleware/     # auth, roles, validation, security, errors
+│       ├── routes/         # Express routers
+│       ├── scripts/        # migrate, create-admin, seed:large
+│       ├── seed/           # demo data generator
+│       ├── validation/     # request validation rules
 │       └── server.js
 ├── database/
-├── docs/
+│   ├── schema.sql          # tables and roles
+│   ├── seed.sql            # small sample dataset
+│   └── migrations/         # incremental schema changes
+├── frontend/
+│   ├── .env.example        # VITE_API_URL
+│   └── src/
+│       ├── components/     # app shell, UI kit (modals, toasts, drawers)
+│       ├── config/         # company details printed on invoices
+│       ├── context/        # auth and theme providers
+│       ├── lib/            # API client, formatting, invoices, tables
+│       └── pages/
 └── README.md
 ```
 
@@ -64,8 +77,8 @@ b2b-management-platform/
 
 ### Prerequisites
 
-* Node.js and npm
-* MySQL Server
+* Node.js 22 and npm
+* MySQL 8
 * Git
 
 ### 1. Clone the repository
@@ -75,37 +88,57 @@ git clone https://github.com/bijigunerachid/b2b-management-platform.git
 cd b2b-management-platform
 ```
 
-### 2. Configure the database
+### 2. Create the database
 
-Create a MySQL database named `b2b_management`.
+```bash
+mysql -u root -p < database/schema.sql
+```
 
-Run your SQL schema and seed scripts from the `database/` directory, if available.
+This creates the `b2b_management` database, all tables, and the Admin, Manager, and Employee roles.
 
-### 3. Configure the backend
+### 3. Configure and start the backend
 
 ```bash
 cd backend
 npm install
+cp .env.example .env
 ```
 
-Create a `.env` file inside `backend/`:
-
-```env
-PORT=5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=YOUR_MYSQL_PASSWORD
-DB_NAME=b2b_management
-JWT_SECRET=YOUR_LONG_RANDOM_SECRET
-```
-
-Replace the example values with your own configuration. Never commit `.env` to Git.
-
-Start the backend:
+Edit `backend/.env`: set `DB_PASSWORD`, and replace `JWT_SECRET` with a random value:
 
 ```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+Apply database migrations, then start the API on `http://localhost:5000`:
+
+```bash
+npm run migrate
 npm run dev
 ```
+
+### 4. Create the first admin account
+
+In `backend/.env`, temporarily uncomment `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 12 characters), then run:
+
+```bash
+npm run create-admin
+```
+
+Remove both lines from `.env` afterwards. The server prints a warning while `ADMIN_PASSWORD` is still set.
+
+### 5. Configure and start the frontend
+
+In another terminal:
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open `http://localhost:5173` and sign in with your admin account. `VITE_API_URL` in `.env.local` points the frontend at the backend; the default matches step 3.
 
 ### Optional: load demo data
 
@@ -117,18 +150,6 @@ npm run seed:large
 ```
 
 Customize volumes with `npm run seed:large -- --orders=20000 --customers=1000`. The script appends inside one transaction. `--reset` first deletes **all** customers, products, categories, and orders (real user accounts are kept). Seeded users use the `@seed.b2b.local` domain and share one password, printed once; set `SEED_USER_PASSWORD` in `.env` to choose it.
-
-### 4. Configure the frontend
-
-Open another terminal:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open the local URL displayed by Vite, usually `http://localhost:5173`.
 
 ## Testing
 
