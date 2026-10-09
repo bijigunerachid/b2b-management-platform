@@ -12,10 +12,37 @@ const {
 
 const { protect } = require("../middleware/authMiddleware");
 const { authorize } = require("../middleware/roleMiddleware");
+const validate = require("../middleware/validate");
+
+const productRules = [
+    {
+        field: "name",
+        required: true,
+        type: "string",
+        minLength: 2
+    },
+    {
+        field: "price",
+        required: true,
+        type: "number",
+        min: 0
+    },
+    {
+        field: "stock",
+        required: true,
+        type: "number",
+        min: 0
+    },
+    {
+        field: "category_id",
+        required: true,
+        type: "number",
+        min: 1
+    }
+];
 
 router.use(protect);
 
-// Read products
 router.get(
     "/",
     authorize("Admin", "Manager", "Employee"),
@@ -28,20 +55,20 @@ router.get(
     getProductById
 );
 
-// Create and update products
 router.post(
     "/",
     authorize("Admin", "Manager"),
+    validate(productRules),
     createProduct
 );
 
 router.put(
     "/:id",
     authorize("Admin", "Manager"),
+    validate(productRules),
     updateProduct
 );
 
-// Delete products
 router.delete(
     "/:id",
     authorize("Admin"),

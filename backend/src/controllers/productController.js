@@ -2,66 +2,74 @@
 const pool = require("../config/database");
 
 // GET /api/products
-const getProducts = async (req, res) => {
+const getProducts = async (req, res, next) => {
     try {
-        const { search, category_id } = req.query;
+        const page = Math.max(
+            1,
+            Number.parseInt(req.query.page, 10) || 1
+        );
 
-        let sql = `
-            SELECT
-                p.id,
-                p.name,
-                p.description,
-                p.price,
-                p.stock,
-                p.is_active,
-                p.category_id,
-                c.name AS category_name,
-                p.created_at
-            FROM products p
-            LEFT JOIN categories c ON p.category_id = c.id
-            WHERE 1 = 1
-        `;
+        const requestedLimit = Number.parseInt(
+            req.query.limit,
+            10
+        ) || 10;
 
+        const limit = Math.min(
+            100,
+            Math.max(1, requestedLimit)
+        );
+
+        const search =
+            typeof req.query.search === "string"
+                ? req.query.search.trim().slice(0, 100)
+                : "";
+
+        const offset = (page - 1) * limit;
+
+        const conditions = [];
         const params = [];
 
         if (search) {
-            sql += " AND p.name LIKE ?";
+            conditions.push("name LIKE ?");
             params.push(`%${search}%`);
         }
 
-        if (category_id !== undefined) {
-            const categoryId = Number(category_id);
+        const whereClause = conditions.length
+            ? `WHERE ${conditions.join(" AND ")}`
+            : "";
 
-            if (!Number.isInteger(categoryId) || categoryId < 1) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Invalid category_id"
-                });
-            }
+        const [countRows] = await pool.query(
+            `SELECT COUNT(*) AS total
+             FROM products
+             ${whereClause}`,
+            params
+        );
 
-            sql += " AND p.category_id = ?";
-            params.push(categoryId);
-        }
+        const [products] = await pool.query(
+            `SELECT id, name, price, stock, category_id
+             FROM products
+             ${whereClause}
+             ORDER BY id DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
 
-        sql += " ORDER BY p.id DESC";
+        const total = Number(countRows[0].total);
 
-        const [products] = await pool.query(sql, params);
-
-        res.json({
+        return res.status(200).json({
             success: true,
-            count: products.length,
-            data: products
+            data: products,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
         });
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            success: false,
-            message: "Failed to retrieve products"
-        });
+        next(error);
     }
 };
-
 // GET /api/products/:id
 const getProductById = async (req, res) => {
     try {
