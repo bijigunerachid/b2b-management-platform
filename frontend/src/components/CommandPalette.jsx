@@ -78,6 +78,12 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
         label: "Add new product",
         run: go("/products?new=1"),
       },
+      can(user, "quotes.write") && {
+        id: "new-quote",
+        icon: "fileText",
+        label: "Create new quote",
+        run: go("/quotes?new=1"),
+      },
       can(user, "orders.write") && {
         id: "new-order",
         icon: "orders",

@@ -2,6 +2,7 @@
 const pool = require("../config/database");
 const { withBilling } = require("../billing/billing");
 const { ORDER_BILLING_COLUMNS, PAID_JOIN } = require("../billing/queries");
+const { OrderPlacementError, placeOrder } = require("../services/orderPlacement");
 
 // GET /api/orders
 const getOrders = async (req, res) => {
@@ -159,143 +160,37 @@ const createOrder = async (req, res) => {
             quantities.set(productId, newQuantity);
         }
 
-        // 3. Acquire a connection and start a transaction
+        // 3. Place the order inside one transaction
         connection = await pool.getConnection();
 
         await connection.beginTransaction();
         transactionStarted = true;
 
-        // 4. Verify customer exists
-        const [customers] = await connection.query(
-            "SELECT id FROM customers WHERE id = ?",
-            [customerId]
+        const lines = new Map(
+            [...quantities].map(([productId, quantity]) => [productId, { quantity }])
         );
 
-        if (customers.length === 0) {
-            await connection.rollback();
-            transactionStarted = false;
+        let placed;
 
-            return res.status(404).json({
-                success: false,
-                message: "Customer not found"
-            });
-        }
-
-        let totalCents = 0;
-        const orderItems = [];
-
-        // 5. Lock products, check availability and calculate prices
-        for (const [productId, quantity] of quantities) {
-            const [products] = await connection.query(
-                `SELECT id, name, price, stock, is_active
-                 FROM products
-                 WHERE id = ?
-                 FOR UPDATE`,
-                [productId]
-            );
-
-            if (products.length === 0) {
+        try {
+            placed = await placeOrder(connection, customerId, lines);
+        } catch (error) {
+            if (error instanceof OrderPlacementError) {
                 await connection.rollback();
                 transactionStarted = false;
 
-                return res.status(400).json({
+                return res.status(error.status).json({
                     success: false,
-                    message: `Product ${productId} was not found`
+                    message: error.message
                 });
             }
 
-            const product = products[0];
-
-            if (!product.is_active) {
-                await connection.rollback();
-                transactionStarted = false;
-
-                return res.status(400).json({
-                    success: false,
-                    message: `${product.name} is inactive`
-                });
-            }
-
-            if (Number(product.stock) < quantity) {
-                await connection.rollback();
-                transactionStarted = false;
-
-                return res.status(409).json({
-                    success: false,
-                    message: `Insufficient stock for ${product.name}`
-                });
-            }
-
-            const price = Number(product.price);
-
-            if (!Number.isFinite(price) || price < 0) {
-                throw new Error(
-                    `Invalid database price for product ${product.id}`
-                );
-            }
-
-            // Calculate in cents to reduce floating-point errors
-            const priceCents = Math.round(price * 100);
-            totalCents += priceCents * quantity;
-
-            if (!Number.isSafeInteger(totalCents)) {
-                throw new Error("Order total exceeds the supported limit");
-            }
-
-            orderItems.push({
-                product_id: product.id,
-                quantity,
-                unit_price: priceCents / 100
-            });
+            throw error;
         }
 
-        const total = (totalCents / 100).toFixed(2);
+        const { orderId, total, items: orderItems } = placed;
 
-        // 6. Create order header
-        const [orderResult] = await connection.query(
-            `INSERT INTO orders
-                (customer_id, status, total_amount)
-             VALUES (?, 'Pending', ?)`,
-            [customerId, total]
-        );
-
-        const orderId = orderResult.insertId;
-
-        // 7. Save items and decrease inventory
-        for (const item of orderItems) {
-            await connection.query(
-                `INSERT INTO order_items
-                    (order_id, product_id, quantity, unit_price)
-                 VALUES (?, ?, ?, ?)`,
-                [
-                    orderId,
-                    item.product_id,
-                    item.quantity,
-                    item.unit_price.toFixed(2)
-                ]
-            );
-
-            const [updateResult] = await connection.query(
-                `UPDATE products
-                 SET stock = stock - ?
-                 WHERE id = ?
-                   AND is_active = 1
-                   AND stock >= ?`,
-                [
-                    item.quantity,
-                    item.product_id,
-                    item.quantity
-                ]
-            );
-
-            if (updateResult.affectedRows !== 1) {
-                throw new Error(
-                    `Inventory update failed for product ${item.product_id}`
-                );
-            }
-        }
-
-        // 8. Commit all changes together
+        // 4. Commit all changes together
         await connection.commit();
         transactionStarted = false;
 

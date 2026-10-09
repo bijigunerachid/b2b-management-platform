@@ -10,7 +10,8 @@
     "migrate": "node src/scripts/migrate.js",
     "create-admin": "node src/scripts/createAdmin.js",
     "seed:large": "node src/scripts/seedLarge.js",
-    "seed:payments": "node src/scripts/seedPayments.js"
+    "seed:payments": "node src/scripts/seedPayments.js",
+    "seed:quotes": "node src/scripts/seedQuotes.js"
   },
   "keywords": [],
   "author": "",

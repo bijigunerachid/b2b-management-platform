@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const pool = require("../config/database");
 const { generateDataset } = require("../seed/generate");
+const { seedQuotes } = require("../seed/quotes");
 
 /*
  * Seeds the database with a large, realistic demo dataset.
@@ -15,7 +16,7 @@ const { generateDataset } = require("../seed/generate");
  * Options: --customers --products --orders --users --months --seed --reset
  *
  * Everything runs in one transaction: it either all lands or nothing does.
- * --reset deletes ALL customers, products, categories, orders, and payments, plus
+ * --reset deletes ALL customers, products, categories, orders, payments, and quotes, plus
  * previously seeded users (@seed.b2b.local). Real user accounts are kept.
  */
 
@@ -82,6 +83,7 @@ async function seed() {
 
         if (options.reset) {
             console.log("Resetting business data…");
+            await connection.query("DELETE FROM quotes");
             await connection.query("DELETE FROM payments");
             await connection.query("DELETE FROM order_items");
             await connection.query("DELETE FROM orders");
@@ -219,6 +221,9 @@ async function seed() {
             );
         }
 
+        const quoteCount = await seedQuotes(connection, { now: new Date() });
+        if (quoteCount > 0) console.log(`Inserted ${quoteCount} quotes…`);
+
         await connection.commit();
 
         const revenue = data.orders
@@ -232,6 +237,7 @@ async function seed() {
         console.log(`  Products:    ${data.products.length}`);
         console.log(`  Orders:      ${data.orders.length} (${itemRows.length} line items, ${options.months} months)`);
         console.log(`  Payments:    ${paymentRows.length}`);
+        console.log(`  Quotes:      ${quoteCount}${quoteCount === 0 ? " (existing quotes kept)" : ""}`);
         console.log(`  Revenue:     ${revenue.toLocaleString("en", { maximumFractionDigits: 0 })} MAD completed`);
 
         if (seededPassword) {

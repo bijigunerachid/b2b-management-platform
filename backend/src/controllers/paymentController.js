@@ -15,6 +15,7 @@ function parseId(value) {
 
 /** Local calendar date as YYYY-MM-DD. */
 function toDateOnly(date) {
+    if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}/.test(date)) return date.slice(0, 10);
     const d = new Date(date);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

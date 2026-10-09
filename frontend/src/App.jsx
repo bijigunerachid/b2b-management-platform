@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import { AuthProvider } from "./context/AuthContext";
@@ -5,15 +6,20 @@ import { ConfirmProvider, ToastProvider } from "./components/ui/feedback";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Customers from "./pages/Customers";
-import Products from "./pages/Products";
-import Categories from "./pages/Categories";
-import Orders from "./pages/Orders";
-import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
-import Invoice from "./pages/Invoice";
-import Receivables from "./pages/Receivables";
+import { PageFallback } from "./components/PageFallback";
+
+// Pages load on demand so the first visit only downloads what it shows.
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Customers = lazy(() => import("./pages/Customers"));
+const Products = lazy(() => import("./pages/Products"));
+const Categories = lazy(() => import("./pages/Categories"));
+const Orders = lazy(() => import("./pages/Orders"));
+const Quotes = lazy(() => import("./pages/Quotes"));
+const Receivables = lazy(() => import("./pages/Receivables"));
+const Users = lazy(() => import("./pages/Users"));
+const Invoice = lazy(() => import("./pages/Invoice"));
+const QuoteDocument = lazy(() => import("./pages/QuoteDocument"));
 
 export default function App() {
     return (
@@ -21,12 +27,14 @@ export default function App() {
             <ToastProvider>
                 <ConfirmProvider>
                     <AuthProvider>
+                        <Suspense fallback={<PageFallback fullScreen />}>
                         <Routes>
                             <Route path="/login" element={<Login />} />
 
                             <Route element={<ProtectedRoute />}>
                                 {/* Full-page document, outside the app shell so it prints cleanly. */}
                                 <Route path="/orders/:id/invoice" element={<Invoice />} />
+                                <Route path="/quotes/:id/print" element={<QuoteDocument />} />
 
                                 <Route element={<Layout />}>
                                     <Route path="/" element={<Dashboard />} />
@@ -35,6 +43,7 @@ export default function App() {
                                     <Route path="/categories" element={<Categories />} />
                                     <Route path="/orders" element={<Orders />} />
                                     <Route path="/receivables" element={<Receivables />} />
+                                    <Route path="/quotes" element={<Quotes />} />
                                     <Route
                                         path="/users"
                                         element={<ProtectedRoute roles={["Admin"]} />}
@@ -46,6 +55,7 @@ export default function App() {
 
                             <Route path="*" element={<NotFound />} />
                         </Routes>
+                        </Suspense>
                     </AuthProvider>
                 </ConfirmProvider>
             </ToastProvider>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -7,6 +7,7 @@ import { Avatar, Popover } from "./ui/primitives";
 import { useConfirm, useToast } from "./ui/feedback";
 import CommandPalette from "./CommandPalette";
 import NotificationsMenu from "./NotificationsMenu";
+import { PageFallback } from "./PageFallback";
 import { initials } from "../lib/api";
 
 const sections = [
@@ -17,6 +18,7 @@ const sections = [
   {
     title: "Sales",
     links: [
+      { label: "Quotes", path: "/quotes", icon: "fileText", roles: ["Admin", "Manager", "Employee"] },
       { label: "Orders", path: "/orders", icon: "orders", roles: ["Admin", "Manager", "Employee"] },
       { label: "Receivables", path: "/receivables", icon: "wallet", roles: ["Admin", "Manager", "Employee"] },
       { label: "Customers", path: "/customers", icon: "customers", roles: ["Admin", "Manager", "Employee"] },
@@ -397,7 +399,10 @@ export default function Layout() {
 
         <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div key={location.pathname} className="animate-rise">
-            <Outlet />
+            {/* Keeps the shell on screen while a lazily loaded page arrives. */}
+            <Suspense fallback={<PageFallback />}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>
