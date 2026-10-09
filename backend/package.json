@@ -4,11 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "jest --runInBand",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "seed:large": "node src/scripts/seedLarge.js",
-    "migrate": "node src/scripts/migrate.js"
+    "test": "jest --runInBand",
+    "migrate": "node src/scripts/migrate.js",
+    "create-admin": "node src/scripts/createAdmin.js",
+    "seed:large": "node src/scripts/seedLarge.js"
   },
   "keywords": [],
   "author": "",

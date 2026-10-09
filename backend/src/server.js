@@ -4,6 +4,7 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 
+const pool = require("./config/database");
 const validateEnv = require("./config/validateEnv");
 const { allowedOrigins } = require("./config/security");
 const userRoutes = require("./routes/userRoutes");
@@ -58,6 +59,18 @@ app.use(cookieParser());
 app.use("/api", (req, res, next) => {
     res.set("Cache-Control", "no-store");
     next();
+});
+
+// Liveness + database readiness for Docker and uptime monitors.
+// Registered before the rate limiter so health probes are never throttled.
+// Reports only up/down: no versions or error details.
+app.get("/api/health", async (req, res) => {
+    try {
+        await pool.query("SELECT 1");
+        res.json({ status: "ok" });
+    } catch {
+        res.status(503).json({ status: "unavailable" });
+    }
 });
 
 app.use("/api", apiLimiter);

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
-export const API_URL = "http://localhost:5000/api";
+// Backend origin, set per environment in frontend/.env (see .env.example).
+const API_ORIGIN = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+
+export const API_URL = `${API_ORIGIN}/api`;
 
 /**
  * Fetch wrapper for the backend: sends the auth cookie, encodes JSON, and

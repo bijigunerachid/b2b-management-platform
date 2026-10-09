@@ -1,0 +1,13 @@
+# Root build context (used by the backend image). Keep it small and
+# never ship secrets or local dependencies.
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.github
+frontend
+docs
+*.log

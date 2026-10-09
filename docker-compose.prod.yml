@@ -1,0 +1,38 @@
+# HTTPS override for a public server. Requires a DNS A record pointing
+# DOMAIN at the server, and ports 80/443 open.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# In .env set: DOMAIN=demo.example.com and PUBLIC_URL=https://demo.example.com
+
+services:
+  frontend:
+    # Only Caddy is published; nginx stays internal.
+    ports: !reset []
+
+  backend:
+    environment:
+      CORS_ORIGIN: ${PUBLIC_URL:?Set PUBLIC_URL=https://your-domain in .env}
+      # Two proxies (Caddy -> nginx): trust both hops so rate limits see
+      # each visitor's real IP instead of Caddy's.
+      TRUST_PROXY: 2
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+
+volumes:
+  caddy-data:
+  caddy-config:

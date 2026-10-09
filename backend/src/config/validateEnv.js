@@ -31,8 +31,14 @@ function validateEnv() {
             throw new Error("CORS_ORIGIN is required in production.");
         }
 
-        if (process.env.CORS_ORIGIN.split(",").some((origin) => !origin.trim().startsWith("https://"))) {
-            throw new Error("CORS_ORIGIN must only list https:// origins in production.");
+        // Browsers treat localhost as a secure context, so plain http is
+        // allowed there for testing the production build locally.
+        const insecure = process.env.CORS_ORIGIN.split(",")
+            .map((origin) => origin.trim())
+            .filter((origin) => !origin.startsWith("https://") && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
+
+        if (insecure.length > 0) {
+            throw new Error(`CORS_ORIGIN must only list https:// origins in production (got: ${insecure.join(", ")}).`);
         }
     }
 
