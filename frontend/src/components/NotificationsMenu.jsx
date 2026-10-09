@@ -44,6 +44,30 @@ function buildNotifications(stats) {
     });
   }
 
+  for (const quote of stats.quotes?.expiringSoon ?? []) {
+    const days = Number(quote.days_left);
+    items.push({
+      id: `quote-expiring-${quote.id}-${quote.valid_until}`,
+      tone: "warning",
+      icon: "fileText",
+      title: `Quote for ${quote.company_name} ${days === 0 ? "expires today" : `expires in ${days} day${days === 1 ? "" : "s"}`}`,
+      body: "Follow up before the offer lapses.",
+      to: `/quotes?view=${quote.id}`,
+    });
+  }
+
+  const readyToConvert = stats.quotes?.readyToConvert ?? 0;
+  if (readyToConvert > 0) {
+    items.push({
+      id: `quotes-accepted-${readyToConvert}`,
+      tone: "info",
+      icon: "orders",
+      title: `${readyToConvert} accepted quote${readyToConvert === 1 ? "" : "s"} ready to convert`,
+      body: "Turn them into orders to reserve the stock.",
+      to: "/quotes",
+    });
+  }
+
   const pending = stats.ordersByStatus?.Pending ?? 0;
   if (pending > 0) {
     items.push({

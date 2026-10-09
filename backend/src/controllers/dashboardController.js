@@ -99,6 +99,21 @@ async function getDashboardStats(req, res) {
 
     const receivables = ageingReport(await loadOpenInvoices(pool));
 
+    const [expiringQuotes] = await pool.query(`
+      SELECT q.id, c.company_name, DATE_FORMAT(q.valid_until, '%Y-%m-%d') AS valid_until,
+             DATEDIFF(q.valid_until, CURDATE()) AS days_left
+      FROM quotes q
+      INNER JOIN customers c ON c.id = q.customer_id
+      WHERE q.status = 'Sent'
+        AND q.valid_until BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+      ORDER BY q.valid_until
+      LIMIT 5
+    `);
+
+    const [[{ readyToConvert }]] = await pool.query(
+      "SELECT COUNT(*) AS readyToConvert FROM quotes WHERE status = 'Accepted'"
+    );
+
     res.json({
       success: true,
       data: {
@@ -112,6 +127,10 @@ async function getDashboardStats(req, res) {
         ordersByStatus: Object.fromEntries(
           statusRows.map((row) => [row.status, Number(row.total)])
         ),
+        quotes: {
+          expiringSoon: expiringQuotes,
+          readyToConvert: Number(readyToConvert),
+        },
         receivables: {
           outstanding: receivables.outstanding,
           overdue: receivables.overdue,

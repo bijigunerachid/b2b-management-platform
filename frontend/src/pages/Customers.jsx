@@ -85,6 +85,11 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
                 Edit
               </Button>
             )}
+            {can(user, "quotes.write") && (
+              <Button icon="fileText" onClick={() => navigate(`/quotes?new=1&customer=${customer.id}`)}>
+                New quote
+              </Button>
+            )}
             {can(user, "orders.write") && (
               <Button variant="primary" icon="plus" onClick={() => navigate(`/orders?new=1&customer=${customer.id}`)}>
                 New order

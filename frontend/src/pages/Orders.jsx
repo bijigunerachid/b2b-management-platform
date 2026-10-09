@@ -24,7 +24,7 @@ import {
   TableSkeleton,
   Th,
 } from "../components/ui/primitives";
-import { api, can, compactMoney, exportCsv, formatDate, initials, money, number, timeAgo, toList, useResource } from "../lib/api";
+import { api, can, compactMoney, exportCsv, formatDate, initials, money, number, timeAgo, toList, useActiveProducts, useResource } from "../lib/api";
 import { ORDER_STATUS, STATUS_FLOW, nextStatuses } from "../lib/orderStatus";
 import { paymentBadge } from "../lib/billing";
 import PaymentPanel from "../components/PaymentPanel";
@@ -244,9 +244,10 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
 function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
   const toast = useToast();
   const customersResource = useResource(open ? "/customers" : null);
-  const productsResource = useResource(open ? "/products?status=active&limit=100&sort=name&order=asc" : null);
+  // Every page of active products, not just the first 100.
+  const productsResource = useActiveProducts(open);
   const customers = toList(customersResource.data);
-  const products = toList(productsResource.data);
+  const { products } = productsResource;
 
   const [customerId, setCustomerId] = useState(initialCustomerId ?? "");
   const [lines, setLines] = useState([newLine()]);
@@ -324,7 +325,7 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
     }
   }
 
-  const loadingData = (customersResource.loading && !customersResource.data) || (productsResource.loading && !productsResource.data);
+  const loadingData = (customersResource.loading && !customersResource.data) || (productsResource.loading && products.length === 0);
 
   return (
     <Modal

@@ -15,6 +15,7 @@ const orderRoutes = require("./routes/orderRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const { paymentRouter, receivablesRouter } = require("./routes/paymentRoutes");
+const quoteRoutes = require("./routes/quoteRoutes");
 const {
     notFound,
     errorHandler
@@ -93,6 +94,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/payments", paymentRouter);
 app.use("/api/receivables", receivablesRouter);
+app.use("/api/quotes", quoteRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

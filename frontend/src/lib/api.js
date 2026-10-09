@@ -225,10 +225,54 @@ const permissions = {
   "categories.delete": ["Admin"],
   "orders.write": ["Admin", "Manager"],
   "payments.write": ["Admin", "Manager"],
+  "quotes.write": ["Admin", "Manager"],
   "payments.void": ["Admin"],
   "users.manage": ["Admin"],
 };
 
 export function can(user, permission) {
   return Boolean(user && permissions[permission]?.includes(user.role));
+}
+
+/**
+ * Loads every page of active products (the API caps a page at 100), sorted
+ * by name, for product pickers. Reloads when `enabled` turns on.
+ */
+export function useActiveProducts(enabled = true) {
+  const [state, setState] = useState({ key: null, products: [], error: "" });
+  const [version, setVersion] = useState(0);
+  const key = enabled ? `active#${version}` : null;
+
+  useEffect(() => {
+    if (!key) return undefined;
+    let cancelled = false;
+
+    (async () => {
+      const products = [];
+      for (let page = 1; ; page += 1) {
+        const result = await api(`/products?status=active&limit=100&sort=name&order=asc&page=${page}`);
+        products.push(...toList(result));
+        if (page >= (result.pagination?.totalPages ?? 1)) break;
+      }
+      return products;
+    })().then(
+      (products) => {
+        if (!cancelled) setState({ key, products, error: "" });
+      },
+      (error) => {
+        if (!cancelled) setState((previous) => ({ ...previous, key, error: error.message || "Unable to load products." }));
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [key]);
+
+  return {
+    products: state.products,
+    error: state.error,
+    loading: Boolean(key) && state.key !== key,
+    reload: () => setVersion((value) => value + 1),
+  };
 }
