@@ -6,7 +6,6 @@ import { useConfirm, useToast } from "./ui/feedback";
 import { Field, InlineAlert, Switch, toneStyle } from "./ui/primitives";
 import { api, formatDate, useResource } from "../lib/api";
 
-/** Portal logins for one customer, shown in the customer profile (staff side). */
 export default function PortalAccessPanel({ customer, canManage }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -121,7 +120,6 @@ export default function PortalAccessPanel({ customer, canManage }) {
         icon="userPlus"
         eyebrow={customer?.company_name}
         title="Invite to the client portal"
-        description="They'll be able to order, track deliveries, download invoices, and accept quotes."
         footer={
           <>
             <Button onClick={() => setInviting(false)} disabled={saving}>
@@ -156,7 +154,7 @@ export default function PortalAccessPanel({ customer, canManage }) {
         icon="lock"
         iconTone="success"
         title="Portal access created"
-        description="Share these sign-in details securely. The password is shown only this once."
+        description="The password is only shown once."
         footer={
           <Button variant="primary" onClick={() => setCreated(null)}>
             Done

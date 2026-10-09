@@ -9,7 +9,6 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { PageFallback } from "./components/PageFallback";
 
-// Pages load on demand so the first visit only downloads what it shows.
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Customers = lazy(() => import("./pages/Customers"));
 const Products = lazy(() => import("./pages/Products"));
@@ -17,6 +16,8 @@ const Categories = lazy(() => import("./pages/Categories"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Quotes = lazy(() => import("./pages/Quotes"));
 const Receivables = lazy(() => import("./pages/Receivables"));
+const CreditNotes = lazy(() => import("./pages/CreditNotes"));
+const CreditNoteDocument = lazy(() => import("./pages/CreditNoteDocument"));
 const Users = lazy(() => import("./pages/Users"));
 const Invoice = lazy(() => import("./pages/Invoice"));
 const QuoteDocument = lazy(() => import("./pages/QuoteDocument"));
@@ -24,7 +25,6 @@ const Inventory = lazy(() => import("./pages/Inventory"));
 const PurchaseOrders = lazy(() => import("./pages/PurchaseOrders"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 
-// Customer portal (separate area for client accounts).
 const PortalLayout = lazy(() => import("./portal/PortalLayout"));
 const PortalHome = lazy(() => import("./portal/pages/PortalHome"));
 const PortalCatalog = lazy(() => import("./portal/pages/PortalCatalog"));
@@ -33,6 +33,7 @@ const PortalQuotes = lazy(() => import("./portal/pages/PortalQuotes"));
 const PortalAccount = lazy(() => import("./portal/pages/PortalAccount"));
 const PortalInvoice = lazy(() => import("./portal/pages/PortalDocuments").then((module) => ({ default: module.PortalInvoice })));
 const PortalQuoteDocument = lazy(() => import("./portal/pages/PortalDocuments").then((module) => ({ default: module.PortalQuoteDocument })));
+const PortalCreditNote = lazy(() => import("./portal/pages/PortalDocuments").then((module) => ({ default: module.PortalCreditNote })));
 
 export default function App() {
     return (
@@ -48,6 +49,7 @@ export default function App() {
                                 {/* Full-page document, outside the app shell so it prints cleanly. */}
                                 <Route path="/orders/:id/invoice" element={<Invoice />} />
                                 <Route path="/quotes/:id/print" element={<QuoteDocument />} />
+                                <Route path="/credit-notes/:id/print" element={<CreditNoteDocument />} />
 
                                 <Route element={<Layout />}>
                                     <Route path="/" element={<Dashboard />} />
@@ -56,6 +58,7 @@ export default function App() {
                                     <Route path="/categories" element={<Categories />} />
                                     <Route path="/orders" element={<Orders />} />
                                     <Route path="/receivables" element={<Receivables />} />
+                                    <Route path="/credit-notes" element={<CreditNotes />} />
                                     <Route path="/quotes" element={<Quotes />} />
                                     <Route path="/inventory" element={<Inventory />} />
                                     <Route path="/purchase-orders" element={<PurchaseOrders />} />
@@ -72,6 +75,7 @@ export default function App() {
                             <Route element={<ProtectedRoute area="portal" />}>
                                 <Route path="/portal/orders/:id/invoice" element={<PortalInvoice />} />
                                 <Route path="/portal/quotes/:id/print" element={<PortalQuoteDocument />} />
+                                <Route path="/portal/credit-notes/:id/print" element={<PortalCreditNote />} />
                                 <Route path="/portal" element={<PortalLayout />}>
                                     <Route index element={<PortalHome />} />
                                     <Route path="catalog" element={<PortalCatalog />} />

@@ -62,8 +62,6 @@ function StatusBadge({ po }) {
   );
 }
 
-/* ---------- Builder ---------- */
-
 function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
   const suppliersResource = useResource(open ? "/suppliers" : null);
   const suppliers = toList(suppliersResource.data).filter((supplier) => supplier.is_active || String(supplier.id) === String(editing?.supplier_id));
@@ -144,7 +142,7 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
       icon="truck"
       eyebrow={editing ? editing.number : "New purchase order"}
       title={editing ? "Edit draft purchase order" : "Create a purchase order"}
-      description="Order stock from a supplier. Nothing changes in inventory until the order is received."
+      description="Stock is only added when the order is received."
       footer={
         <>
           <Button onClick={onClose} disabled={saving}>
@@ -179,7 +177,7 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
               <Field label="Supplier" required>
                 {(id) => (
                   <select id={id} value={form.supplier_id} onChange={(event) => setForm((f) => ({ ...f, supplier_id: event.target.value }))} required className="app-input">
-                    <option value="">Select a supplier…</option>
+                    <option value="">Select a supplier...</option>
                     {suppliers.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.name} · {item.lead_time_days} days
@@ -245,7 +243,7 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
                           aria-label={`Product for line ${index + 1}`}
                           className="app-input"
                         >
-                          <option value="">Select a product…</option>
+                          <option value="">Select a product...</option>
                           {options.map((option) => (
                             <option key={option.id} value={option.id} disabled={chosen.has(String(option.id)) && String(option.id) !== line.product_id}>
                               {option.name} · {option.stock} in stock
@@ -321,8 +319,6 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
   );
 }
 
-/* ---------- Drawer ---------- */
-
 function Timeline({ po }) {
   const cancelled = po.status === "Cancelled";
   const steps = [
@@ -370,9 +366,8 @@ function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, can
     <Drawer
       open={open}
       onClose={onClose}
-      eyebrow="Purchase order"
       title={po?.number ?? (poId ? `Purchase order #${poId}` : "")}
-      description={po ? `${po.supplier_name} · created ${timeAgo(po.created_at)}${po.created_by_name ? ` by ${po.created_by_name}` : ""}` : "Loading…"}
+      description={po ? `${po.supplier_name} · created ${timeAgo(po.created_at)}${po.created_by_name ? ` by ${po.created_by_name}` : ""}` : "Loading..."}
       icon="truck"
       footer={
         po && (
@@ -485,8 +480,6 @@ function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, can
   );
 }
 
-/* ---------- Page ---------- */
-
 export default function PurchaseOrders() {
   const { user } = useAuth();
   const toast = useToast();
@@ -497,7 +490,6 @@ export default function PurchaseOrders() {
   const { data, loading, error, reload } = useResource("/purchase-orders");
   const orders = useMemo(() => toList(data), [data]);
 
-  // ?status=late|draft|ordered|received|cancelled preselects a tab.
   const [status, setStatus] = useState(() => {
     const wanted = (params.get("status") ?? "").toLowerCase();
     if (wanted === "late") return "Late";
@@ -587,9 +579,7 @@ export default function PurchaseOrders() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Inventory"
         title="Purchase orders"
-        description="Order stock from suppliers and receive it into inventory."
         actions={
           <>
             <Button
@@ -623,7 +613,7 @@ export default function PurchaseOrders() {
         }
       />
 
-      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="On order" value={compactMoney(openValue)} hint={`${open.length} open orders`} icon="truck" tone="primary" loading={loading && !data} onClick={() => setStatus("Ordered")} />
         <StatCard label="Overdue deliveries" value={number(counts.Late)} hint="Past their expected date" icon="alert" tone="danger" loading={loading && !data} onClick={() => setStatus("Late")} />
         <StatCard label="Drafts" value={number(counts.Draft ?? 0)} hint="Not yet sent to suppliers" icon="edit" tone="warning" loading={loading && !data} onClick={() => setStatus("Draft")} />
@@ -651,7 +641,7 @@ export default function PurchaseOrders() {
             ]}
           />
           <div className="flex items-center gap-3">
-            <SearchInput value={search} onChange={(value) => { setSearch(value); table.setPage(1); }} placeholder="Search PO number or supplier…" className="sm:w-80" />
+            <SearchInput value={search} onChange={(value) => { setSearch(value); table.setPage(1); }} placeholder="Search PO number or supplier..." className="sm:w-80" />
             <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={`ml-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
           </div>
         </div>
@@ -745,7 +735,7 @@ export default function PurchaseOrders() {
           onClose={closeBuilder}
           editing={builder.editing}
           onSaved={(id, wasEditing) => {
-            toast.success(wasEditing ? "Draft updated." : "Draft purchase order created. Review it, then place the order.", { title: wasEditing ? "Saved" : "Created" });
+            toast.success(wasEditing ? "Draft updated." : "Draft purchase order created.", { title: wasEditing ? "Saved" : "Created" });
             closeBuilder();
             reload();
             setVersion((value) => value + 1);

@@ -2,7 +2,7 @@
 // stock_movements row with the resulting balance, inside the caller's
 // transaction, so SUM(movements.quantity) always equals products.stock.
 
-const MOVEMENT_TYPES = ["opening", "sale", "sale_cancelled", "purchase_receipt", "adjustment"];
+const MOVEMENT_TYPES = ["opening", "sale", "sale_cancelled", "purchase_receipt", "adjustment", "customer_return"];
 
 const ADJUSTMENT_REASONS = [
     "Stock count correction",
@@ -25,7 +25,7 @@ class InventoryError extends Error {
  * Applies a signed stock change and records it.
  * @returns {Promise<number>} the new stock balance
  */
-async function recordMovement(connection, { productId, quantity, type, reason = null, orderId = null, purchaseOrderId = null, userId = null }) {
+async function recordMovement(connection, { productId, quantity, type, reason = null, orderId = null, purchaseOrderId = null, creditNoteId = null, userId = null }) {
     if (!MOVEMENT_TYPES.includes(type)) {
         throw new Error(`Unknown movement type: ${type}`);
     }
@@ -49,9 +49,9 @@ async function recordMovement(connection, { productId, quantity, type, reason = 
     await connection.query("UPDATE products SET stock = ? WHERE id = ?", [balance, productId]);
     await connection.query(
         `INSERT INTO stock_movements
-            (product_id, quantity, type, reason, balance_after, order_id, purchase_order_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [productId, quantity, type, reason, balance, orderId, purchaseOrderId, userId]
+            (product_id, quantity, type, reason, balance_after, order_id, purchase_order_id, credit_note_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [productId, quantity, type, reason, balance, orderId, purchaseOrderId, creditNoteId, userId]
     );
 
     return balance;

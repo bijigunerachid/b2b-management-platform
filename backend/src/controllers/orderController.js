@@ -1,7 +1,7 @@
 
 const pool = require("../config/database");
 const { withBilling } = require("../billing/billing");
-const { ORDER_BILLING_COLUMNS, PAID_JOIN } = require("../billing/queries");
+const { ORDER_BILLING_COLUMNS, BILLING_JOINS } = require("../billing/queries");
 const { OrderPlacementError, placeOrder } = require("../services/orderPlacement");
 const { recordMovement } = require("../services/inventory");
 
@@ -12,7 +12,7 @@ const getOrders = async (req, res) => {
             SELECT ${ORDER_BILLING_COLUMNS}
             FROM orders o
             INNER JOIN customers c ON c.id = o.customer_id
-            ${PAID_JOIN}
+            ${BILLING_JOINS}
             ORDER BY o.id DESC
         `);
 
@@ -50,7 +50,7 @@ const getOrderById = async (req, res) => {
             `SELECT ${ORDER_BILLING_COLUMNS}
              FROM orders o
              INNER JOIN customers c ON c.id = o.customer_id
-             ${PAID_JOIN}
+             ${BILLING_JOINS}
              WHERE o.id = ?`,
             [id]
         );

@@ -157,9 +157,7 @@ export default function Suppliers() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Inventory"
         title="Suppliers"
-        description="Who you buy from, how long they take, and what's on order with them."
         actions={
           canWrite && (
             <Button variant="primary" icon="plus" onClick={() => openForm()}>
@@ -169,9 +167,9 @@ export default function Suppliers() {
         }
       />
 
-      <div className="stagger grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Active suppliers" value={number(active.length)} hint={`${suppliers.length - active.length} inactive`} icon="building" loading={loading && !data} />
-        <StatCard label="On order" value={compactMoney(openValue)} hint="Open purchase orders" icon="truck" tone="info" loading={loading && !data} />
+        <StatCard label="On order" value={compactMoney(openValue)} icon="truck" tone="info" loading={loading && !data} />
         <StatCard label="Average lead time" value={`${averageLead} days`} hint="Across active suppliers" icon="clock" tone="warning" loading={loading && !data} />
       </div>
 
@@ -179,7 +177,7 @@ export default function Suppliers() {
 
       <Card>
         <div className="border-b p-4" style={{ borderColor: "var(--border-color)" }}>
-          <SearchInput value={search} onChange={setSearch} placeholder="Search name, contact, or city…" className="sm:w-80" />
+          <SearchInput value={search} onChange={setSearch} placeholder="Search name, contact, or city..." className="sm:w-80" />
         </div>
 
         {loading && !data ? (
@@ -267,7 +265,6 @@ export default function Suppliers() {
         busy={saving}
         size="lg"
         icon="building"
-        eyebrow="Supplier"
         title={isEditing ? `Edit ${editing.name}` : "Add a supplier"}
         footer={
           <>
@@ -305,7 +302,7 @@ export default function Suppliers() {
               {(id) => <input id={id} value={form.country} onChange={update("country")} maxLength={100} className="app-input" />}
             </Field>
             <Field label="Notes" className="sm:col-span-2">
-              {(id) => <textarea id={id} value={form.notes} onChange={update("notes")} rows={2} maxLength={1000} placeholder="Payment terms, minimum order…" className="app-input resize-y" />}
+              {(id) => <textarea id={id} value={form.notes} onChange={update("notes")} rows={2} maxLength={1000} placeholder="Payment terms, minimum order..." className="app-input resize-y" />}
             </Field>
           </div>
         </form>

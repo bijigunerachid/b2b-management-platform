@@ -24,10 +24,7 @@ function unlockScroll() {
   }
 }
 
-/**
- * Keeps an overlay mounted until its exit animation finishes.
- * Uses the "adjust state during render" pattern rather than an effect.
- */
+// Keeps the overlay mounted until its closing animation ends.
 function usePresence(open) {
   const [rendered, setRendered] = useState(open);
 
@@ -220,10 +217,6 @@ const sizes = {
   xl: "sm:max-w-5xl",
 };
 
-/**
- * Centered dialog (bottom sheet on phones).
- * Pass `footer` for a pinned action bar; `busy` blocks dismissal while saving.
- */
 export function Modal({ open, onClose, title, description, eyebrow, icon, iconTone, size = "md", footer, busy = false, children }) {
   const titleId = useId();
   const descriptionId = useId();
@@ -261,7 +254,6 @@ export function Modal({ open, onClose, title, description, eyebrow, icon, iconTo
   );
 }
 
-/** Slide-in side panel for record details. */
 export function Drawer({ open, onClose, title, description, eyebrow, icon, iconTone, footer, children }) {
   const titleId = useId();
   const descriptionId = useId();

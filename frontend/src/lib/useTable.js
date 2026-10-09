@@ -11,10 +11,6 @@ function compare(a, b) {
   });
 }
 
-/**
- * Client-side sorting and pagination.
- * `accessors` maps a sort key to (row) => sortable value.
- */
 export default function useTable(rows, { accessors = {}, initialSort, pageSize = 10 } = {}) {
   const [sort, setSort] = useState(initialSort ?? { key: null, direction: "asc" });
   const [requestedPage, setPage] = useState(1);

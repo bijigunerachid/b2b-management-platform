@@ -54,8 +54,6 @@ function isThisMonth(value) {
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 }
 
-/* ---------- Detail drawer ---------- */
-
 function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
   const navigate = useNavigate();
   const { data, loading } = useResource(open && customer ? "/orders" : null);
@@ -70,7 +68,6 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
     <Drawer
       open={open}
       onClose={onClose}
-      eyebrow="Customer profile"
       title={customer?.company_name ?? ""}
       description={customer ? `Customer #${customer.id} · since ${formatDate(customer.created_at)}` : ""}
       footer={
@@ -112,17 +109,17 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
 
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: "Orders", value: loading ? "…" : orders.length },
-              { label: "Lifetime value (HT)", value: loading ? "…" : money(lifetimeValue) },
+              { label: "Orders", value: loading ? "..." : orders.length },
+              { label: "Lifetime value (HT)", value: loading ? "..." : money(lifetimeValue) },
               {
                 label: "Outstanding",
-                value: loading ? "…" : money(outstanding),
+                value: loading ? "..." : money(outstanding),
                 danger: overdue > 0,
                 hint: overdue > 0 ? `${money(overdue)} overdue` : null,
               },
               {
                 label: "Last order",
-                value: loading ? "…" : orders[0] ? formatDate(orders[0].created_at) : "—",
+                value: loading ? "..." : orders[0] ? formatDate(orders[0].created_at) : "—",
               },
             ].map((item) => (
               <div key={item.label} className="rounded-xl p-3 app-muted">
@@ -209,8 +206,6 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, user }) {
   );
 }
 
-/* ---------- Page ---------- */
-
 export default function Customers() {
   const { user } = useAuth();
   const toast = useToast();
@@ -233,7 +228,7 @@ export default function Customers() {
   const canWrite = can(user, "customers.write");
   const canDelete = can(user, "customers.delete");
 
-  // Deep links: ?new=1 opens the create form, ?view=<id> opens the profile drawer.
+  // ?new=1 opens the form, ?view=<id> opens a profile
   const createRequested = params.get("new") === "1" && canWrite;
   const viewId = params.get("view");
   const viewed = customers.find((customer) => String(customer.id) === viewId) ?? null;
@@ -279,8 +274,6 @@ export default function Customers() {
 
   const cities = new Set(customers.map((customer) => customer.city?.trim().toLowerCase()).filter(Boolean)).size;
   const newThisMonth = customers.filter((customer) => isThisMonth(customer.created_at)).length;
-
-  /* ----- Form ----- */
 
   function openCreate() {
     setEditing(null);
@@ -387,9 +380,7 @@ export default function Customers() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Sales"
         title="Customers"
-        description="Manage your business accounts, contacts, and relationships."
         actions={
           <>
             <Button icon="download" onClick={handleExport} disabled={filtered.length === 0}>
@@ -404,11 +395,11 @@ export default function Customers() {
         }
       />
 
-      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total customers" value={number(customers.length)} hint="All registered accounts" icon="customers" loading={loading && !data} />
-        <StatCard label="New this month" value={number(newThisMonth)} hint="Accounts created this month" icon="sparkles" tone="success" loading={loading && !data} />
-        <StatCard label="Cities" value={number(cities)} hint="Unique customer cities" icon="mapPin" tone="warning" loading={loading && !data} />
-        <StatCard label="Countries" value={number(countries.length)} hint="Markets you serve" icon="globe" tone="info" loading={loading && !data} />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total customers" value={number(customers.length)} icon="customers" loading={loading && !data} />
+        <StatCard label="New this month" value={number(newThisMonth)} icon="sparkles" tone="success" loading={loading && !data} />
+        <StatCard label="Cities" value={number(cities)} icon="mapPin" tone="warning" loading={loading && !data} />
+        <StatCard label="Countries" value={number(countries.length)} icon="globe" tone="info" loading={loading && !data} />
       </div>
 
       {error && <ErrorState message={error} onRetry={reload} />}
@@ -421,7 +412,7 @@ export default function Customers() {
               setSearch(value);
               table.setPage(1);
             }}
-            placeholder="Search company, contact, email, city…"
+            placeholder="Search company, contact, email, city..."
             className="lg:w-80"
           />
           <select
@@ -485,7 +476,7 @@ export default function Customers() {
             }
           />
         ) : view === "grid" ? (
-          <div className="stagger grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
             {table.rows.map((customer) => (
               <button
                 key={customer.id}
@@ -591,7 +582,6 @@ export default function Customers() {
         busy={saving}
         size="lg"
         icon={isEditing ? "edit" : "userPlus"}
-        eyebrow="Customer details"
         title={isEditing ? `Edit ${editing.company_name}` : "Add a new customer"}
         description={isEditing ? "Update this account's company and contact information." : "Create a business account to start taking orders."}
         footer={
@@ -623,7 +613,7 @@ export default function Customers() {
                 {(id) => <input id={id} name="email" type="email" value={form.email} onChange={handleChange} placeholder="contact@company.com" className="app-input" />}
               </Field>
               <Field label="Phone number">
-                {(id) => <input id={id} name="phone" type="tel" value={form.phone} onChange={handleChange} maxLength={30} placeholder="+212 6…" className="app-input" />}
+                {(id) => <input id={id} name="phone" type="tel" value={form.phone} onChange={handleChange} maxLength={30} placeholder="+212 6..." className="app-input" />}
               </Field>
             </div>
           </fieldset>
@@ -641,7 +631,7 @@ export default function Customers() {
                 {(id) => <input id={id} name="country" value={form.country} onChange={handleChange} maxLength={100} list="country-options" className="app-input" />}
               </Field>
               <Field label="Full address" className="sm:col-span-2">
-                {(id) => <textarea id={id} name="address" value={form.address} onChange={handleChange} rows={2} maxLength={255} placeholder="Street, building, postal code…" className="app-input resize-y" />}
+                {(id) => <textarea id={id} name="address" value={form.address} onChange={handleChange} rows={2} maxLength={255} placeholder="Street, building, postal code..." className="app-input resize-y" />}
               </Field>
             </div>
             <datalist id="country-options">

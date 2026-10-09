@@ -14,6 +14,7 @@ portalRouter.get("/catalog", portal.getCatalog);
 portalRouter.get("/orders", portal.listOrders);
 portalRouter.get("/orders/:id", portal.getOrder);
 portalRouter.post("/orders", portal.placePortalOrder);
+portalRouter.get("/credit-notes/:id", portal.getCreditNote);
 portalRouter.get("/quotes", portal.listQuotes);
 portalRouter.get("/quotes/:id", portal.getQuote);
 portalRouter.post("/quotes/:id/accept", portal.acceptQuote);

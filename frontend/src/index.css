@@ -54,10 +54,6 @@
 }
 @keyframes toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
-/* ========================================
-   B2B Management Platform — Design tokens
-   ======================================== */
-
 :root {
   color-scheme: light;
 
@@ -194,10 +190,6 @@ html.dark {
   }
 }
 
-/* ========================================
-   Reusable component classes
-   ======================================== */
-
 @layer components {
   .app-surface {
     background: var(--surface);
@@ -330,10 +322,6 @@ html.dark {
   .stagger > *:nth-child(5) { animation-delay: 160ms; }
   .stagger > *:nth-child(6) { animation-delay: 200ms; }
 }
-
-/* ========================================
-   Print (invoices)
-   ======================================== */
 
 .invoice-sheet {
   min-height: 297mm;

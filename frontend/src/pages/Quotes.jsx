@@ -42,7 +42,6 @@ const accessors = {
 
 const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
-// Day-granularity dates used for limits and windows.
 function daysFromToday(days) {
   const date = new Date();
   date.setDate(date.getDate() + days);
@@ -64,8 +63,6 @@ function StatusBadge({ status }) {
   );
 }
 
-/* ---------- Builder (create / edit) ---------- */
-
 function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
   const customersResource = useResource(open ? "/customers" : null);
   const customers = toList(customersResource.data);
@@ -76,7 +73,6 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Reset the form whenever the dialog opens for a different quote/customer.
   const prepareKey = open ? `${editing?.id ?? "new"}:${initialCustomerId ?? ""}` : null;
   const [preparedFor, setPreparedFor] = useState(null);
   if (prepareKey !== preparedFor) {
@@ -164,7 +160,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
       icon="fileText"
       eyebrow={editing ? editing.number : "New quote"}
       title={editing ? "Edit draft quote" : "Create a quote"}
-      description="Prices start at the catalog price. Adjust any line to offer a discount."
+      description="Lines start at the catalog price."
       footer={
         <>
           <Button onClick={onClose} disabled={saving}>
@@ -194,11 +190,11 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
               <Field label="Customer" required>
                 {(id) => (
                   <select id={id} value={form.customer_id} onChange={(event) => setForm((f) => ({ ...f, customer_id: event.target.value }))} required className="app-input">
-                    <option value="">Select a customer…</option>
+                    <option value="">Select a customer...</option>
                     {customers.map((customer) => (
                       <option key={customer.id} value={customer.id}>
                         {customer.company_name}
-                        {customer.city ? ` — ${customer.city}` : ""}
+                        {customer.city ? `, ${customer.city}` : ""}
                       </option>
                     ))}
                   </select>
@@ -253,7 +249,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                           aria-label={`Product for line ${index + 1}`}
                           className="app-input"
                         >
-                          <option value="">Select a product…</option>
+                          <option value="">Select a product...</option>
                           {products.map((option) => (
                             <option key={option.id} value={option.id} disabled={chosen.has(String(option.id)) && String(option.id) !== line.product_id}>
                               {option.name} · {money(option.price)}
@@ -323,7 +319,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                   onChange={(event) => setForm((f) => ({ ...f, notes: event.target.value }))}
                   rows={2}
                   maxLength={1000}
-                  placeholder="Delivery terms, installation, conditions…"
+                  placeholder="Delivery terms, installation, conditions..."
                   className="app-input resize-y"
                 />
               )}
@@ -378,8 +374,6 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
     </Modal>
   );
 }
-
-/* ---------- Detail drawer ---------- */
 
 function Timeline({ quote }) {
   const decidedLabel = quote.status === "Rejected" ? "Rejected" : quote.status === "Expired" ? "Expired" : "Accepted";
@@ -446,9 +440,8 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
     <Drawer
       open={open}
       onClose={onClose}
-      eyebrow="Quote"
       title={quote?.number ?? (quoteId ? `Quote #${quoteId}` : "")}
-      description={quote ? `${quote.company_name} · created ${timeAgo(quote.created_at)}` : "Loading…"}
+      description={quote ? `${quote.company_name} · created ${timeAgo(quote.created_at)}` : "Loading..."}
       icon="fileText"
       footer={
         quote && (
@@ -626,8 +619,6 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
   );
 }
 
-/* ---------- Page ---------- */
-
 export default function Quotes() {
   const { user } = useAuth();
   const toast = useToast();
@@ -677,7 +668,6 @@ export default function Quotes() {
 
   const table = useTable(filtered, { accessors, initialSort: { key: "created", direction: "desc" } });
 
-  // Pipeline KPIs.
   const open = quotes.filter((quote) => quote.status === "Sent" || quote.status === "Accepted");
   const pipeline = open.reduce((sum, quote) => sum + quote.total_with_vat, 0);
   const yearAgo = daysFromToday(-365).getTime();
@@ -755,9 +745,7 @@ export default function Quotes() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Sales"
         title="Quotes"
-        description="Prepare offers, follow up on them, and turn accepted quotes into orders."
         actions={
           <>
             <Button icon="download" onClick={handleExport} disabled={filtered.length === 0}>
@@ -772,7 +760,7 @@ export default function Quotes() {
         }
       />
 
-      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Open pipeline" value={compactMoney(pipeline)} hint={`${open.length} sent or accepted quotes (TTC)`} icon="fileText" tone="primary" loading={loading && !data} />
         <StatCard
           label="Win rate"
@@ -807,7 +795,7 @@ export default function Quotes() {
                 setSearch(value);
                 table.setPage(1);
               }}
-              placeholder="Search quote number or customer…"
+              placeholder="Search quote number or customer..."
               className="sm:w-80"
             />
             <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={`ml-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
@@ -926,7 +914,7 @@ export default function Quotes() {
           editing={builder.editing}
           initialCustomerId={params.get("customer") ?? undefined}
           onSaved={(quoteId, wasEditing) => {
-            toast.success(wasEditing ? "Draft updated." : "Draft quote created. Review it, then mark it as sent.", { title: wasEditing ? "Quote saved" : "Quote created" });
+            toast.success(wasEditing ? "Draft updated." : "Draft quote created.", { title: wasEditing ? "Quote saved" : "Quote created" });
             closeBuilder();
             reload();
             setDrawerVersion((value) => value + 1);

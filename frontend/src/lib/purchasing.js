@@ -1,5 +1,3 @@
-// Display rules for purchasing and the stock ledger. Statuses, "late",
-// and allowed actions come from the API.
 
 export const PO_STATUS = {
   Draft: { tone: "neutral", icon: "edit", description: "Being prepared" },
@@ -16,6 +14,7 @@ export const MOVEMENT_TYPES = {
   sale_cancelled: { label: "Sale cancelled", tone: "warning", icon: "refresh" },
   purchase_receipt: { label: "Purchase receipt", tone: "success", icon: "truck" },
   adjustment: { label: "Adjustment", tone: "info", icon: "edit" },
+  customer_return: { label: "Customer return", tone: "success", icon: "undo" },
 };
 
 // Mirrors ADJUSTMENT_REASONS in backend/src/services/inventory.js.
@@ -29,7 +28,6 @@ export const ADJUSTMENT_REASONS = [
   "Other",
 ];
 
-/** Cost to prefill when nothing better is known (the API suggests real ones). */
 export function estimatedCost(price) {
   return Math.round(Number(price) * 0.6 * 100) / 100;
 }

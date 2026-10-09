@@ -13,7 +13,8 @@
     "seed:payments": "node src/scripts/seedPayments.js",
     "seed:quotes": "node src/scripts/seedQuotes.js",
     "seed:purchasing": "node src/scripts/seedPurchasing.js",
-    "seed:portal": "node src/scripts/seedPortal.js"
+    "seed:portal": "node src/scripts/seedPortal.js",
+    "seed:returns": "node src/scripts/seedReturns.js"
   },
   "keywords": [],
   "author": "",

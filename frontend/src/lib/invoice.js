@@ -2,16 +2,13 @@ import company from "../config/company";
 
 const round2 = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
 
-/** INV-2026-000123: year of the order plus the zero-padded order id. */
+// e.g. INV-2026-000123
 export function invoiceNumber(order) {
   const year = new Date(order.created_at).getFullYear() || new Date().getFullYear();
   return `INV-${year}-${String(order.id).padStart(6, "0")}`;
 }
 
-/**
- * Builds invoice figures from an order. Stored prices exclude VAT (HT);
- * VAT is applied once on the subtotal, as on a standard Moroccan invoice.
- */
+// Prices are stored without VAT; VAT is applied once on the subtotal.
 export function buildInvoice(order, { vatRate = company.vatRate, termsDays = company.paymentTermsDays } = {}) {
   const lines = (order.items ?? []).map((item) => {
     const quantity = Number(item.quantity) || 0;
@@ -33,12 +30,13 @@ export function buildInvoice(order, { vatRate = company.vatRate, termsDays = com
   const due = new Date(issued);
   due.setDate(due.getDate() + termsDays);
 
-  // Payment state comes from the API's billing summary (recorded payments).
   const billing = order.billing;
   const state =
     order.status === "Cancelled"
       ? "void"
-      : billing?.payment_status === "Paid"
+      : billing?.payment_status === "Credited"
+        ? "credited"
+        : billing?.payment_status === "Paid"
         ? "paid"
         : billing?.overdue
           ? "overdue"
@@ -57,6 +55,8 @@ export function buildInvoice(order, { vatRate = company.vatRate, termsDays = com
     total,
     state,
     amountPaid: billing?.amount_paid ?? 0,
+    credited: billing?.credited ?? 0,
+    refunded: billing?.refunded ?? 0,
     balance: billing?.balance ?? total,
     daysOverdue: billing?.days_overdue ?? 0,
   };

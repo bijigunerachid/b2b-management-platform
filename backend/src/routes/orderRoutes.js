@@ -17,6 +17,10 @@ const {
     getOrderPayments,
     recordPayment
 } = require("../controllers/paymentController");
+const {
+    createOrderCreditNote,
+    getOrderReturns
+} = require("../controllers/creditNoteController");
 
 router.use(protect);
 
@@ -54,6 +58,18 @@ router.post(
     authorize("Admin", "Manager"),
     validate(recordPaymentRules),
     recordPayment
+);
+
+router.get(
+    "/:id/credit-notes",
+    authorize("Admin", "Manager", "Employee"),
+    getOrderReturns
+);
+
+router.post(
+    "/:id/credit-notes",
+    authorize("Admin", "Manager"),
+    createOrderCreditNote
 );
 
 module.exports = router;

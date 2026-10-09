@@ -47,7 +47,7 @@ export default function PortalAccount() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Account" title="Your account" description="Your details and sign-in settings." />
+      <PageHeader title="Your account" />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

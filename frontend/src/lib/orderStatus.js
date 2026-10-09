@@ -1,5 +1,4 @@
-// Single source of truth for how order statuses look and how they may change.
-// Transitions mirror the backend rules in orderController.updateOrderStatus.
+// Keep nextStatuses() in sync with updateOrderStatus in the backend.
 
 export const ORDER_STATUS = {
   Pending: {

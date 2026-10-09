@@ -48,17 +48,28 @@ function ageingBucket(daysOverdue) {
 
 /**
  * Billing summary for one order.
- * `paid` is the sum of non-voided payments.
+ * `paid` is the sum of non-voided payments, `credited` the total of its credit
+ * notes, and `refunded` the part of those credit notes paid back to the customer.
  */
-function billingSummary({ status, totalAmount, createdAt, paid = 0 }, now = new Date()) {
-    const { total } = invoiceTotals(totalAmount);
-    const amountPaid = round2(paid);
+function billingSummary({ status, totalAmount, createdAt, paid = 0, credited = 0, refunded = 0 }, now = new Date()) {
+    const { total: invoiceTotal } = invoiceTotals(totalAmount);
+    const amountCredited = round2(credited);
+    const amountRefunded = round2(refunded);
+    const total = round2(invoiceTotal - amountCredited);
+    const amountPaid = round2(paid - amountRefunded);
     const dueDate = dueDateFor(createdAt);
+
+    const amounts = {
+        invoice_total: invoiceTotal,
+        credited: amountCredited,
+        refunded: amountRefunded,
+        total_due: total,
+        amount_paid: amountPaid
+    };
 
     if (status === "Cancelled") {
         return {
-            total_due: total,
-            amount_paid: amountPaid,
+            ...amounts,
             balance: 0,
             due_date: dueDate,
             payment_status: "Void",
@@ -75,12 +86,12 @@ function billingSummary({ status, totalAmount, createdAt, paid = 0 }, now = new 
         : Math.max(0, Math.floor((startOfDay(now) - dueDate) / DAY_MS));
 
     let paymentStatus = "Unpaid";
-    if (settled) paymentStatus = "Paid";
+    if (settled && amountCredited > EPSILON && total <= EPSILON) paymentStatus = "Credited";
+    else if (settled) paymentStatus = "Paid";
     else if (amountPaid > EPSILON) paymentStatus = "Partially paid";
 
     return {
-        total_due: total,
-        amount_paid: amountPaid,
+        ...amounts,
         balance: settled ? 0 : balance,
         due_date: dueDate,
         payment_status: paymentStatus,
@@ -90,7 +101,7 @@ function billingSummary({ status, totalAmount, createdAt, paid = 0 }, now = new 
     };
 }
 
-/** Attaches `billing` to an order row that has total_amount/created_at/status/amount_paid. */
+/** Attaches `billing` to an order row loaded with ORDER_BILLING_COLUMNS. */
 function withBilling(order, now = new Date()) {
     return {
         ...order,
@@ -99,7 +110,9 @@ function withBilling(order, now = new Date()) {
                 status: order.status,
                 totalAmount: order.total_amount,
                 createdAt: order.created_at,
-                paid: order.amount_paid
+                paid: order.amount_paid,
+                credited: order.amount_credited,
+                refunded: order.amount_refunded
             },
             now
         )

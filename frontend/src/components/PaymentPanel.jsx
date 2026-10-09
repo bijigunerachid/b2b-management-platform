@@ -14,8 +14,6 @@ const methodIcons = {
   Card: "lock",
 };
 
-/* ---------- Record payment ---------- */
-
 export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }) {
   const toast = useToast();
   const [form, setForm] = useState({ amount: "", method: "Bank transfer", paid_at: localDateInput(), reference: "", note: "" });
@@ -96,7 +94,7 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
 
           <div className="grid grid-cols-3 gap-2 rounded-xl p-3 text-center app-muted">
             {[
-              ["Invoice total", billing.total_due],
+              [billing.credited > 0 ? "After credits" : "Invoice total", billing.total_due],
               ["Already paid", billing.amount_paid],
               ["Balance due", billing.balance],
             ].map(([label, value]) => (
@@ -168,7 +166,7 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
             </Field>
           </div>
 
-          <Field label="Reference" hint="Transfer reference, cheque number…">
+          <Field label="Reference" hint="Transfer reference, cheque number...">
             {(id) => <input id={id} value={form.reference} onChange={update("reference")} maxLength={100} placeholder="e.g. VIR-20261009-4821" className="app-input" />}
           </Field>
           <Field label="Note">
@@ -179,8 +177,6 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
     </Modal>
   );
 }
-
-/* ---------- Void payment ---------- */
 
 function VoidPaymentModal({ payment, onClose, onVoided }) {
   const toast = useToast();
@@ -246,7 +242,7 @@ function VoidPaymentModal({ payment, onClose, onVoided }) {
               onChange={(event) => setReason(event.target.value)}
               rows={3}
               maxLength={255}
-              placeholder="e.g. Recorded twice, cheque bounced…"
+              placeholder="e.g. Recorded twice, cheque bounced..."
               className="app-input resize-none"
             />
           )}
@@ -256,12 +252,6 @@ function VoidPaymentModal({ payment, onClose, onVoided }) {
   );
 }
 
-/* ---------- Panel ---------- */
-
-/**
- * Billing summary, payment history, and payment actions for one order.
- * `version` changes force a reload; `onChanged` lets the parent refresh lists.
- */
 export default function PaymentPanel({ order, version = 0, canRecord, canVoid, onChanged }) {
   const [localVersion, setLocalVersion] = useState(0);
   const { data, loading, error } = useResource(order ? `/orders/${order.id}/payments?v=${version}-${localVersion}` : null);
@@ -300,7 +290,9 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
             <p className="text-xs font-medium uppercase tracking-wide app-text-muted">Balance due</p>
             <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums app-text">{money(billing.balance)}</p>
             <p className="mt-0.5 text-xs app-text-secondary">
-              of {money(billing.total_due)} incl. VAT
+              {billing.payment_status === "Credited"
+                ? `Invoice of ${money(billing.invoice_total)} fully credited`
+                : `of ${money(billing.total_due)} incl. VAT${billing.credited > 0 ? `, after ${money(billing.credited)} credited` : ""}`}
               {!isVoid && billing.balance > 0 && (
                 <>
                   {" · "}
@@ -320,7 +312,7 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
           </Badge>
         </div>
 
-        {!isVoid && (
+        {!isVoid && billing.total_due > 0 && (
           <div className="mt-4">
             <div className="h-2 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }}>
               <div
@@ -330,6 +322,7 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
             </div>
             <p className="mt-1.5 text-xs app-text-muted">
               {money(billing.amount_paid)} paid · {progress.toFixed(0)}%
+              {billing.refunded > 0 && ` · ${money(billing.refunded)} refunded`}
             </p>
           </div>
         )}

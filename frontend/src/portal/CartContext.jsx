@@ -18,10 +18,7 @@ function readCart(userId) {
   }
 }
 
-/**
- * The client's cart, kept per user in this browser so it survives a refresh.
- * Prices shown are indicative; the server prices the order when placed.
- */
+// Stored per user in localStorage. The server sets the real prices when the order is placed.
 export function CartProvider({ children }) {
   const { user } = useAuth();
   const [lines, setLines] = useState(() => (user ? readCart(user.id) : []));

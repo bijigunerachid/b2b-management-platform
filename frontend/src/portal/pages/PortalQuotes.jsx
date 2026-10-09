@@ -15,15 +15,14 @@ function QuoteDrawer({ quoteId, version, open, onClose, onDecided }) {
   const { data, loading, error } = useResource(quoteId ? `/portal/quotes/${quoteId}?v=${version}` : null);
   const quote = data?.data;
 
-  // Takes the quote as an argument so the memoized handler never reads
-  // fields of a quote that is still loading.
+  // Same React Compiler issue as reorder() in PortalOrders.
   async function decide(quote, action) {
     const accepting = action === "accept";
     const confirmed = await confirm({
       title: accepting ? `Accept ${quote.number}?` : `Decline ${quote.number}?`,
       message: accepting
         ? `You agree to the prices in this quote (${money(quote.total_with_vat)} incl. VAT). We'll turn it into an order and confirm by email.`
-        : "Let us know you won't go ahead with this offer. You can always ask us for a new quote.",
+        : "We'll mark this quote as declined.",
       confirmLabel: accepting ? "Accept quote" : "Decline quote",
       tone: accepting ? "primary" : "danger",
       icon: accepting ? "checkCircle" : "thumbsDown",
@@ -46,9 +45,8 @@ function QuoteDrawer({ quoteId, version, open, onClose, onDecided }) {
     <Drawer
       open={open}
       onClose={onClose}
-      eyebrow="Quote"
       title={quote?.number ?? ""}
-      description={quote ? `Valid until ${formatDate(`${quote.valid_until}T00:00:00`)}` : "Loading…"}
+      description={quote ? `Valid until ${formatDate(`${quote.valid_until}T00:00:00`)}` : "Loading..."}
       icon="fileText"
       footer={
         quote && (
@@ -164,7 +162,7 @@ export default function PortalQuotes() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Quotes" title="Your quotes" description="Review the offers we prepared for you and accept them online." />
+      <PageHeader title="Your quotes" />
       {error && <ErrorState message={error} onRetry={reload} />}
       {awaiting.length > 0 && (
         <InlineAlert tone="info">
@@ -175,7 +173,7 @@ export default function PortalQuotes() {
         {loading && !data ? (
           <TableSkeleton columns={4} />
         ) : quotes.length === 0 ? (
-          <EmptyState icon="fileText" title="No quotes yet" description="Quotes we prepare for you will appear here." />
+          <EmptyState icon="fileText" title="No quotes yet" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[620px] text-left text-sm">

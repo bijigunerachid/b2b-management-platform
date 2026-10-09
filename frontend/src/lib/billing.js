@@ -1,5 +1,3 @@
-// Display rules for payment state. The numbers themselves come from the API
-// (`billing` on each order), so the frontend never re-derives balances.
 
 export const PAYMENT_STATUS = {
   Paid: { tone: "success", icon: "checkCircle" },
@@ -7,6 +5,7 @@ export const PAYMENT_STATUS = {
   Unpaid: { tone: "neutral", icon: "clock" },
   Overdue: { tone: "danger", icon: "alert" },
   Void: { tone: "neutral", icon: "ban" },
+  Credited: { tone: "neutral", icon: "undo" },
 };
 
 export const PAYMENT_METHODS = ["Bank transfer", "Cheque", "Cash", "Card"];
@@ -19,7 +18,6 @@ export const AGEING_BUCKETS = [
   { key: "90+", label: "90+ days" },
 ];
 
-/** Badge label and style for an order's billing summary. */
 export function paymentBadge(billing) {
   if (!billing) return { label: "—", ...PAYMENT_STATUS.Unpaid };
 
@@ -34,7 +32,6 @@ export function paymentBadge(billing) {
   return { ...PAYMENT_STATUS[billing.payment_status], label: billing.payment_status };
 }
 
-/** YYYY-MM-DD in the user's local time zone (for date inputs). */
 export function localDateInput(date = new Date()) {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

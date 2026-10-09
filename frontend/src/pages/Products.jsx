@@ -42,13 +42,11 @@ const emptyForm = {
   is_active: true,
 };
 
-// UI sort keys → backend `sort` values (whitelisted server-side).
 const sortKeys = { name: "name", category: "category", price: "price", stock: "stock" };
 
 function StockMeter({ stock, reorderPoint = 5, onOrder = 0 }) {
   const low = reorderPoint > 0 && stock <= reorderPoint;
   const tone = stock === 0 ? "danger" : low ? "warning" : "success";
-  // Full bar = 3× the reorder point (the level reorders top up to).
   const width = Math.min(100, (stock / Math.max(reorderPoint * 3, 1)) * 100);
 
   return (
@@ -90,7 +88,6 @@ export default function Products() {
   const [sort, setSort] = useState({ key: null, direction: "asc" });
   const [page, setPage] = useState(1);
 
-  // Follow ?q= when it changes (e.g. from the command palette or a stock alert).
   const qParam = params.get("q");
   const [appliedQ, setAppliedQ] = useState(qParam);
   if (qParam !== null && qParam !== appliedQ) {
@@ -140,8 +137,6 @@ export default function Products() {
     inactiveResource.reload();
     allResource.reload();
   }
-
-  /* ----- Form state ----- */
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -264,7 +259,7 @@ export default function Products() {
   async function handleDelete(product) {
     const confirmed = await confirm({
       title: `Delete ${product.name}?`,
-      message: "This permanently removes the product. Products used in orders can't be deleted — deactivate them instead.",
+      message: "This permanently removes the product. Products used in orders can't be deleted, so deactivate them instead.",
       confirmLabel: "Delete product",
     });
     if (!confirmed) return;
@@ -284,7 +279,6 @@ export default function Products() {
   async function handleExport() {
     setExporting(true);
     try {
-      // Fetch every page matching the current filters.
       const rows = [];
       for (let current = 1; ; current += 1) {
         const pageQuery = new URLSearchParams(query);
@@ -331,9 +325,7 @@ export default function Products() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Catalog"
         title="Products"
-        description="Manage your catalog, pricing, and stock levels."
         actions={
           <>
             <Button icon="download" onClick={handleExport} loading={exporting} disabled={pagination.total === 0}>
@@ -348,9 +340,9 @@ export default function Products() {
         }
       />
 
-      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total products" value={number(totalAll)} hint="Across all categories" icon="products" loading={totalAll === undefined} />
-        <StatCard label="Categories" value={number(categories.length)} hint="Ways to group your catalog" icon="categories" tone="info" loading={categoriesResource.loading && !categoriesResource.data} />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total products" value={number(totalAll)} icon="products" loading={totalAll === undefined} />
+        <StatCard label="Categories" value={number(categories.length)} icon="categories" tone="info" loading={categoriesResource.loading && !categoriesResource.data} />
         <StatCard
           label="Low stock"
           value={number(lowCount)}
@@ -387,7 +379,7 @@ export default function Products() {
               setSearch(value);
               setPage(1);
             }}
-            placeholder="Search name or description…"
+            placeholder="Search name or description..."
             className="xl:w-72"
           />
           <select
@@ -562,7 +554,6 @@ export default function Products() {
         busy={saving}
         size="lg"
         icon={isEditing ? "edit" : "products"}
-        eyebrow="Product details"
         title={isEditing ? `Edit ${editing.name}` : "Add a new product"}
         description={isEditing ? "Update pricing, stock, and availability." : "Add an item to your catalog so it can be ordered."}
         footer={
@@ -590,7 +581,7 @@ export default function Products() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Product name" required className="sm:col-span-2">
-              {(id) => <input id={id} name="name" value={form.name} onChange={handleChange} required minLength={2} maxLength={150} placeholder="e.g. Office chair — ergonomic" className="app-input" />}
+              {(id) => <input id={id} name="name" value={form.name} onChange={handleChange} required minLength={2} maxLength={150} placeholder="e.g. Ergonomic office chair" className="app-input" />}
             </Field>
 
             <Field label="Category" required>
@@ -666,7 +657,7 @@ export default function Products() {
             </div>
 
             <Field label="Description" className="sm:col-span-2" hint={`${form.description.length}/1000`}>
-              {(id) => <textarea id={id} name="description" rows={3} maxLength={1000} value={form.description} onChange={handleChange} placeholder="Materials, dimensions, packaging…" className="app-input resize-y" />}
+              {(id) => <textarea id={id} name="description" rows={3} maxLength={1000} value={form.description} onChange={handleChange} placeholder="Materials, dimensions, packaging..." className="app-input resize-y" />}
             </Field>
           </div>
 
