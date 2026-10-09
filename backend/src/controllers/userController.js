@@ -43,6 +43,7 @@ const getUsers = async (req, res) => {
             FROM users
             INNER JOIN roles
                 ON users.role_id = roles.id
+            WHERE roles.name <> 'Customer'
             ORDER BY users.id DESC
         `);
 
@@ -72,7 +73,8 @@ const createUser = async (req, res) => {
             return res.status(400).json({ success: false, message: passwordError });
         }
 
-        if (!(await roleName(pool, role_id))) {
+        const role = await roleName(pool, role_id);
+        if (!role || role === "Customer") {
             return res.status(400).json({ success: false, message: "Invalid role." });
         }
 
@@ -156,14 +158,15 @@ async function updateUser(req, res) {
 
         const existing = existingUsers[0];
 
-        if (!existing) {
+        // Portal accounts are managed from the customer's profile.
+        if (!existing || existing.role === "Customer") {
             await connection.rollback();
             return res.status(404).json({ success: false, message: "User not found." });
         }
 
         const newRole = await roleName(connection, role_id);
 
-        if (!newRole) {
+        if (!newRole || newRole === "Customer") {
             await connection.rollback();
             return res.status(400).json({ success: false, message: "Invalid role." });
         }

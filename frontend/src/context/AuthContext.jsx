@@ -72,7 +72,9 @@ export function AuthProvider({ children }) {
             throw new Error(result.message || "Login failed");
         }
 
-        setUser(result.data ?? result.user ?? null);
+        const signedIn = result.data ?? result.user ?? null;
+        setUser(signedIn);
+        return signedIn;
     }, []);
 
     const logout = useCallback(async () => {

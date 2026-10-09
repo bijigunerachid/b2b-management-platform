@@ -230,6 +230,60 @@ describe("session tokens", () => {
     });
 });
 
+describe("staff and portal separation", () => {
+    const portalUser = { ...activeAdmin, id: 50, role_id: 4, role: "Customer", customer_id: 7, token_version: 1 };
+    const portalCookie = () => sessionCookie({ userId: 50, tokenVersion: 1 });
+    const adminCookie = () => sessionCookie({ userId: 1, tokenVersion: 3 });
+
+    test.each([
+        ["GET", "/api/dashboard/stats"],
+        ["GET", "/api/customers"],
+        ["GET", "/api/orders"],
+        ["GET", "/api/products"],
+        ["GET", "/api/receivables"],
+        ["GET", "/api/quotes"],
+        ["GET", "/api/inventory/summary"],
+        ["GET", "/api/suppliers"],
+        ["GET", "/api/users"],
+        ["POST", "/api/orders"]
+    ])("portal accounts are refused on staff endpoint %s %s", async (method, path) => {
+        pool.query.mockResolvedValue([[portalUser]]);
+
+        const response = await request(app)[method.toLowerCase()](path)
+            .set("Cookie", portalCookie())
+            .send({});
+
+        expect(response.status).toBe(403);
+        // Only the session lookup ran: no business data was queried.
+        expect(pool.query).toHaveBeenCalledTimes(1);
+    });
+
+    test("staff accounts are refused on portal endpoints", async () => {
+        pool.query.mockResolvedValue([[activeAdmin]]);
+
+        const response = await request(app).get("/api/portal/summary").set("Cookie", adminCookie());
+
+        expect(response.status).toBe(403);
+        expect(pool.query).toHaveBeenCalledTimes(1);
+    });
+
+    test("a Customer-role account without a company can't use the portal", async () => {
+        pool.query.mockResolvedValue([[{ ...portalUser, customer_id: null }]]);
+
+        const response = await request(app).get("/api/portal/orders").set("Cookie", portalCookie());
+
+        expect(response.status).toBe(403);
+    });
+
+    test("both kinds of account can read their own profile", async () => {
+        pool.query.mockResolvedValue([[portalUser]]);
+
+        const response = await request(app).get("/api/auth/me").set("Cookie", portalCookie());
+
+        expect(response.status).toBe(200);
+    });
+});
+
 describe("request bodies", () => {
     test("malformed JSON is a 400, not a 500", async () => {
         const response = await request(app)

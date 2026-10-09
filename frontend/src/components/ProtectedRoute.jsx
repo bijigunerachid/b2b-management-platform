@@ -4,7 +4,11 @@ import Icon from "./ui/Icon";
 import { Spinner } from "./ui/Button";
 import { EmptyState } from "./ui/primitives";
 
-export default function ProtectedRoute({ roles }) {
+/**
+ * area="staff" (default) keeps portal clients out of the back office;
+ * area="portal" keeps staff out of the client portal.
+ */
+export default function ProtectedRoute({ roles, area = "staff" }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -28,6 +32,10 @@ export default function ProtectedRoute({ roles }) {
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
+
+  const isClient = user.role === "Customer";
+  if (area === "staff" && isClient) return <Navigate to="/portal" replace />;
+  if (area === "portal" && !isClient) return <Navigate to="/" replace />;
 
   if (roles && !roles.includes(user.role)) {
     return (

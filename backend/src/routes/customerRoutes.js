@@ -28,4 +28,7 @@ router.put("/:id", authorize("Admin", "Manager"), validate(customerRules), updat
 // Delete: Admin only
 router.delete("/:id", authorize("Admin"), deleteCustomer);
 
+// Portal access for this customer's contacts.
+require("./portalRoutes").mountCustomerAccessRoutes(router);
+
 module.exports = router;
