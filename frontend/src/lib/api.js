@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { language, t } from "../i18n";
+import { getLocale, language, t } from "../i18n";
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
 
@@ -10,6 +10,8 @@ export async function api(path, { body, ...options } = {}) {
     ...options,
     credentials: "include",
     headers: {
+      // The API answers in the app's language (error messages, labels).
+      "Accept-Language": getLocale(),
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...options.headers,
     },

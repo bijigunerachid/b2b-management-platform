@@ -265,7 +265,7 @@ function decide(decision) {
         requireAction(quote, decision === "Accepted" ? "accept" : "reject");
 
         await connection.query("UPDATE quotes SET status = ?, decided_at = NOW() WHERE id = ?", [decision, quote.id]);
-        return { body: { message: `Quote ${decision.toLowerCase()}` } };
+        return { body: { message: decision === "Accepted" ? "Quote accepted" : "Quote rejected" } };
     });
 }
 

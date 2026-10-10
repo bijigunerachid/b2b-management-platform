@@ -26,7 +26,7 @@ On the staff side you can:
 
 A help assistant on every page explains the app and answers questions, with or without Claude (see [Help assistant](#help-assistant)).
 
-The whole interface, staff and client side, is available in English, French and Arabic, including the printed invoices, quotes and credit notes. Arabic uses a right-to-left layout and proper Arabic plural forms, and numbers, dates and amounts follow the language (Moroccan Arabic month names, Latin digits).
+The whole interface, staff and client side, is available in English, French and Arabic, including the printed invoices, quotes and credit notes, and what the server says (error messages, validation, price labels, the audit log). Arabic uses a right-to-left layout and proper Arabic plural forms, and numbers, dates and amounts follow the language (Moroccan Arabic month names, Latin digits).
 
 Clients get their own login. They can browse the catalog at their own prices, place orders, download their invoices and credit notes, and accept or decline the quotes you send them. They only ever see their own company's data.
 
@@ -128,6 +128,7 @@ A few things I spent time on:
 - Permissions are one table in `backend/src/config/permissions.js`. Routes check permissions (`requirePermission("orders.fulfil")`), never role names, and the signed-in user's list is sent to the frontend, so the menus and buttons can't disagree with the server.
 - The audit log is written by one middleware after a change succeeds, so a new endpoint is logged even if I forget about it. Controllers only add the old/new values. Passwords and tokens are stripped before anything is stored, and the API has no way to edit or delete entries.
 - Translations use the English text as the key (`t("Create order")`), so anything untranslated falls back to readable English. `npm run i18n:check` reads the source and fails CI if any text is missing its French or Arabic version. Layout classes use start/end instead of left/right, so the right-to-left version comes from the same markup.
+- The API answers in the language the app sends in `Accept-Language`. Controllers keep writing plain English, including messages with values in them ("Amount exceeds the balance due (120.00 MAD)."); one middleware matches them against templates in `backend/src/i18n` and translates them on the way out, values included (a status, a field name). The backend has its own `npm run i18n:check`, which finds every message in the code and fails CI if one has no French or Arabic version.
 
 The billing, quote and purchasing rules live in plain modules with no database code, which made them easy to unit test.
 
@@ -337,7 +338,7 @@ The app has a demo mode for a public live demo: the login page offers one-click 
 ## Tests
 
 ```bash
-cd backend && npm test      # 254 Jest tests (business rules, permissions, audit, security, help search, demo mode)
+cd backend && npm test      # 271 Jest tests (business rules, permissions, audit, security, translations, help search, demo mode)
 cd frontend && npm run lint
 cd ml && python -m pytest   # 28 tests (no data leakage, metrics, backtests on synthetic data)
 cd e2e && npm ci && npx playwright install chromium && npx playwright test
@@ -366,14 +367,13 @@ For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behin
 - There's one currency and one VAT rate. Prices are stored excluding VAT.
 - Costs only exist from migration 008 on. Older order lines got the product's cost at that time, and products never bought from a supplier got an estimate, so margins on old data are approximate.
 - The Ctrl+K product search only looks at the first 100 products.
-- Messages that come from the server (most validation errors, the price label on an order line) are still in English, and so is the demo data.
+- The demo data (company and product names) is in English, and text saved with a record (stock movement reasons, notes) stays in the language it was written in.
 - The help assistant's usage limits are kept in memory, like the rate limits. The help guide is written by hand, so it has to be updated when a page changes.
 - Customers and orders are paginated in the browser, which is fine for a few thousand rows but won't scale forever.
 - The models are only as fresh as their last training run, and nothing schedules them for you. Products with no sales yet get no forecast and fall back to the reorder point. Risk scores are worked out as of the day each invoice was issued and don't update when the customer pays something else later. New customers get recommendations only after their first order.
 
 ## What I'd add next
 
-- Server messages in French and Arabic too, picked from the request's `Accept-Language`
 - Emails: send quotes and invoices to clients, and remind them before an invoice falls due
 - Put the live demo online (everything is ready: see [docs/live-demo.md](docs/live-demo.md))
 

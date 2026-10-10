@@ -10,9 +10,10 @@ function parseId(value) {
     return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-function requireId(value, label) {
+/** `message` is the whole error, e.g. "Invalid price list ID", so it can be translated. */
+function requireId(value, message) {
     const id = parseId(value);
-    if (!id) throw new HttpError(400, `Invalid ${label} ID`);
+    if (!id) throw new HttpError(400, message);
     return id;
 }
 
@@ -77,16 +78,21 @@ const createPriceList = withTransaction(async (connection, req) => {
 
 // PUT /api/pricing/price-lists/:id
 const updatePriceList = withTransaction(async (connection, req) => {
-    const id = await savePriceList(connection, requireId(req.params.id, "price list"), req.body, req);
+    const id = await savePriceList(connection, requireId(req.params.id, "Invalid price list ID"), req.body, req);
     return { body: { message: "Price list updated", data: { id } } };
 }, "Failed to update the price list");
 
 // DELETE /api/pricing/price-lists/:id
 const deletePriceList = withTransaction(async (connection, req) => {
-    const id = requireId(req.params.id, "price list");
+    const id = requireId(req.params.id, "Invalid price list ID");
     const [[{ customers }]] = await connection.query("SELECT COUNT(*) AS customers FROM customers WHERE price_list_id = ?", [id]);
     if (Number(customers) > 0) {
-        throw new HttpError(409, `${customers} ${Number(customers) === 1 ? "customer uses" : "customers use"} this price list. Move them first or deactivate it.`);
+        throw new HttpError(
+            409,
+            Number(customers) === 1
+                ? "1 customer uses this price list. Move them first or deactivate it."
+                : `${customers} customers use this price list. Move them first or deactivate it.`
+        );
     }
 
     const [result] = await connection.query("DELETE FROM price_lists WHERE id = ?", [id]);
@@ -96,7 +102,7 @@ const deletePriceList = withTransaction(async (connection, req) => {
 
 // PATCH /api/customers/:id/price-list { price_list_id: id | null }
 const setCustomerPriceList = withTransaction(async (connection, req) => {
-    const customerId = requireId(req.params.id, "customer");
+    const customerId = requireId(req.params.id, "Invalid customer ID");
     const raw = req.body?.price_list_id;
     const priceListId = raw === null || raw === "" || raw === undefined ? null : parseId(raw);
     if (raw !== null && raw !== "" && raw !== undefined && !priceListId) throw new HttpError(400, "Invalid price list ID");
@@ -176,13 +182,13 @@ const createVolumeDiscount = withTransaction(async (connection, req) => {
 
 // PUT /api/pricing/volume-discounts/:id
 const updateVolumeDiscount = withTransaction(async (connection, req) => {
-    const id = await saveVolumeDiscount(connection, requireId(req.params.id, "volume discount"), req.body, req);
+    const id = await saveVolumeDiscount(connection, requireId(req.params.id, "Invalid volume discount ID"), req.body, req);
     return { body: { message: "Volume discount updated", data: { id } } };
 }, "Failed to update the volume discount");
 
 // DELETE /api/pricing/volume-discounts/:id
 const deleteVolumeDiscount = withTransaction(async (connection, req) => {
-    const [result] = await connection.query("DELETE FROM volume_discounts WHERE id = ?", [requireId(req.params.id, "volume discount")]);
+    const [result] = await connection.query("DELETE FROM volume_discounts WHERE id = ?", [requireId(req.params.id, "Invalid volume discount ID")]);
     if (result.affectedRows === 0) throw new HttpError(404, "Volume discount not found");
     return { body: { message: "Volume discount deleted" } };
 }, "Failed to delete the volume discount");
@@ -218,7 +224,7 @@ const listCustomerPrices = async (req, res) => {
 
 // PUT /api/customers/:id/prices { product_id, unit_price, note? }: creates or replaces
 const setCustomerPrice = withTransaction(async (connection, req) => {
-    const customerId = requireId(req.params.id, "customer");
+    const customerId = requireId(req.params.id, "Invalid customer ID");
     const { error, value } = parseCustomerPrice(req.body);
     if (error) throw new HttpError(400, error);
 
@@ -241,7 +247,7 @@ const setCustomerPrice = withTransaction(async (connection, req) => {
 
 // DELETE /api/pricing/customer-prices/:id
 const deleteCustomerPrice = withTransaction(async (connection, req) => {
-    const [result] = await connection.query("DELETE FROM customer_prices WHERE id = ?", [requireId(req.params.id, "contract price")]);
+    const [result] = await connection.query("DELETE FROM customer_prices WHERE id = ?", [requireId(req.params.id, "Invalid contract price ID")]);
     if (result.affectedRows === 0) throw new HttpError(404, "Contract price not found");
     return { body: { message: "Contract price removed" } };
 }, "Failed to remove the contract price");
@@ -276,7 +282,7 @@ async function priceItems(connection, customerId, items, { activeOnly = false } 
 
 // POST /api/pricing/preview { customer_id, items: [{ product_id, quantity }] }
 const previewPrices = withTransaction(async (connection, req) => {
-    const customerId = requireId(req.body?.customer_id, "customer");
+    const customerId = requireId(req.body?.customer_id, "Invalid customer ID");
     return { body: { data: await priceItems(connection, customerId, req.body?.items) } };
 }, "Failed to price the lines");
 

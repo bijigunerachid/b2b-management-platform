@@ -39,13 +39,15 @@ async function lockPurchaseOrder(connection, idParam) {
 
 function requireAction(po, action) {
     if (!canPerform(po, action)) {
-        throw new HttpError(409, `A ${po.status.toLowerCase()} purchase order can't be ${{
-            edit: "edited",
-            order: "placed",
-            receive: "received",
-            cancel: "cancelled",
-            delete: "deleted"
-        }[action]}.`);
+        // Whole sentences per action, so each can be translated.
+        const messages = {
+            edit: `Can't edit a purchase order with status ${po.status}.`,
+            order: `Can't place a purchase order with status ${po.status}.`,
+            receive: `Can't receive a purchase order with status ${po.status}.`,
+            cancel: `Can't cancel a purchase order with status ${po.status}.`,
+            delete: `Can't delete a purchase order with status ${po.status}.`
+        };
+        throw new HttpError(409, messages[action]);
     }
 }
 

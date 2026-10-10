@@ -412,7 +412,13 @@ function decide(decision) {
         const action = decision === "Accepted" ? "accept" : "reject";
         if (!canPerform(quote, action)) {
             const status = effectiveStatus(quote);
-            throw new HttpError(409, status === "Expired" ? "This quote has expired. Contact us for a new one." : `This quote is already ${status.toLowerCase()}.`);
+            const messages = {
+                Expired: "This quote has expired. Contact us for a new one.",
+                Accepted: "This quote has already been accepted.",
+                Rejected: "This quote has already been declined.",
+                Converted: "This quote has already been turned into an order."
+            };
+            throw new HttpError(409, messages[status] ?? "This quote can no longer be answered.");
         }
 
         await connection.query("UPDATE quotes SET status = ?, decided_at = NOW() WHERE id = ?", [decision, quote.id]);
