@@ -40,6 +40,8 @@ module.exports = defineConfig({
                 PORT: String(API_PORT),
                 DB_NAME,
                 CORS_ORIGIN: APP_URL,
+                // A fast CI run sends ~350 requests a minute from one IP, over the default 300.
+                API_RATE_LIMIT: "5000",
                 JWT_SECRET: process.env.JWT_SECRET || "e2e-only-secret-that-is-long-enough-for-validation"
             }
         },

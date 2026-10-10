@@ -209,8 +209,8 @@ export default function Suppliers() {
                       <div className="flex items-center gap-3">
                         <Avatar label={initials(supplier.name)} seed={supplier.id} size={36} />
                         <div className="min-w-0">
-                          <p className={`max-w-[220px] truncate font-semibold ${supplier.is_active ? "app-text" : "app-text-muted line-through"}`}>{supplier.name}</p>
-                          <p className="max-w-[220px] truncate text-xs app-text-muted">
+                          <p className={`max-w-[180px] truncate font-semibold ${supplier.is_active ? "app-text" : "app-text-muted line-through"}`} title={supplier.name} dir="auto">{supplier.name}</p>
+                          <p className="max-w-[180px] truncate text-xs app-text-muted">
                             {[supplier.contact_name, supplier.city, supplier.country].filter(Boolean).join(" · ")}
                           </p>
                         </div>

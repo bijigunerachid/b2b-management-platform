@@ -545,7 +545,7 @@ export default function Customers() {
                 <SortHeader label={t("Contact")} column="contact" sort={table.sort} onSort={table.toggleSort} />
                 <Th>{t("Email & phone")}</Th>
                 <SortHeader label={t("Location")} column="city" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label={t("Since")} column="created" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Since")} column="created" sort={table.sort} onSort={table.toggleSort} className="hidden 2xl:table-cell" />
                 <Th align="right">{t("Actions")}</Th>
               </TableHead>
               <tbody>
@@ -560,21 +560,21 @@ export default function Customers() {
                       <div className="flex items-center gap-3">
                         <Avatar label={initials(customer.company_name)} seed={customer.id} />
                         <div className="min-w-0">
-                          <p className="max-w-[220px] truncate font-semibold app-text">{customer.company_name}</p>
+                          <p className="max-w-[200px] truncate font-semibold app-text" title={customer.company_name} dir="auto">{customer.company_name}</p>
                           <p className="text-xs app-text-muted">#{customer.id}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 app-text">{customer.contact_name || "—"}</td>
                     <td className="px-5 py-3.5">
-                      <p className="max-w-[220px] truncate app-text">{customer.email || "—"}</p>
+                      <p className="max-w-[200px] truncate app-text">{customer.email || "—"}</p>
                       <p className="text-xs app-text-muted">{customer.phone || "—"}</p>
                     </td>
                     <td className="px-5 py-3.5">
                       <p className="app-text">{customer.city || "—"}</p>
                       <p className="text-xs app-text-muted">{customer.country}</p>
                     </td>
-                    <td className="whitespace-nowrap px-5 py-3.5 app-text-secondary">{formatDate(customer.created_at)}</td>
+                    <td className="hidden whitespace-nowrap px-5 py-3.5 app-text-secondary 2xl:table-cell">{formatDate(customer.created_at)}</td>
                     <td className="px-5 py-3.5" onClick={(event) => event.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <IconAction icon="eye" label={t("View profile")} onClick={() => updateParams({ view: customer.id })} />

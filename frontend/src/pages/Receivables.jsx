@@ -291,7 +291,7 @@ export default function Receivables() {
               <TableHead>
                 <SortHeader label={t("Order")} column="id" sort={table.sort} onSort={table.toggleSort} />
                 <SortHeader label={t("Customer")} column="customer" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label={t("Due")} column="due" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Due")} column="due" sort={table.sort} onSort={table.toggleSort} className="hidden 2xl:table-cell" />
                 <SortHeader label={t("Status")} column="overdue" sort={table.sort} onSort={table.toggleSort} />
                 {hasRisk && <SortHeader label={t("Late risk")} column="risk" sort={table.sort} onSort={table.toggleSort} />}
                 <Th align="right" className="hidden 2xl:table-cell">{t("Invoice total")}</Th>
@@ -306,16 +306,20 @@ export default function Receivables() {
                       <td className="px-5 py-3.5 font-bold app-text">#{invoice.id}</td>
                       <td className="px-5 py-3.5">
                         <Link to={`/customers?view=${invoice.customer_id}`} className="flex items-center gap-3 hover:underline">
-                          <Avatar label={initials(invoice.company_name)} seed={invoice.customer_id} size={32} rounded="rounded-lg" />
-                          <span className="max-w-[160px] truncate font-medium app-text">{invoice.company_name}</span>
+                          <span className="hidden 2xl:block">
+                            <Avatar label={initials(invoice.company_name)} seed={invoice.customer_id} size={32} rounded="rounded-lg" />
+                          </span>
+                          <span className="max-w-[140px] truncate font-medium app-text" title={invoice.company_name} dir="auto">{invoice.company_name}</span>
                         </Link>
                       </td>
-                      <td className="whitespace-nowrap px-5 py-3.5 app-text-secondary">{formatDate(invoice.billing.due_date)}</td>
+                      <td className="hidden whitespace-nowrap px-5 py-3.5 app-text-secondary 2xl:table-cell">{formatDate(invoice.billing.due_date)}</td>
                       <td className="px-5 py-3.5">
                         <Badge tone={badge.tone} icon={badge.icon}>
                           {badge.label}
                         </Badge>
                         {badge.detail === "Partially paid" && <p className="mt-1 text-xs app-text-muted">{t("Partially paid")}</p>}
+                        {/* Narrower screens show the due date here instead of in its own column. */}
+                        <p className="mt-1 whitespace-nowrap text-xs app-text-muted 2xl:hidden">{t("Due {date}", { date: formatDate(invoice.billing.due_date) })}</p>
                       </td>
                       {hasRisk && (
                         <td className="px-5 py-3.5">

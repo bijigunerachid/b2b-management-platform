@@ -10,6 +10,8 @@ On top of that sit three machine-learning models trained on the company's own hi
 
 ![Dashboard](docs/screenshots/02-dashboard.png)
 
+**Contents:** [What it does](#what-it-does) · [Screenshots](#screenshots) · [Stack](#stack) · [How it's put together](#how-its-put-together) · [Machine learning](#machine-learning) · [Help assistant](#help-assistant) · [Emails](#emails) · [Running it locally](#running-it-locally) · [Docker](#docker) · [Live demo](#live-demo) · [Tests](#tests) · [Security notes](#security-notes) · [Known limitations](#known-limitations)
+
 ## What it does
 
 On the staff side you can:
@@ -28,6 +30,8 @@ On the staff side you can:
 A help assistant on every page explains the app and answers questions, with or without Claude (see [Help assistant](#help-assistant)).
 
 The whole interface, staff and client side, is available in English, French and Arabic, including the printed invoices, quotes and credit notes, and what the server says (error messages, validation, price labels, the audit log). Arabic uses a right-to-left layout and proper Arabic plural forms, and numbers, dates and amounts follow the language (Moroccan Arabic month names, Latin digits).
+
+The layout works from a phone to a wide screen. On a laptop every page fits without scrolling sideways; on a phone the menu becomes a drawer and wide tables scroll inside their card.
 
 Clients get their own login. They can browse the catalog at their own prices, place orders, download their invoices and credit notes, and accept or decline the quotes you send them. They only ever see their own company's data.
 
@@ -51,7 +55,7 @@ Receivables, grouped by how overdue they are:
 
 ![Receivables](docs/screenshots/05-receivables.png)
 
-Reorder suggestions, grouped by supplier, and a purchase order that's late:
+Reorder suggestions, grouped by supplier, and a purchase order waiting for delivery:
 
 ![Reorder suggestions](docs/screenshots/08-reorder-suggestions.png)
 ![Purchase order](docs/screenshots/09-purchase-order.png)
@@ -306,6 +310,8 @@ npm run dev
 
 Open http://localhost:5173 and sign in.
 
+Your company's name, address, legal identifiers and bank details are placeholders. Replace them in `frontend/src/config/company.js` (printed invoices, quotes and credit notes) and `backend/src/config/company.js` (emails).
+
 ### Demo data
 
 ```bash
@@ -364,7 +370,7 @@ The app has a demo mode for a public live demo: the login page offers one-click 
 cd backend && npm test      # 291 Jest tests (business rules, permissions, audit, security, translations, emails, help search, demo mode)
 cd frontend && npm run lint
 cd ml && python -m pytest   # 28 tests (no data leakage, metrics, backtests on synthetic data)
-cd e2e && npm ci && npx playwright install chromium && npx playwright test
+cd e2e && npm ci && npx playwright install chromium && npx playwright test   # 26 browser tests
 ```
 
 The browser tests (Playwright) go through the app the way people use it: signing in as each role, creating an order, moving it to completed, recording the payment, opening the invoice, taking a return, turning a quote into an order, ordering from the client portal, emailing an invoice, asking the help assistant, and finding all of it in the audit log. They also check that each role only sees what it should.

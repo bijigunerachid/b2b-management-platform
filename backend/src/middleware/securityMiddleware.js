@@ -77,10 +77,17 @@ const loginIpLimiter = rateLimit({
     )
 });
 
-// Generous ceiling for the whole API to blunt scraping and floods.
+// Generous ceiling for the whole API to blunt scraping and floods. The
+// browser tests raise it: they send every request from one IP, faster than
+// any person clicks.
+function apiRateLimit() {
+    const value = Number(process.env.API_RATE_LIMIT);
+    return Number.isInteger(value) && value > 0 ? value : 300;
+}
+
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
-    limit: 300,
+    limit: apiRateLimit(),
     standardHeaders: "draft-7",
     legacyHeaders: false,
     handler: limitResponse("Too many requests. Please slow down.")

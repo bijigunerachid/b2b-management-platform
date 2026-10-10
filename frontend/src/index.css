@@ -185,6 +185,11 @@ html.dark {
     cursor: not-allowed;
   }
 
+  /* Browsers centre header cells; line them up with their column instead. */
+  th {
+    text-align: start;
+  }
+
   :focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
