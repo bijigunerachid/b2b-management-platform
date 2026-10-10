@@ -19,6 +19,8 @@ pip install -r requirements.txt
 
 Database settings come from `backend/.env`. Environment variables take precedence, so `DB_NAME=b2b_ml python -m b2b_ml forecast` points one run at another database.
 
+With Docker, the jobs have their own image (`ml/Dockerfile`) and run against the stack's database: `docker compose --profile ml run --rm ml forecast` (or `risk`, `recommend`).
+
 ## Demand forecast
 
 ```bash

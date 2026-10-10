@@ -46,6 +46,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (32+ characters)}
       # Optional: lets the help assistant answer with Claude (see .env.example).
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-haiku-5-5}
       ASSISTANT_DAILY_LIMIT: ${ASSISTANT_DAILY_LIMIT:-300}
       CORS_ORIGIN: ${PUBLIC_URL:-http://localhost:8080}
       # nginx sits in front: trust one proxy hop for client IPs.
@@ -64,6 +65,21 @@ services:
       - "${HTTP_PORT:-8080}:80"
     depends_on:
       backend:
+        condition: service_healthy
+
+  # Model training (demand forecast, payment risk, recommendations). Not
+  # started by `up`: run a job when you want fresh results, e.g. weekly from cron.
+  #   docker compose --profile ml run --rm ml forecast
+  ml:
+    build: ./ml
+    profiles: ["ml"]
+    environment:
+      DB_HOST: db
+      DB_USER: b2b_app
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: b2b_management
+    depends_on:
+      db:
         condition: service_healthy
 
 volumes:
