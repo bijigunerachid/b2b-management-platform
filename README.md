@@ -48,6 +48,26 @@ Reorder suggestions, grouped by supplier, and a purchase order that's late:
 ![Reorder suggestions](docs/screenshots/08-reorder-suggestions.png)
 ![Purchase order](docs/screenshots/09-purchase-order.png)
 
+Sales and margin by month, with cost and margin stacked:
+
+![Reports](docs/screenshots/13-reports.png)
+
+Customer prices in the order form: a contract price on one line, a price list plus a volume discount on the other:
+
+![Customer pricing](docs/screenshots/14-order-pricing.png)
+
+Returning part of a delivered order. Damaged items can be written off instead of going back into stock:
+
+![Return](docs/screenshots/15-return.png)
+
+The audit log, filtered to one warehouse employee, with old and new values:
+
+![Audit log](docs/screenshots/16-audit-log.png)
+
+What each role can do:
+
+![Roles](docs/screenshots/17-roles.png)
+
 The client portal:
 
 ![Portal home](docs/screenshots/11-portal-home.png)
