@@ -59,3 +59,13 @@ export function riskReasons(facts) {
     })
     .filter(Boolean);
 }
+
+// Recommendations ---------------------------------------------------------------
+
+/** Why a product is recommended, for staff ("they") or for the client ("you"). */
+export function recommendationReason(reason, audience = "staff") {
+  if (reason?.type === "bought_with" && reason.product_name && reason.share) {
+    return t("Bought by {percent}% of customers who buy {product}", { percent: Math.round(reason.share * 100), product: reason.product_name });
+  }
+  return audience === "client" ? t("Popular in the categories you buy") : t("Popular in the categories they buy");
+}

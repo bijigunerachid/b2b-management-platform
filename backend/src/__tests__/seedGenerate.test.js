@@ -124,3 +124,39 @@ describe("payment generator", () => {
         expect(mean(delays.get("on_time"))).toBeLessThan(mean(delays.get("slow")));
     });
 });
+
+describe("buying patterns", () => {
+    const { buyerProfile } = require("../seed/generate");
+    const data = generateDataset({ seed: 5, customers: 60, products: 150, orders: 2000, users: 1, months: 12, now });
+    const categoryNames = data.categories.map((category) => category.name);
+
+    test("customers mostly buy from the categories their kind of business uses", () => {
+        let preferred = 0;
+        let lines = 0;
+        for (const order of data.orders) {
+            const { affinity } = buyerProfile(order.customerIndex);
+            for (const item of order.items) {
+                lines += 1;
+                if (affinity[categoryNames[data.products[item.productIndex].categoryIndex]] >= 2) preferred += 1;
+            }
+        }
+        expect(preferred / lines).toBeGreaterThan(0.6);
+    });
+
+    test("equipment is followed by what it uses", () => {
+        // Customers who bought an espresso machine buy coffee beans more often than others.
+        const boughtBase = (base) => {
+            const customers = new Set();
+            for (const order of data.orders) {
+                if (order.items.some((item) => data.products[item.productIndex].base === base)) customers.add(order.customerIndex);
+            }
+            return customers;
+        };
+        const printers = boughtBase("Laser Printer");
+        const toner = boughtBase("Toner Cartridge");
+        const all = new Set(data.orders.map((order) => order.customerIndex));
+        const tonerRate = (group) => [...group].filter((customer) => toner.has(customer)).length / group.size;
+        expect(printers.size).toBeGreaterThan(3);
+        expect(tonerRate(printers)).toBeGreaterThan(tonerRate(all));
+    });
+});

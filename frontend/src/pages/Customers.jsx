@@ -31,6 +31,7 @@ import { paymentBadge } from "../lib/billing";
 import PortalAccessPanel from "../components/PortalAccessPanel";
 import CustomerPricingPanel from "../components/CustomerPricingPanel";
 import HistoryPanel from "../components/HistoryPanel";
+import SuggestedProducts from "../components/SuggestedProducts";
 import useTable from "../lib/useTable";
 
 import { t } from "../i18n";
@@ -166,6 +167,8 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, 
           {can(user, "pricing.view") && <CustomerPricingPanel customer={customer} canManage={can(user, "pricing.write")} onChanged={onChanged} />}
 
           <PortalAccessPanel customer={customer} canManage={can(user, "portal.manage")} />
+
+          <SuggestedProducts customer={customer} />
 
           <div>
             <h3 className="mb-3 text-sm font-bold app-text">{t("Order history")}</h3>

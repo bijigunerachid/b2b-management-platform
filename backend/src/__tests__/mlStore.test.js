@@ -48,3 +48,25 @@ describe("ML store", () => {
         await expect(listModels(connection)).rejects.toThrow("connection lost");
     });
 });
+
+describe("recommendations", () => {
+    const { loadRecommendations } = require("../ml/mlStore");
+
+    test("names the product a recommendation comes from, and falls back to category popularity", async () => {
+        const query = jest
+            .fn()
+            .mockResolvedValueOnce([[
+                { rank_position: 1, reason: '{"type":"bought_with","product_id":7,"share":0.4}', id: 3, name: "Toner Cartridge Black", price: "120.00" },
+                { rank_position: 2, reason: null, id: 4, name: "A4 Paper Pack Eco", price: "40.00" }
+            ]])
+            .mockResolvedValueOnce([[{ id: 7, name: "Laser Printer Duplex" }]]);
+        const items = await loadRecommendations({ query }, 12);
+        expect(items[0]).toMatchObject({ price: 120, reason: { type: "bought_with", product_id: 7, product_name: "Laser Printer Duplex", share: 0.4 } });
+        expect(items[1].reason).toEqual({ type: "popular_in_category" });
+    });
+
+    test("is empty before the migration has run", async () => {
+        const missing = Object.assign(new Error("missing"), { code: "ER_NO_SUCH_TABLE" });
+        await expect(loadRecommendations({ query: jest.fn().mockRejectedValue(missing) }, 1)).resolves.toEqual([]);
+    });
+});

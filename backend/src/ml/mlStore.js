@@ -5,6 +5,7 @@ const { parseJson } = require("../services/json");
 
 const DEMAND_FORECAST = "demand_forecast";
 const PAYMENT_RISK = "payment_risk";
+const RECOMMENDATIONS = "recommendations";
 // Probability of paying more than 7 days late from which an invoice counts as "likely late".
 const HIGH_RISK = 0.5;
 const HISTORY_WEEKS = 26;
@@ -78,6 +79,52 @@ async function loadRiskScores(connection) {
     }, new Map());
 }
 
+/**
+ * Products recommended to one customer, best first: active products they
+ * still haven't bought (also since the model was trained), with the reason.
+ */
+async function loadRecommendations(connection, customerId, limit = 10) {
+    return tolerateMissingTable(async () => {
+        const [rows] = await connection.query(
+            `SELECT r.rank_position, r.reason, p.id, p.name, p.description, p.price, p.stock, p.reorder_point,
+                    p.is_active, p.category_id, c.name AS category_name
+             FROM product_recommendations r
+             INNER JOIN ml_models m ON m.id = r.model_id AND m.is_active = 1 AND m.name = ?
+             INNER JOIN products p ON p.id = r.product_id AND p.is_active = 1
+             LEFT JOIN categories c ON c.id = p.category_id
+             WHERE r.customer_id = ?
+               AND NOT EXISTS (
+                   SELECT 1 FROM order_items oi
+                   INNER JOIN orders o ON o.id = oi.order_id
+                   WHERE o.customer_id = r.customer_id AND oi.product_id = r.product_id AND o.status <> 'Cancelled'
+               )
+             ORDER BY r.rank_position
+             LIMIT ?`,
+            [RECOMMENDATIONS, customerId, limit]
+        );
+
+        const reasons = rows.map((row) => parseJson(row.reason) ?? { type: "popular_in_category" });
+        const relatedIds = [...new Set(reasons.filter((reason) => reason.type === "bought_with").map((reason) => reason.product_id))];
+        const names = new Map();
+        if (relatedIds.length) {
+            const [related] = await connection.query("SELECT id, name FROM products WHERE id IN (?)", [relatedIds]);
+            for (const product of related) names.set(product.id, product.name);
+        }
+
+        return rows.map((row, index) => {
+            const reason = reasons[index];
+            return {
+                ...row,
+                price: Number(row.price),
+                reason:
+                    reason.type === "bought_with" && names.has(reason.product_id)
+                        ? { type: "bought_with", product_id: reason.product_id, product_name: names.get(reason.product_id), share: reason.share ?? null }
+                        : { type: "popular_in_category" }
+            };
+        });
+    }, []);
+}
+
 /** Monday 00:00 UTC of the week `date` falls in. */
 function mondayOf(date) {
     const day = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -135,9 +182,11 @@ module.exports = {
     HIGH_RISK,
     HISTORY_WEEKS,
     PAYMENT_RISK,
+    RECOMMENDATIONS,
     fillWeeks,
     listModels,
     loadActiveForecasts,
+    loadRecommendations,
     loadRiskScores,
     mondayOf,
     productForecast

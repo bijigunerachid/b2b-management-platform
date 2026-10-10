@@ -256,9 +256,11 @@ function generateProducts(random, count, categoryCount) {
         const [, , [minPrice, maxPrice], names, variants] = CATALOG[categoryIndex % CATALOG.length];
 
         let name;
+        let base;
         let attempts = 0;
         do {
-            name = `${random.pick(names)} ${random.pick(variants)}`;
+            base = random.pick(names);
+            name = `${base} ${random.pick(variants)}`;
             attempts += 1;
             if (attempts > 20) name = `${name} #${index}`;
         } while (usedNames.has(name));
@@ -273,6 +275,7 @@ function generateProducts(random, count, categoryCount) {
 
         products.push({
             categoryIndex,
+            base,
             name,
             description: `${name} — ${CATALOG[categoryIndex % CATALOG.length][1].toLowerCase()}.`,
             price,
@@ -302,31 +305,126 @@ function orderDate(random, start, now) {
     }
 }
 
+// What each kind of business buys. Weights per category; every other category
+// gets BASE_AFFINITY, so customers still buy a little of everything.
+const SEGMENTS = [
+    ["office", 30, { "Office Supplies": 5, Printing: 3, Furniture: 2, "Kitchen & Breakroom": 2, "Storage & Archiving": 2.5, "Software & Licenses": 1.5, Electronics: 1.5 }],
+    ["tech", 20, { Electronics: 5, Networking: 4.5, "Software & Licenses": 4, Printing: 1.5, "Office Supplies": 1.5 }],
+    ["logistics", 20, { Packaging: 5, "Safety Equipment": 4, "Tools & Hardware": 2.5, "Storage & Archiving": 2, Cleaning: 2, "Textiles & Uniforms": 2 }],
+    ["hospitality", 15, { "Kitchen & Breakroom": 5, Cleaning: 4.5, "Textiles & Uniforms": 2.5, Lighting: 1.5, Furniture: 1.5 }],
+    ["facilities", 15, { "Tools & Hardware": 5, "Safety Equipment": 3.5, Lighting: 4, Cleaning: 2.5, "Textiles & Uniforms": 1.5 }]
+];
+const BASE_AFFINITY = 0.25;
+const MAX_AFFINITY = 5;
+const REPEAT_CHANCE = 0.45; // a line is a reorder of something the customer already buys
+const COMPLEMENT_LATER = 0.6; // after buying equipment, its consumables are likely to follow
+const COMPLEMENT_SAME_ORDER = 0.25;
+
+// Bought together, or one after the other: equipment and what it uses.
+const COMPLEMENTS = {
+    "Laser Printer": ["Toner Cartridge", "Drum Unit"],
+    "Multifunction Printer": ["Toner Cartridge", "A4 Paper Pack"],
+    "Label Printer": ["Shipping Labels", "Thermal Rolls"],
+    "Espresso Machine": ["Coffee Beans", "Sugar Sticks", "Paper Cups"],
+    "Water Dispenser": ["Paper Cups"],
+    "Kettle": ["Mint Tea", "Mugs Set"],
+    "Cordless Drill": ["Wall Anchors", "Screwdriver Set"],
+    "Network Rack": ["Patch Panel", "Cat6 Cable"],
+    "Gigabit Switch": ["Cat6 Cable", "Patch Panel"],
+    "Access Point": ["PoE Injector", "Cat6 Cable"],
+    "Standing Desk": ["Ergonomic Chair", "Laptop Stand"],
+    "Workstation": ["Ergonomic Chair", "Desk Lamp"],
+    "Docking Station": ["27\" Monitor", "Wireless Mouse"],
+    "Metal Shelving": ["Archive Box", "Plastic Crate"],
+    "Soap Dispenser": ["Hand Sanitizer", "Paper Towels"],
+    "Mop Set": ["Floor Cleaner", "Microfiber Cloths"],
+    "Pallet Wrap": ["Strapping Kit", "Corner Protectors"],
+    "Cardboard Box": ["Packing Tape", "Void Fill"],
+    "Safety Helmet": ["Hi-Vis Vest", "Safety Goggles"],
+    "Safety Boots": ["Hi-Vis Vest", "Work Gloves"]
+};
+
+/** A customer's line of business and buying preferences, the same every time for the same key. */
+function buyerProfile(customerKey) {
+    const random = createRandom(31337 + Number(customerKey) * 104729);
+    const [segment, , weights] = random.weighted(SEGMENTS.map((entry) => [entry, entry[1]]));
+    const affinity = Object.fromEntries(CATALOG.map(([category]) => [category, weights[category] ?? BASE_AFFINITY]));
+    // Plus one side interest outside their main line.
+    const extra = random.pick(CATALOG)[0];
+    affinity[extra] = Math.max(affinity[extra], 2.5);
+    return { segment, affinity };
+}
+
 function generateOrders(random, count, { customers, products, now, months }) {
     const start = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
     const pickCustomer = popularitySampler(random, customers.length, 0.9);
     const pickProduct = popularitySampler(random, products.length, 1.05);
+    const categoryOf = (product) => CATALOG[product.categoryIndex % CATALOG.length][0];
+
+    const byBase = new Map();
+    products.forEach((product, index) => {
+        if (!byBase.has(product.base)) byBase.set(product.base, []);
+        byBase.get(product.base).push(index);
+    });
+    const complementOf = (productIndex) => {
+        const bases = (COMPLEMENTS[products[productIndex].base] ?? []).filter((base) => byBase.has(base));
+        return bases.length ? random.pick(byBase.get(random.pick(bases))) : null;
+    };
+
+    // Orders are generated in date order so each one can build on the customer's history.
+    const dates = Array.from({ length: count }, () => orderDate(random, start, now)).sort((a, b) => a - b);
+    const history = new Map(); // customer index → { bought: Map(product index → times), pending: product indexes }
     const orders = [];
 
-    for (let index = 0; index < count; index += 1) {
-        const created = orderDate(random, start, now);
+    for (const created of dates) {
+        const customerIndex = pickCustomer();
+        const { affinity } = buyerProfile(customerIndex);
+        if (!history.has(customerIndex)) history.set(customerIndex, { bought: new Map(), pending: [] });
+        const state = history.get(customerIndex);
+
         const ageDays = (now.getTime() - created.getTime()) / 86400000;
         const position = (created.getTime() - start.getTime()) / (now.getTime() - start.getTime());
-        // Popular products are proposed more often; seasonality and trend decide whether they're bought.
-        const pickForDate = () => {
-            for (let tries = 0; tries < 40; tries += 1) {
-                const candidate = pickProduct();
-                if (random.next() * MAX_DEMAND_FACTOR < demandFactor(products[candidate], created, position)) return candidate;
+        const inSeason = (index) => random.next() * MAX_DEMAND_FACTOR < demandFactor(products[index], created, position);
+
+        // Reorders, then consumables for equipment bought earlier, then new products
+        // from the categories this kind of business uses. Seasonality and trend
+        // decide whether the candidate is bought.
+        const pickLine = () => {
+            for (let tries = 0; tries < 60; tries += 1) {
+                let candidate;
+                if (state.bought.size && random.chance(REPEAT_CHANCE)) {
+                    candidate = random.weighted([...state.bought.entries()]);
+                } else if (state.pending.length && random.chance(0.3)) {
+                    candidate = state.pending.splice(random.int(0, state.pending.length - 1), 1)[0];
+                } else {
+                    candidate = pickProduct();
+                    if (random.next() * MAX_AFFINITY >= affinity[categoryOf(products[candidate])]) continue;
+                }
+                if (inSeason(candidate)) return candidate;
             }
             return pickProduct();
         };
-        const lineCount = random.weighted([[1, 30], [2, 30], [3, 20], [4, 12], [5, 8]]);
 
+        const lineCount = random.weighted([[1, 30], [2, 30], [3, 20], [4, 12], [5, 8]]);
         const productIndexes = new Set();
         let guard = 0;
         while (productIndexes.size < lineCount && guard < 50) {
-            productIndexes.add(pickForDate());
+            productIndexes.add(pickLine());
             guard += 1;
+        }
+        for (const productIndex of [...productIndexes]) {
+            if (productIndexes.size < 6 && random.chance(COMPLEMENT_SAME_ORDER)) {
+                const complement = complementOf(productIndex);
+                if (complement !== null) productIndexes.add(complement);
+            }
+        }
+
+        for (const productIndex of productIndexes) {
+            state.bought.set(productIndex, (state.bought.get(productIndex) ?? 0) + 1);
+            if (random.chance(COMPLEMENT_LATER)) {
+                const complement = complementOf(productIndex);
+                if (complement !== null && !state.bought.has(complement)) state.pending.push(complement);
+            }
         }
 
         const items = [...productIndexes].map((productIndex) => {
@@ -341,15 +439,13 @@ function generateOrders(random, count, { customers, products, now, months }) {
         });
 
         orders.push({
-            customerIndex: pickCustomer(),
+            customerIndex,
             status: statusForAge(random, ageDays),
             created_at: created,
             items,
             total_amount: round2(items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0))
         });
     }
-
-    orders.sort((a, b) => a.created_at - b.created_at);
 
     // A customer can't order before they existed.
     for (const order of orders) {
@@ -516,6 +612,7 @@ module.exports = {
     STATUSES,
     createRandom,
     generateDataset,
+    buyerProfile,
     generatePayments,
     payerProfile
 };

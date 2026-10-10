@@ -84,4 +84,13 @@ export default [
   "Past late payments", "Recent payment delays", "Invoices already overdue", "Invoice size", "August or December", "New customer",
   "Likely late", "Some risk", "Likely on time",
   "Predicted", "Actually late",
+
+  // Recommendations: navigation, methods and chart series
+  "Recommendations",
+  "EASE + category popularity", "Learns which products are bought by the same customers, topped up with what's popular in their categories",
+  "EASE alone", "Only the products-bought-together part",
+  "Similar products", "Products whose buyers overlap with what the customer bought (cosine similarity)",
+  "Popular in their categories", "Best sellers in the categories the customer already buys from",
+  "Best sellers", "The same most popular products for everyone",
+  "Best simple rule",
 ];
