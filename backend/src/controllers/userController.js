@@ -1,4 +1,7 @@
 const pool = require("../config/database");
+const { PERMISSIONS, STAFF_ROLES, permissionsFor } = require("../config/permissions");
+const { recordChanges } = require("../middleware/auditTrail");
+const { diff } = require("../audit/describe");
 const bcrypt = require("bcrypt");
 const { BCRYPT_ROUNDS, checkPasswordPolicy } = require("../config/security");
 
@@ -148,7 +151,7 @@ async function updateUser(req, res) {
         await connection.beginTransaction();
 
         const [existingUsers] = await connection.query(
-            `SELECT users.id, users.role_id, users.is_active, roles.name AS role
+            `SELECT users.id, users.first_name, users.last_name, users.email, users.role_id, users.is_active, roles.name AS role
              FROM users
              INNER JOIN roles ON roles.id = users.role_id
              WHERE users.id = ?
@@ -222,6 +225,11 @@ async function updateUser(req, res) {
         );
 
         await connection.commit();
+
+        recordChanges(req, [
+            ...diff(existing, { first_name: first_name.trim(), last_name: last_name.trim(), email, role: newRole }, ["first_name", "last_name", "email", "role"]),
+            ...(changingPassword ? [{ field: "password", from: null, to: "changed" }] : [])
+        ]);
 
         return res.json({
             success: true,
@@ -334,7 +342,28 @@ async function updateUserStatus(req, res) {
     }
 }
 
+// GET /api/users/roles: staff roles with their permissions, for the role picker and matrix
+const getRoles = async (req, res) => {
+    try {
+        const [rows] = await pool.query("SELECT id, name FROM roles WHERE name <> 'Customer'");
+        const byName = new Map(rows.map((row) => [row.name, row.id]));
+        return res.json({
+            success: true,
+            data: {
+                roles: Object.entries(STAFF_ROLES)
+                    .filter(([name]) => byName.has(name))
+                    .map(([name, description]) => ({ id: byName.get(name), name, description, permissions: permissionsFor(name) })),
+                permissions: Object.entries(PERMISSIONS).map(([key, { group, label }]) => ({ key, group, label }))
+            }
+        });
+    } catch (error) {
+        console.error("Get roles error:", error);
+        return res.status(500).json({ success: false, message: "Failed to load roles" });
+    }
+};
+
 module.exports = {
+    getRoles,
     getUsers,
     createUser,
     updateUser,

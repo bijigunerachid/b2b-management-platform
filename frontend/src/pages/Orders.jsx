@@ -30,6 +30,7 @@ import { paymentBadge } from "../lib/billing";
 import { PRICE_SOURCES, hasDiscount, usePrices } from "../lib/pricing";
 import PaymentPanel from "../components/PaymentPanel";
 import ReturnsPanel from "../components/ReturnsPanel";
+import HistoryPanel from "../components/HistoryPanel";
 import useTable from "../lib/useTable";
 
 const STATUSES = Object.keys(ORDER_STATUS);
@@ -129,7 +130,7 @@ function StatusTimeline({ status }) {
   );
 }
 
-function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating, canWrite, canRecordPayments, canVoidPayments, canReturn, onPaymentsChanged, onReturned }) {
+function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating, canWrite, canFulfil, canSeePayments, canSeeHistory, canRecordPayments, canVoidPayments, canReturn, onPaymentsChanged, onReturned }) {
   // `version` changes the request key so the drawer refetches after updates.
   const { data, loading, error } = useResource(orderId ? `/orders/${orderId}?v=${version}` : null);
   const order = data?.data ?? null;
@@ -146,10 +147,9 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
       footer={
         order && (
           <>
-            {canWrite &&
-              nextStatuses(order.status)
-                // The API refuses to cancel an order with active payments.
-                .filter((status) => status !== "Cancelled" || !(order.billing?.amount_paid > 0))
+            {nextStatuses(order.status)
+                // Cancelling needs orders.write, and the API refuses it while payments are active.
+                .filter((status) => (status === "Cancelled" ? canWrite && !(order.billing?.amount_paid > 0) : canFulfil))
                 .map((status) => (
                 <Button
                   key={status}
@@ -255,15 +255,19 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
               </div>
             </div>
 
-            <PaymentPanel
-              order={order}
-              version={version}
-              canRecord={canRecordPayments}
-              canVoid={canVoidPayments}
-              onChanged={onPaymentsChanged}
-            />
+            {canSeePayments && (
+              <PaymentPanel
+                order={order}
+                version={version}
+                canRecord={canRecordPayments}
+                canVoid={canVoidPayments}
+                onChanged={onPaymentsChanged}
+              />
+            )}
 
-            <ReturnsPanel order={order} version={version} canCreate={canReturn} onChanged={onReturned} />
+            {canSeePayments && <ReturnsPanel order={order} version={version} canCreate={canReturn} onChanged={onReturned} />}
+
+            {canSeeHistory && <HistoryPanel entityType="order" entityId={order.id} version={version} />}
           </div>
         )
       )}
@@ -557,6 +561,7 @@ export default function Orders() {
   const confirm = useConfirm();
   const [params, setParams] = useSearchParams();
   const canWrite = can(user, "orders.write");
+  const canFulfil = can(user, "orders.fulfil");
 
   const { data, loading, error, reload } = useResource("/orders");
   const orders = useMemo(() => toList(data, "orders"), [data]);
@@ -830,7 +835,7 @@ export default function Orders() {
                       <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold tabular-nums app-text">{money(order.total_amount)}</td>
                       <td className="px-5 py-3.5" onClick={(event) => event.stopPropagation()}>
                         <div className="flex justify-end gap-1">
-                          {canWrite && forward && (
+                          {canFulfil && forward && (
                             <IconAction
                               icon={actionLabels[forward].icon}
                               label={actionLabels[forward].label}
@@ -870,6 +875,9 @@ export default function Orders() {
         open={Boolean(viewId)}
         onClose={() => updateParams({ view: null })}
         onChangeStatus={changeStatus}
+        canFulfil={canFulfil}
+        canSeePayments={can(user, "payments.view")}
+        canSeeHistory={can(user, "audit.view")}
         canRecordPayments={can(user, "payments.write")}
         canVoidPayments={can(user, "payments.void")}
         canReturn={can(user, "returns.write")}

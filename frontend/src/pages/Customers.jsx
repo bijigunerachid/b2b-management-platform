@@ -30,6 +30,7 @@ import { ORDER_STATUS } from "../lib/orderStatus";
 import { paymentBadge } from "../lib/billing";
 import PortalAccessPanel from "../components/PortalAccessPanel";
 import CustomerPricingPanel from "../components/CustomerPricingPanel";
+import HistoryPanel from "../components/HistoryPanel";
 import useTable from "../lib/useTable";
 
 const emptyForm = {
@@ -161,9 +162,9 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, 
             </div>
           </div>
 
-          <CustomerPricingPanel customer={customer} canManage={can(user, "pricing.write")} onChanged={onChanged} />
+          {can(user, "pricing.view") && <CustomerPricingPanel customer={customer} canManage={can(user, "pricing.write")} onChanged={onChanged} />}
 
-          <PortalAccessPanel customer={customer} canManage={can(user, "customers.write")} />
+          <PortalAccessPanel customer={customer} canManage={can(user, "portal.manage")} />
 
           <div>
             <h3 className="mb-3 text-sm font-bold app-text">Order history</h3>
@@ -203,6 +204,8 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, 
               </ul>
             )}
           </div>
+
+          {can(user, "audit.view") && <HistoryPanel entityType="customer" entityId={customer.id} />}
         </div>
       )}
     </Drawer>

@@ -8,45 +8,48 @@ import { useConfirm, useToast } from "./ui/feedback";
 import CommandPalette from "./CommandPalette";
 import NotificationsMenu from "./NotificationsMenu";
 import { PageFallback } from "./PageFallback";
-import { initials } from "../lib/api";
+import { can, initials } from "../lib/api";
 
 const sections = [
   {
     title: "Overview",
     links: [
-      { label: "Dashboard", path: "/", icon: "dashboard", roles: ["Admin", "Manager", "Employee"] },
-      { label: "Reports", path: "/reports", icon: "revenue", roles: ["Admin", "Manager"] },
+      { label: "Dashboard", path: "/", icon: "dashboard", permission: "dashboard.view" },
+      { label: "Reports", path: "/reports", icon: "revenue", permission: "reports.view" },
     ],
   },
   {
     title: "Sales",
     links: [
-      { label: "Quotes", path: "/quotes", icon: "fileText", roles: ["Admin", "Manager", "Employee"] },
-      { label: "Orders", path: "/orders", icon: "orders", roles: ["Admin", "Manager", "Employee"] },
-      { label: "Receivables", path: "/receivables", icon: "wallet", roles: ["Admin", "Manager", "Employee"] },
-      { label: "Credit notes", path: "/credit-notes", icon: "undo", roles: ["Admin", "Manager", "Employee"] },
-      { label: "Customers", path: "/customers", icon: "customers", roles: ["Admin", "Manager", "Employee"] },
+      { label: "Quotes", path: "/quotes", icon: "fileText", permission: "quotes.view" },
+      { label: "Orders", path: "/orders", icon: "orders", permission: "orders.view" },
+      { label: "Receivables", path: "/receivables", icon: "wallet", permission: "payments.view" },
+      { label: "Credit notes", path: "/credit-notes", icon: "undo", permission: "payments.view" },
+      { label: "Customers", path: "/customers", icon: "customers", permission: "customers.view" },
     ],
   },
   {
     title: "Catalog",
     links: [
-      { label: "Products", path: "/products", icon: "products", roles: ["Admin", "Manager", "Employee"] },
-      { label: "Categories", path: "/categories", icon: "categories", roles: ["Admin", "Manager", "Employee"] },
-      { label: "Pricing", path: "/pricing", icon: "receipt", roles: ["Admin", "Manager", "Employee"] },
+      { label: "Products", path: "/products", icon: "products", permission: "products.view" },
+      { label: "Categories", path: "/categories", icon: "categories", permission: "products.view" },
+      { label: "Pricing", path: "/pricing", icon: "receipt", permission: "pricing.view" },
     ],
   },
   {
     title: "Inventory",
     links: [
-      { label: "Stock", path: "/inventory", icon: "box", roles: ["Admin", "Manager", "Employee"] },
-      { label: "Purchase orders", path: "/purchase-orders", icon: "truck", roles: ["Admin", "Manager", "Employee"] },
-      { label: "Suppliers", path: "/suppliers", icon: "building", roles: ["Admin", "Manager", "Employee"] },
+      { label: "Stock", path: "/inventory", icon: "box", permission: "inventory.view" },
+      { label: "Purchase orders", path: "/purchase-orders", icon: "truck", permission: "inventory.view" },
+      { label: "Suppliers", path: "/suppliers", icon: "building", permission: "inventory.view" },
     ],
   },
   {
     title: "Administration",
-    links: [{ label: "Users", path: "/users", icon: "users", roles: ["Admin"] }],
+    links: [
+      { label: "Users", path: "/users", icon: "users", permission: "users.manage" },
+      { label: "Audit log", path: "/audit", icon: "list", permission: "audit.view" },
+    ],
   },
 ];
 
@@ -173,7 +176,7 @@ export default function Layout() {
   const visibleSections = sections
     .map((section) => ({
       ...section,
-      links: section.links.filter((link) => link.roles.includes(user?.role)),
+      links: section.links.filter((link) => can(user, link.permission)),
     }))
     .filter((section) => section.links.length > 0);
 

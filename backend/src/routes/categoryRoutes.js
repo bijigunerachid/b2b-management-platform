@@ -11,7 +11,7 @@ const {
 } = require("../controllers/categoryController");
 
 const { protect } = require("../middleware/authMiddleware");
-const { authorize } = require("../middleware/roleMiddleware");
+const { requirePermission } = require("../middleware/roleMiddleware");
 const validate = require("../middleware/validate");
 const categoryRules = require("../validation/categoryRules");
 
@@ -20,27 +20,27 @@ router.use(protect);
 // All authenticated roles can read categories
 router.get(
     "/",
-    authorize("Admin", "Manager", "Employee"),
+    requirePermission("products.view"),
     getCategories
 );
 
 router.get(
     "/:id",
-    authorize("Admin", "Manager", "Employee"),
+    requirePermission("products.view"),
     getCategoryById
 );
 
 // Only Admin and Manager can manage categories
 router.post(
     "/",
-    authorize("Admin", "Manager"),
+    requirePermission("products.write"),
     validate(categoryRules),
     createCategory
 );
 
 router.put(
     "/:id",
-    authorize("Admin", "Manager"),
+    requirePermission("products.write"),
     validate(categoryRules),
     updateCategory
 );
@@ -48,7 +48,7 @@ router.put(
 // Only Admin can delete categories
 router.delete(
     "/:id",
-    authorize("Admin"),
+    requirePermission("products.delete"),
     deleteCategory
 );
 

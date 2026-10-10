@@ -15,6 +15,7 @@ const Products = lazy(() => import("./pages/Products"));
 const Categories = lazy(() => import("./pages/Categories"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Reports = lazy(() => import("./pages/Reports"));
+const AuditLog = lazy(() => import("./pages/AuditLog"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Quotes = lazy(() => import("./pages/Quotes"));
 const Receivables = lazy(() => import("./pages/Receivables"));
@@ -49,32 +50,26 @@ export default function App() {
 
                             <Route element={<ProtectedRoute />}>
                                 {/* Full-page document, outside the app shell so it prints cleanly. */}
-                                <Route path="/orders/:id/invoice" element={<Invoice />} />
-                                <Route path="/quotes/:id/print" element={<QuoteDocument />} />
-                                <Route path="/credit-notes/:id/print" element={<CreditNoteDocument />} />
+                                <Route path="/orders/:id/invoice" element={<ProtectedRoute permission="orders.view"><Invoice /></ProtectedRoute>} />
+                                <Route path="/quotes/:id/print" element={<ProtectedRoute permission="quotes.view"><QuoteDocument /></ProtectedRoute>} />
+                                <Route path="/credit-notes/:id/print" element={<ProtectedRoute permission="payments.view"><CreditNoteDocument /></ProtectedRoute>} />
 
                                 <Route element={<Layout />}>
-                                    <Route path="/" element={<Dashboard />} />
-                                    <Route path="/customers" element={<Customers />} />
-                                    <Route path="/products" element={<Products />} />
-                                    <Route path="/categories" element={<Categories />} />
-                                    <Route path="/pricing" element={<Pricing />} />
-                                    <Route path="/orders" element={<Orders />} />
-                                    <Route path="/receivables" element={<Receivables />} />
-                                    <Route path="/credit-notes" element={<CreditNotes />} />
-                                    <Route path="/quotes" element={<Quotes />} />
-                                    <Route path="/inventory" element={<Inventory />} />
-                                    <Route path="/purchase-orders" element={<PurchaseOrders />} />
-                                    <Route path="/suppliers" element={<Suppliers />} />
-                                    <Route path="/reports" element={<ProtectedRoute roles={["Admin", "Manager"]} />}>
-                                        <Route index element={<Reports />} />
-                                    </Route>
-                                    <Route
-                                        path="/users"
-                                        element={<ProtectedRoute roles={["Admin"]} />}
-                                    >
-                                        <Route index element={<Users />} />
-                                    </Route>
+                                    <Route path="/" element={<ProtectedRoute permission="dashboard.view"><Dashboard /></ProtectedRoute>} />
+                                    <Route path="/customers" element={<ProtectedRoute permission="customers.view"><Customers /></ProtectedRoute>} />
+                                    <Route path="/products" element={<ProtectedRoute permission="products.view"><Products /></ProtectedRoute>} />
+                                    <Route path="/categories" element={<ProtectedRoute permission="products.view"><Categories /></ProtectedRoute>} />
+                                    <Route path="/pricing" element={<ProtectedRoute permission="pricing.view"><Pricing /></ProtectedRoute>} />
+                                    <Route path="/orders" element={<ProtectedRoute permission="orders.view"><Orders /></ProtectedRoute>} />
+                                    <Route path="/receivables" element={<ProtectedRoute permission="payments.view"><Receivables /></ProtectedRoute>} />
+                                    <Route path="/credit-notes" element={<ProtectedRoute permission="payments.view"><CreditNotes /></ProtectedRoute>} />
+                                    <Route path="/quotes" element={<ProtectedRoute permission="quotes.view"><Quotes /></ProtectedRoute>} />
+                                    <Route path="/inventory" element={<ProtectedRoute permission="inventory.view"><Inventory /></ProtectedRoute>} />
+                                    <Route path="/purchase-orders" element={<ProtectedRoute permission="inventory.view"><PurchaseOrders /></ProtectedRoute>} />
+                                    <Route path="/suppliers" element={<ProtectedRoute permission="inventory.view"><Suppliers /></ProtectedRoute>} />
+                                    <Route path="/reports" element={<ProtectedRoute permission="reports.view"><Reports /></ProtectedRoute>} />
+                                    <Route path="/audit" element={<ProtectedRoute permission="audit.view"><AuditLog /></ProtectedRoute>} />
+                                    <Route path="/users" element={<ProtectedRoute permission="users.manage"><Users /></ProtectedRoute>} />
                                 </Route>
                             </Route>
 

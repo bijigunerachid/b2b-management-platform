@@ -1,4 +1,6 @@
 const pool = require("../config/database");
+const { recordChanges } = require("../middleware/auditTrail");
+const { diff } = require("../audit/describe");
 const { HttpError, withTransaction } = require("../services/transaction");
 const { describePrice, loadPricingContext } = require("../pricing/pricing");
 const { parseCustomerPrice, parsePriceList, parseVolumeDiscount } = require("../pricing/pricingRules");
@@ -40,7 +42,7 @@ const listPriceLists = async (req, res) => {
     }
 };
 
-async function savePriceList(connection, id, body) {
+async function savePriceList(connection, id, body, req) {
     const { error, value } = parsePriceList(body);
     if (error) throw new HttpError(400, error);
 
@@ -49,6 +51,9 @@ async function savePriceList(connection, id, body) {
 
     const params = [value.name, value.description, value.discountPercent, value.isActive];
     if (id) {
+        const [before] = await connection.query("SELECT name, description, discount_percent, is_active FROM price_lists WHERE id = ?", [id]);
+        recordChanges(req, diff(before[0], { name: value.name, description: value.description, discount_percent: value.discountPercent, is_active: value.isActive },
+            ["name", "description", "discount_percent", "is_active"]));
         const [result] = await connection.query(
             "UPDATE price_lists SET name = ?, description = ?, discount_percent = ?, is_active = ? WHERE id = ?",
             [...params, id]
@@ -66,13 +71,13 @@ async function savePriceList(connection, id, body) {
 
 // POST /api/pricing/price-lists
 const createPriceList = withTransaction(async (connection, req) => {
-    const id = await savePriceList(connection, null, req.body);
+    const id = await savePriceList(connection, null, req.body, req);
     return { status: 201, body: { message: "Price list created", data: { id } } };
 }, "Failed to create the price list");
 
 // PUT /api/pricing/price-lists/:id
 const updatePriceList = withTransaction(async (connection, req) => {
-    const id = await savePriceList(connection, requireId(req.params.id, "price list"), req.body);
+    const id = await savePriceList(connection, requireId(req.params.id, "price list"), req.body, req);
     return { body: { message: "Price list updated", data: { id } } };
 }, "Failed to update the price list");
 
@@ -102,8 +107,14 @@ const setCustomerPriceList = withTransaction(async (connection, req) => {
         if (!lists[0].is_active) throw new HttpError(400, "This price list is inactive.");
     }
 
+    const [before] = await connection.query(
+        "SELECT pl.name FROM customers c LEFT JOIN price_lists pl ON pl.id = c.price_list_id WHERE c.id = ?",
+        [customerId]
+    );
     const [result] = await connection.query("UPDATE customers SET price_list_id = ? WHERE id = ?", [priceListId, customerId]);
     if (result.affectedRows === 0) throw new HttpError(404, "Customer not found");
+    const [after] = priceListId ? await connection.query("SELECT name FROM price_lists WHERE id = ?", [priceListId]) : [[{ name: null }]];
+    recordChanges(req, diff({ price_list: before[0]?.name }, { price_list: after[0]?.name }, ["price_list"]));
     return { body: { message: "Price list updated" } };
 }, "Failed to update the customer's price list");
 
@@ -125,7 +136,7 @@ const listVolumeDiscounts = async (req, res) => {
     }
 };
 
-async function saveVolumeDiscount(connection, id, body) {
+async function saveVolumeDiscount(connection, id, body, req) {
     const { error, value } = parseVolumeDiscount(body);
     if (error) throw new HttpError(400, error);
 
@@ -142,6 +153,9 @@ async function saveVolumeDiscount(connection, id, body) {
 
     const params = [value.categoryId, value.minQuantity, value.discountPercent];
     if (id) {
+        const [before] = await connection.query("SELECT category_id, min_quantity, discount_percent FROM volume_discounts WHERE id = ?", [id]);
+        recordChanges(req, diff(before[0], { category_id: value.categoryId, min_quantity: value.minQuantity, discount_percent: value.discountPercent },
+            ["category_id", "min_quantity", "discount_percent"]));
         const [result] = await connection.query(
             "UPDATE volume_discounts SET category_id = ?, min_quantity = ?, discount_percent = ? WHERE id = ?",
             [...params, id]
@@ -156,13 +170,13 @@ async function saveVolumeDiscount(connection, id, body) {
 
 // POST /api/pricing/volume-discounts
 const createVolumeDiscount = withTransaction(async (connection, req) => {
-    const id = await saveVolumeDiscount(connection, null, req.body);
+    const id = await saveVolumeDiscount(connection, null, req.body, req);
     return { status: 201, body: { message: "Volume discount created", data: { id } } };
 }, "Failed to create the volume discount");
 
 // PUT /api/pricing/volume-discounts/:id
 const updateVolumeDiscount = withTransaction(async (connection, req) => {
-    const id = await saveVolumeDiscount(connection, requireId(req.params.id, "volume discount"), req.body);
+    const id = await saveVolumeDiscount(connection, requireId(req.params.id, "volume discount"), req.body, req);
     return { body: { message: "Volume discount updated", data: { id } } };
 }, "Failed to update the volume discount");
 
@@ -212,6 +226,9 @@ const setCustomerPrice = withTransaction(async (connection, req) => {
     if (customers.length === 0) throw new HttpError(404, "Customer not found");
     const [products] = await connection.query("SELECT id FROM products WHERE id = ?", [value.productId]);
     if (products.length === 0) throw new HttpError(404, "Product not found");
+
+    const [previous] = await connection.query("SELECT unit_price FROM customer_prices WHERE customer_id = ? AND product_id = ?", [customerId, value.productId]);
+    recordChanges(req, diff({ unit_price: previous[0]?.unit_price }, { unit_price: value.unitPrice }, ["unit_price"]));
 
     await connection.query(
         `INSERT INTO customer_prices (customer_id, product_id, unit_price, note, created_by)

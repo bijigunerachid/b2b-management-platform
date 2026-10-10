@@ -329,7 +329,7 @@ function generateOrders(random, count, { customers, products, now, months }) {
 
 function generateUsers(random, count) {
     const users = [];
-    const roles = [["Manager", 3], ["Employee", 7]];
+    const roles = [["Manager", 3], ["Accountant", 1], ["Warehouse", 2], ["Employee", 4]];
 
     for (let index = 0; index < count; index += 1) {
         const first = random.pick(FIRST_NAMES);

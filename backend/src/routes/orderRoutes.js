@@ -10,7 +10,7 @@ const {
 } = require("../controllers/orderController");
 
 const { protect } = require("../middleware/authMiddleware");
-const { authorize } = require("../middleware/roleMiddleware");
+const { requirePermission } = require("../middleware/roleMiddleware");
 const validate = require("../middleware/validate");
 const { recordPaymentRules } = require("../validation/paymentRules");
 const {
@@ -26,49 +26,49 @@ router.use(protect);
 
 router.get(
     "/",
-    authorize("Admin", "Manager", "Employee"),
+    requirePermission("orders.view"),
     getOrders
 );
 
 router.get(
     "/:id",
-    authorize("Admin", "Manager", "Employee"),
+    requirePermission("orders.view"),
     getOrderById
 );
 
 router.post(
     "/",
-    authorize("Admin", "Manager"),
+    requirePermission("orders.write"),
     createOrder
 );
 router.patch(
     "/:id/status",
-    authorize("Admin", "Manager"),
+    requirePermission("orders.fulfil"),
     updateOrderStatus
 );
 
 router.get(
     "/:id/payments",
-    authorize("Admin", "Manager", "Employee"),
+    requirePermission("payments.view"),
     getOrderPayments
 );
 
 router.post(
     "/:id/payments",
-    authorize("Admin", "Manager"),
+    requirePermission("payments.write"),
     validate(recordPaymentRules),
     recordPayment
 );
 
 router.get(
     "/:id/credit-notes",
-    authorize("Admin", "Manager", "Employee"),
+    requirePermission("payments.view"),
     getOrderReturns
 );
 
 router.post(
     "/:id/credit-notes",
-    authorize("Admin", "Manager"),
+    requirePermission("returns.write"),
     createOrderCreditNote
 );
 

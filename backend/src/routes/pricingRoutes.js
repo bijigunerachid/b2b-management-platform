@@ -2,33 +2,30 @@ const express = require("express");
 
 const pricing = require("../controllers/pricingController");
 const { protect } = require("../middleware/authMiddleware");
-const { authorize } = require("../middleware/roleMiddleware");
-
-const STAFF = ["Admin", "Manager", "Employee"];
-const WRITERS = ["Admin", "Manager"];
+const { requirePermission } = require("../middleware/roleMiddleware");
 
 // Customer-specific routes (price list, contract prices) are mounted on the customers router.
 const router = express.Router();
 router.use(protect);
 
-router.get("/price-lists", authorize(...STAFF), pricing.listPriceLists);
-router.post("/price-lists", authorize(...WRITERS), pricing.createPriceList);
-router.put("/price-lists/:id", authorize(...WRITERS), pricing.updatePriceList);
-router.delete("/price-lists/:id", authorize(...WRITERS), pricing.deletePriceList);
+router.get("/price-lists", requirePermission("pricing.view"), pricing.listPriceLists);
+router.post("/price-lists", requirePermission("pricing.write"), pricing.createPriceList);
+router.put("/price-lists/:id", requirePermission("pricing.write"), pricing.updatePriceList);
+router.delete("/price-lists/:id", requirePermission("pricing.write"), pricing.deletePriceList);
 
-router.get("/volume-discounts", authorize(...STAFF), pricing.listVolumeDiscounts);
-router.post("/volume-discounts", authorize(...WRITERS), pricing.createVolumeDiscount);
-router.put("/volume-discounts/:id", authorize(...WRITERS), pricing.updateVolumeDiscount);
-router.delete("/volume-discounts/:id", authorize(...WRITERS), pricing.deleteVolumeDiscount);
+router.get("/volume-discounts", requirePermission("pricing.view"), pricing.listVolumeDiscounts);
+router.post("/volume-discounts", requirePermission("pricing.write"), pricing.createVolumeDiscount);
+router.put("/volume-discounts/:id", requirePermission("pricing.write"), pricing.updateVolumeDiscount);
+router.delete("/volume-discounts/:id", requirePermission("pricing.write"), pricing.deleteVolumeDiscount);
 
-router.get("/customer-prices", authorize(...STAFF), pricing.listCustomerPrices);
-router.delete("/customer-prices/:id", authorize(...WRITERS), pricing.deleteCustomerPrice);
+router.get("/customer-prices", requirePermission("pricing.view"), pricing.listCustomerPrices);
+router.delete("/customer-prices/:id", requirePermission("pricing.write"), pricing.deleteCustomerPrice);
 
-router.post("/preview", authorize(...STAFF), pricing.previewPrices);
+router.post("/preview", requirePermission("orders.view"), pricing.previewPrices);
 
 function mountCustomerPricingRoutes(customerRouter) {
-    customerRouter.patch("/:id/price-list", authorize(...WRITERS), pricing.setCustomerPriceList);
-    customerRouter.put("/:id/prices", authorize(...WRITERS), pricing.setCustomerPrice);
+    customerRouter.patch("/:id/price-list", requirePermission("pricing.write"), pricing.setCustomerPriceList);
+    customerRouter.put("/:id/prices", requirePermission("pricing.write"), pricing.setCustomerPrice);
 }
 
 module.exports = { mountCustomerPricingRoutes, pricingRouter: router };

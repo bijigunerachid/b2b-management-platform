@@ -42,8 +42,8 @@ export default function Categories() {
     const [formError, setFormError] = useState("");
     const [saving, setSaving] = useState(false);
 
-    const canWrite = can(user, "categories.write");
-    const canDelete = can(user, "categories.delete");
+    const canWrite = can(user, "products.write");
+    const canDelete = can(user, "products.delete");
     const createRequested = params.get("new") === "1" && canWrite;
     const isEditing = editing !== null && !createRequested;
 

@@ -1,4 +1,5 @@
 const pool = require("../config/database");
+const { permissionsFor } = require("../config/permissions");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const {
@@ -108,6 +109,7 @@ const login = async (req, res) => {
                 last_name: user.last_name,
                 email: user.email,
                 role: user.role,
+                permissions: permissionsFor(user.role),
                 customer_id: user.customer_id,
                 company_name: user.company_name
             }
@@ -155,7 +157,7 @@ const getCurrentUser = async (req, res) => {
 
         return res.json({
             success: true,
-            user: users[0]
+            user: { ...users[0], permissions: permissionsFor(users[0].role) }
         });
     } catch (error) {
         console.error("Get current user error:", error);
@@ -178,12 +180,14 @@ const logout = async (req, res) => {
                 algorithms: ["HS256"]
             });
 
-            await pool.query(
+            const [revoked] = await pool.query(
                 `UPDATE users
                  SET token_version = token_version + 1
                  WHERE id = ? AND token_version = ?`,
                 [decoded.userId, decoded.tokenVersion]
             );
+            // Lets the audit log say who signed out (the route isn't behind protect).
+            if (revoked.affectedRows > 0) res.locals.auditActor = { id: decoded.userId, role: null };
         } catch {
             // Expired or invalid token: nothing to revoke.
         }

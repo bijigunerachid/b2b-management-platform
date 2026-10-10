@@ -356,11 +356,11 @@ function Timeline({ po }) {
   );
 }
 
-function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, canWrite }) {
+function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, allowed }) {
   const { data, loading, error } = useResource(poId ? `/purchase-orders/${poId}?v=${version}` : null);
   const po = data?.data;
   const items = po?.items ?? [];
-  const actions = canWrite ? po?.actions ?? [] : [];
+  const actions = (po?.actions ?? []).filter(allowed);
 
   return (
     <Drawer
@@ -486,6 +486,8 @@ export default function PurchaseOrders() {
   const confirm = useConfirm();
   const [params, setParams] = useSearchParams();
   const canWrite = can(user, "purchasing.write");
+  const canReceive = can(user, "purchasing.receive");
+  const allowed = (action) => (action === "receive" ? canReceive : canWrite);
 
   const { data, loading, error, reload } = useResource("/purchase-orders");
   const orders = useMemo(() => toList(data), [data]);
@@ -702,7 +704,7 @@ export default function PurchaseOrders() {
                     <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold tabular-nums app-text">{money(po.total_amount)}</td>
                     <td className="px-5 py-3.5" onClick={(event) => event.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        {canWrite && po.actions.includes("receive") && <IconAction icon="checkCircle" label={`Receive ${po.number}`} onClick={() => handleAction("receive", po)} disabled={Boolean(busy)} />}
+                        {canReceive && po.actions.includes("receive") && <IconAction icon="checkCircle" label={`Receive ${po.number}`} onClick={() => handleAction("receive", po)} disabled={Boolean(busy)} />}
                         {canWrite && po.actions.includes("order") && <IconAction icon="send" label={`Place ${po.number}`} onClick={() => handleAction("order", po)} disabled={Boolean(busy)} />}
                         <IconAction icon="eye" label={`View ${po.number}`} onClick={() => updateParams({ view: po.id })} />
                       </div>
@@ -726,7 +728,7 @@ export default function PurchaseOrders() {
         onClose={() => updateParams({ view: null })}
         onAction={handleAction}
         busy={busy}
-        canWrite={canWrite}
+        allowed={allowed}
       />
 
       {canWrite && (
