@@ -48,6 +48,26 @@ Reorder suggestions, grouped by supplier, and a purchase order that's late:
 ![Reorder suggestions](docs/screenshots/08-reorder-suggestions.png)
 ![Purchase order](docs/screenshots/09-purchase-order.png)
 
+Sales and margin by month, with cost and margin stacked:
+
+![Reports](docs/screenshots/13-reports.png)
+
+Customer prices in the order form: a contract price on one line, a price list plus a volume discount on the other:
+
+![Customer pricing](docs/screenshots/14-order-pricing.png)
+
+Returning part of a delivered order. Damaged items can be written off instead of going back into stock:
+
+![Return](docs/screenshots/15-return.png)
+
+The audit log, filtered to one warehouse employee, with old and new values:
+
+![Audit log](docs/screenshots/16-audit-log.png)
+
+What each role can do:
+
+![Roles](docs/screenshots/17-roles.png)
+
 The client portal:
 
 ![Portal home](docs/screenshots/11-portal-home.png)
@@ -169,11 +189,16 @@ Caddy gets the certificate from Let's Encrypt and renews it automatically. Only 
 ## Tests
 
 ```bash
-cd backend && npm test      # 132 Jest tests
+cd backend && npm test      # 210 Jest tests (business rules, permissions, audit, security)
 cd frontend && npm run lint
+cd e2e && npm ci && npx playwright install chromium && npx playwright test
 ```
 
-GitHub Actions runs both on every push and pull request, along with `npm audit` and a production build.
+The browser tests (Playwright) go through the app the way people use it: signing in as each role, creating an order, moving it to completed, recording the payment, opening the invoice, taking a return, turning a quote into an order, ordering from the client portal, and finding all of it in the audit log. They also check that each role only sees what it should.
+
+They never touch your data. Each run builds a separate `b2b_e2e` database (schema, migrations, a small seed, one account per role) and starts the API and the app on their own ports (5055 and 5175). The script refuses to reset any database whose name doesn't start with `b2b_e2e`. Database settings come from `backend/.env`.
+
+GitHub Actions runs all three on every push and pull request, along with `npm audit` and a production build. The browser tests run against a MySQL 8.4 service, and the report is uploaded when they fail.
 
 ## Security notes
 
@@ -193,12 +218,10 @@ For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behin
 - Costs only exist from migration 008 on. Older order lines got the product's cost at that time, and products never bought from a supplier got an estimate, so margins on old data are approximate.
 - The Ctrl+K product search only looks at the first 100 products.
 - Customers and orders are paginated in the browser, which is fine for a few thousand rows but won't scale forever.
-- No browser tests yet. Everything in CI is API and unit level.
 
 ## What I'd add next
 
 - A French and Arabic interface
-- Playwright tests for the main flows
 
 ## Author
 

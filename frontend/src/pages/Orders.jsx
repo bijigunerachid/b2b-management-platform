@@ -881,7 +881,11 @@ export default function Orders() {
         canRecordPayments={can(user, "payments.write")}
         canVoidPayments={can(user, "payments.void")}
         canReturn={can(user, "returns.write")}
-        onPaymentsChanged={reload}
+        onPaymentsChanged={() => {
+          // Refresh the whole drawer: returns need the new balance.
+          setDrawerVersion((value) => value + 1);
+          reload();
+        }}
         onReturned={() => {
           setDrawerVersion((value) => value + 1);
           reload();

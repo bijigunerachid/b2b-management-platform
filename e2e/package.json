@@ -1,0 +1,13 @@
+{
+  "name": "e2e",
+  "private": true,
+  "description": "Browser tests for the main flows (Playwright).",
+  "scripts": {
+    "prepare-db": "node scripts/prepare-db.js",
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}
