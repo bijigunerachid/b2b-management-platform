@@ -125,7 +125,7 @@ async function seed() {
         await insertChunks(
             connection,
             `INSERT INTO customers
-                (id, company_name, contact_name, email, phone, address, city, country, created_at)
+                (id, company_name, contact_name, email, phone, address, city, country, email_language, created_at)
              VALUES ?`,
             data.customers.map((customer, index) => [
                 firstCustomerId + index,
@@ -136,6 +136,7 @@ async function seed() {
                 customer.address,
                 customer.city,
                 customer.country,
+                customer.email_language,
                 customer.created_at
             ])
         );

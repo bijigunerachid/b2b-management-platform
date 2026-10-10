@@ -64,6 +64,8 @@ module.exports = {
         ["reset a colleague's password", "users"],
         ["who changed this customer", "audit-log"],
         ["see failed login attempts", "audit-log"],
+        ["send the invoice to the client by email", "emails"],
+        ["does the app remind customers before they have to pay", "emails"],
         // French
         ["comment créer un devis", "create-quote"],
         ["le client a accepté le devis", "convert-quote"],
@@ -78,6 +80,7 @@ module.exports = {
         ["commander chez un fournisseur", "purchase-orders"],
         ["voir la marge par catégorie", "reports"],
         ["ajouter un utilisateur", "users"],
+        ["envoyer le devis par mail au client", "emails"],
         // Arabic
         ["كيف أنشئ عرض سعر", "create-quote"],
         ["كيف أسجل أداء الزبون", "record-payment"],
@@ -87,7 +90,8 @@ module.exports = {
         ["تصحيح المخزون", "stock"],
         ["من يدين لنا بالمال", "receivables"],
         ["إضافة زبون جديد", "customers"],
-        ["تقرير المبيعات والهامش", "reports"]
+        ["تقرير المبيعات والهامش", "reports"],
+        ["إرسال الفاتورة بالبريد إلى الزبون", "emails"]
     ],
     client: [
         ["what can I do here", "portal-start"],

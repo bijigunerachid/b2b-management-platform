@@ -49,6 +49,18 @@ services:
       ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-haiku-5-5}
       ASSISTANT_DAILY_LIMIT: ${ASSISTANT_DAILY_LIMIT:-300}
       CORS_ORIGIN: ${PUBLIC_URL:-http://localhost:8080}
+      # Links in emails to clients point here (the client portal).
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      # Optional: a mail server for emails to clients. Without SMTP_HOST,
+      # emails are only saved to the in-app outbox.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      EMAIL_REMINDERS: ${EMAIL_REMINDERS:-true}
+      EMAIL_REMINDER_DAYS: ${EMAIL_REMINDER_DAYS:-3}
       # Public live demo only (see docs/live-demo.md). Never on real data.
       DEMO_MODE: ${DEMO_MODE:-false}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}

@@ -12,6 +12,7 @@ With `DEMO_MODE=true`:
 - Every page shows a thin banner saying the data resets every night.
 - Anything that would lock other visitors out is refused: changing a password, creating or editing staff accounts, and giving or removing portal access. Signing out only ends your own session (normally it ends all of that user's sessions).
 - `npm run demo:reset` is allowed to wipe and regenerate the data. It refuses to run without demo mode.
+- Emails to clients are never really sent, even if a mail server is configured: visitors can still email invoices and quotes and read the result on the Emails page (the outbox), but nothing reaches real addresses.
 
 ## 1. A server and a domain
 

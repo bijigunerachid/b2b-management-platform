@@ -79,7 +79,9 @@ const createCustomer = async (req, res) => {
             phone,
             address,
             city,
-            country
+            country,
+            email_language,
+            payment_reminders
         } = req.body;
 
         if (
@@ -95,8 +97,8 @@ const createCustomer = async (req, res) => {
         const [result] = await pool.query(
             `INSERT INTO customers
             (company_name, contact_name, email, phone,
-             address, city, country)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             address, city, country, email_language, payment_reminders)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 company_name.trim(),
                 contact_name || null,
@@ -104,7 +106,9 @@ const createCustomer = async (req, res) => {
                 phone || null,
                 address || null,
                 city || null,
-                country || "Morocco"
+                country || "Morocco",
+                email_language || "fr",
+                payment_reminders === false ? 0 : 1
             ]
         );
 
@@ -134,7 +138,9 @@ const updateCustomer = async (req, res) => {
             phone,
             address,
             city,
-            country
+            country,
+            email_language,
+            payment_reminders
         } = req.body;
 
         if (!Number.isInteger(Number(id)) || Number(id) < 1) {
@@ -164,7 +170,9 @@ const updateCustomer = async (req, res) => {
                  phone = ?,
                  address = ?,
                  city = ?,
-                 country = ?
+                 country = ?,
+                 email_language = COALESCE(?, email_language),
+                 payment_reminders = COALESCE(?, payment_reminders)
              WHERE id = ?`,
             [
                 company_name.trim(),
@@ -174,6 +182,8 @@ const updateCustomer = async (req, res) => {
                 address || null,
                 city || null,
                 country || "Morocco",
+                email_language ?? null,
+                payment_reminders === undefined ? null : payment_reminders ? 1 : 0,
                 id
             ]
         );

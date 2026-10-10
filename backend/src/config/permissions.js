@@ -33,6 +33,8 @@ const PERMISSIONS = {
     "payments.write": { group: "Money", label: "Record payments", roles: ["Admin", "Manager", "Accountant"] },
     "payments.void": { group: "Money", label: "Void payments", roles: ["Admin", "Accountant"] },
     "returns.write": { group: "Money", label: "Create credit notes", roles: ["Admin", "Manager", "Accountant"] },
+    "emails.send": { group: "Money", label: "Email invoices and quotes to clients", roles: ["Admin", "Manager", "Accountant"] },
+    "emails.view": { group: "Money", label: "See emails sent to clients", roles: ["Admin", "Manager", "Accountant"] },
 
     "products.view": { group: "Catalog", label: "See products and categories", roles: ALL },
     "products.write": { group: "Catalog", label: "Add and edit products and categories", roles: ["Admin", "Manager"] },

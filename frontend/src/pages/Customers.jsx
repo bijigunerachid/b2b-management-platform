@@ -21,6 +21,7 @@ import {
   SegmentedControl,
   SortHeader,
   StatCard,
+  Switch,
   TableHead,
   TableSkeleton,
   Th,
@@ -43,7 +44,15 @@ const emptyForm = {
   address: "",
   city: "",
   country: "Morocco",
+  email_language: "fr",
+  payment_reminders: true,
 };
+
+const EMAIL_LANGUAGES = [
+  { value: "fr", label: "Français" },
+  { value: "ar", label: "العربية" },
+  { value: "en", label: "English" },
+];
 
 const accessors = {
   company: (customer) => customer.company_name,
@@ -304,6 +313,8 @@ export default function Customers() {
       address: customer.address || "",
       city: customer.city || "",
       country: customer.country || "Morocco",
+      email_language: customer.email_language || "fr",
+      payment_reminders: customer.payment_reminders === undefined ? true : Boolean(Number(customer.payment_reminders)),
     });
     setFormError("");
     setFormOpen(true);
@@ -325,7 +336,7 @@ export default function Customers() {
     setFormError("");
     setSaving(true);
 
-    const payload = Object.fromEntries(Object.entries(form).map(([key, value]) => [key, value.trim()]));
+    const payload = Object.fromEntries(Object.entries(form).map(([key, value]) => [key, typeof value === "string" ? value.trim() : value]));
     const isEditing = editing !== null && !createRequested;
 
     try {
@@ -657,6 +668,27 @@ export default function Customers() {
               <Field label={t("Full address")} className="sm:col-span-2">
                 {(id) => <textarea id={id} name="address" value={form.address} onChange={handleChange} rows={2} maxLength={255} placeholder={t("Street, building, postal code...")} className="app-input resize-y" />}
               </Field>
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Field label={t("Email language")} hint={t("Quotes, invoices and reminders are written in this language")}>
+                {(id) => (
+                  <select id={id} name="email_language" value={form.email_language} onChange={handleChange} className="app-input">
+                    {EMAIL_LANGUAGES.map((language) => (
+                      <option key={language.value} value={language.value}>
+                        {language.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </Field>
+              <div className="flex items-center gap-3 sm:pt-6">
+                <Switch
+                  checked={form.payment_reminders}
+                  onChange={(checked) => setForm((previous) => ({ ...previous, payment_reminders: checked }))}
+                  label={t("Send payment reminders before invoices fall due")}
+                />
+                <span className="text-sm app-text-secondary">{t("Send payment reminders before invoices fall due")}</span>
+              </div>
             </div>
             <datalist id="country-options">
               {countries.map((item) => (

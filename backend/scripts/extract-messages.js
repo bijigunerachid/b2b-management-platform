@@ -19,7 +19,9 @@ const ROOT = path.join(__dirname, "..", "src");
 // already written in three languages.
 const SKIP_FILES = [
     /__tests__/, /[\\/]scripts[\\/]/, /[\\/]seed[\\/]/, /[\\/]i18n[\\/]/, /[\\/]assistant[\\/]/,
-    /audit[\\/]describe\.js$/, /config[\\/]permissions\.js$/, /config[\\/]validateEnv\.js$/, /config[\\/]database\.js$/
+    /audit[\\/]describe\.js$/, /config[\\/]permissions\.js$/, /config[\\/]validateEnv\.js$/, /config[\\/]database\.js$/,
+    // Email templates carry their own three languages; company details aren't messages.
+    /email[\\/]templates\.js$/, /config[\\/]company\.js$/
 ];
 const SQL = /^\s*(SELECT|INSERT|UPDATE|DELETE|WITH|SET|CREATE|ALTER|DROP|USE|SHOW)\b|\b(FROM|WHERE|JOIN|VALUES|GROUP BY|ORDER BY|AS)\b|DATE_FORMAT\(/;
 const NOT_FOR_PEOPLE = new Set([

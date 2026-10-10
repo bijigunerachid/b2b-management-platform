@@ -35,6 +35,8 @@ const ROUTES = [
     ["DELETE", /^\/api\/categories\/(\d+)$/, (m) => ({ action: "category.deleted", entity: ["category", m[1]], summary: `Deleted category #${m[1]}` })],
 
     ["POST", /^\/api\/orders$/, (m, req, res) => ({ action: "order.created", entity: ["order", res?.data?.orderId], summary: `Created order #${res?.data?.orderId}` })],
+    ["POST", /^\/api\/orders\/(\d+)\/email$/, (m) => ({ action: "order.invoice_emailed", entity: ["order", m[1]], summary: `Emailed the invoice for order #${m[1]}` })],
+    ["POST", /^\/api\/quotes\/(\d+)\/email$/, (m) => ({ action: "quote.emailed", entity: ["quote", m[1]], summary: `Emailed quote #${m[1]}` })],
     ["PATCH", /^\/api\/orders\/(\d+)\/status$/, (m, req) => ({ action: "order.status_changed", entity: ["order", m[1]], summary: `Moved order #${m[1]} to ${req.body?.status}` })],
     ["POST", /^\/api\/orders\/(\d+)\/payments$/, (m, req) => ({ action: "payment.recorded", entity: ["order", m[1]], summary: `Recorded a ${money(req.body?.amount)} payment on order #${m[1]}` })],
     ["POST", /^\/api\/orders\/(\d+)\/credit-notes$/, (m, req, res) => ({ action: "credit_note.created", entity: ["order", m[1]], summary: `Created ${res?.data?.number ?? "a credit note"} for ${money(res?.data?.total ?? 0)} on order #${m[1]}` })],

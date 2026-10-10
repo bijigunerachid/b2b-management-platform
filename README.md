@@ -18,6 +18,7 @@ On the staff side you can:
 - set prices per customer: price lists (Gold, −6%), volume discounts from a quantity, and fixed contract prices. Orders, quotes and the client portal all get the same price from one function, and each order line keeps the catalog price and the rule that was applied, so the invoice shows the discount
 - follow orders from pending to completed and print A4 invoices
 - record payments, including partial ones, and see who owes what in a receivables report grouped by how late it is, with a model's estimate of which invoices will be paid late and why
+- email quotes and invoices to clients in their own language, with automatic payment reminders before the due date (see [Emails](#emails))
 - see products each customer hasn't bought yet but probably needs, with the reason, in the customer drawer and on the client portal
 - take back goods from a delivered order: the credit note lowers what the client owes (or records a refund if they already paid), and items in good condition go back into stock
 - track stock through a ledger: every sale, cancellation, delivery and correction is a separate entry with the resulting balance
@@ -99,6 +100,10 @@ Recommendations on the client portal, each with a reason anyone can check:
 The help assistant answering a question, typo included:
 
 ![Help assistant](docs/screenshots/22-help-assistant.png)
+
+An invoice emailed in Arabic, as the client receives it, previewed from the Emails page:
+
+![Email](docs/screenshots/23-email.png)
 
 There's also a dark mode and a Ctrl+K search that jumps to any page or record:
 
@@ -228,14 +233,32 @@ The jobs read the database settings from `backend/.env`. In production you'd run
 
 A help button on every page, for staff and portal clients, opens a small chat. "Explain this page" describes the page you're on, and you can ask questions in English, French or Arabic ("how do I record a partial payment?", "comment faire un avoir ?"). Answers come with numbered steps and a link that opens the right page.
 
-It answers from a help guide I wrote: 36 short articles in three languages about every page and task. Staff only get articles their role allows (an Employee isn't told how to manage users), and clients only get portal help.
+It answers from a help guide I wrote: 37 short articles in three languages about every page and task. Staff only get articles their role allows (an Employee isn't told how to manage users), and clients only get portal help.
 
 It works in two modes:
 
-- **Built-in search (default, free).** The API finds the article that answers the question with TF-IDF over whole words and 3-letter pieces of words, so typos ("paymnt", "facure") and word forms still match, in all three languages at once. Off-topic questions get "I couldn't find that" instead of a random article. On 107 test questions written separately from the guide (with typos, French and Arabic), the right article comes first 87% of the time for staff questions and 100% for client questions, and is in the top three 99% and 100% of the time. I wrote and adjusted the guide while looking at these questions, so treat those numbers as optimistic. A test keeps them from getting worse.
+- **Built-in search (default, free).** The API finds the article that answers the question with TF-IDF over whole words and 3-letter pieces of words, so typos ("paymnt", "facure") and word forms still match, in all three languages at once. Off-topic questions get "I couldn't find that" instead of a random article. On 111 test questions written separately from the guide (with typos, French and Arabic), the right article comes first 86% of the time for staff questions and 100% for client questions, and is in the top three 98% and 100% of the time. I wrote and adjusted the guide while looking at these questions, so treat those numbers as optimistic. A test keeps them from getting worse.
 - **Claude (optional).** With `ANTHROPIC_API_KEY` set, Claude (`claude-haiku-5-5` by default) writes a conversational answer using only the articles search found, in the user's language, and lists the articles it used. It never receives business data: only the question, the last few turns of the conversation and the help articles. Each user can ask 30 questions an hour, and `ASSISTANT_DAILY_LIMIT` (300 by default) caps the total per day. Past either limit, or if Claude fails, the helper falls back to search, so it always answers.
 
 Questions to the helper aren't written to the audit log.
+
+## Emails
+
+Quotes and invoices can be emailed to clients from the quote or the order, and clients get a payment reminder a few days before an invoice falls due. Each customer has an email language (French, Arabic or English), so a client in Casablanca can get their invoice in Arabic while the team works in French. Emails contain the document itself (lines, totals, VAT, what's still owed, how to pay by bank transfer) and a link to it in the client portal.
+
+- **Sending:** any SMTP server (your mail provider, Brevo, Mailgun, Gmail with an app password), set with `SMTP_HOST` and friends in `.env`. Without one, nothing leaves the server: every email is saved to an outbox and can be read in the app exactly as the client would see it, which keeps local development and tests safe. Demo mode never sends real email.
+- **Every email is kept:** the Emails page lists what was sent, saved or refused by the mail server (with the reason), and each order and quote shows its own emails. Emailing a draft quote marks it as sent; if the mail server refuses the email, the quote stays a draft.
+- **Reminders:** the API checks every hour for unpaid invoices due within `EMAIL_REMINDER_DAYS` days (3 by default) and sends one reminder per invoice. A unique key in the database makes sure it's only once, even with several API instances or restarts. Customers can be opted out.
+- **Safety:** company and product names are escaped in the HTML, so a product called `<script>` can't change an email; the recipient must be a single address, so no hidden recipients can be added; and Arabic emails keep invoice numbers and amounts in one piece inside right-to-left text.
+
+To try real sending locally, run Mailpit (a fake mail server with a web inbox) and point the API at it:
+
+```bash
+docker run -d -p 8025:8025 -p 1025:1025 axllent/mailpit:v1.31.2
+# backend/.env: SMTP_HOST=localhost  SMTP_PORT=1025  SMTP_SECURE=false
+```
+
+Emails then show up at http://localhost:8025.
 
 ## Running it locally
 
@@ -338,13 +361,13 @@ The app has a demo mode for a public live demo: the login page offers one-click 
 ## Tests
 
 ```bash
-cd backend && npm test      # 271 Jest tests (business rules, permissions, audit, security, translations, help search, demo mode)
+cd backend && npm test      # 291 Jest tests (business rules, permissions, audit, security, translations, emails, help search, demo mode)
 cd frontend && npm run lint
 cd ml && python -m pytest   # 28 tests (no data leakage, metrics, backtests on synthetic data)
 cd e2e && npm ci && npx playwright install chromium && npx playwright test
 ```
 
-The browser tests (Playwright) go through the app the way people use it: signing in as each role, creating an order, moving it to completed, recording the payment, opening the invoice, taking a return, turning a quote into an order, ordering from the client portal, asking the help assistant, and finding all of it in the audit log. They also check that each role only sees what it should.
+The browser tests (Playwright) go through the app the way people use it: signing in as each role, creating an order, moving it to completed, recording the payment, opening the invoice, taking a return, turning a quote into an order, ordering from the client portal, emailing an invoice, asking the help assistant, and finding all of it in the audit log. They also check that each role only sees what it should.
 
 They never touch your data. Each run builds a separate `b2b_e2e` database (schema, migrations, a small seed, one account per role) and starts the API and the app on their own ports (5055 and 5175). The script refuses to reset any database whose name doesn't start with `b2b_e2e`. Database settings come from `backend/.env`.
 
@@ -368,13 +391,14 @@ For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behin
 - Costs only exist from migration 008 on. Older order lines got the product's cost at that time, and products never bought from a supplier got an estimate, so margins on old data are approximate.
 - The Ctrl+K product search only looks at the first 100 products.
 - The demo data (company and product names) is in English, and text saved with a record (stock movement reasons, notes) stays in the language it was written in.
+- Emails carry the invoice or quote in the message itself rather than as a PDF attachment, and payment reminders are checked hourly by the API process (safe with several instances, but nothing reminds while the API is down).
 - The help assistant's usage limits are kept in memory, like the rate limits. The help guide is written by hand, so it has to be updated when a page changes.
 - Customers and orders are paginated in the browser, which is fine for a few thousand rows but won't scale forever.
 - The models are only as fresh as their last training run, and nothing schedules them for you. Products with no sales yet get no forecast and fall back to the reorder point. Risk scores are worked out as of the day each invoice was issued and don't update when the customer pays something else later. New customers get recommendations only after their first order.
 
 ## What I'd add next
 
-- Emails: send quotes and invoices to clients, and remind them before an invoice falls due
+- PDF attachments on emails (today the document is written into the email itself, with a link to the portal)
 - Put the live demo online (everything is ready: see [docs/live-demo.md](docs/live-demo.md))
 
 ## Author

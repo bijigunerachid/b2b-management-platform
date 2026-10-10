@@ -97,6 +97,10 @@ export default [
   // Demo account descriptions (the staff ones are the role descriptions above)
   "The client portal: order at their prices, download invoices, answer quotes.",
 
+  // Emails: statuses, kinds and filters
+  "Emails", "Sent", "In the outbox", "Failed", "Quote", "Invoice", "Payment reminder", "Invoices", "Quotes", "Payment reminders",
+  "Email invoices and quotes to clients", "See emails sent to clients",
+
   // Help assistant notices
   "I couldn't find that in the help guide. Try other words, or ask someone on your team.",
   "The AI helper isn't available right now, so here's the matching page of the help guide.",

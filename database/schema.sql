@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS customers (
     city VARCHAR(100),
     country VARCHAR(100) NOT NULL DEFAULT 'Morocco',
     price_list_id INT NULL,
+    email_language ENUM('en', 'fr', 'ar') NOT NULL DEFAULT 'fr',
+    payment_reminders TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_customers_price_list
         FOREIGN KEY (price_list_id) REFERENCES price_lists(id)
@@ -440,6 +442,36 @@ CREATE TABLE IF NOT EXISTS product_recommendations (
         FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
     UNIQUE KEY uq_recommendations (model_id, customer_id, product_id),
     INDEX idx_recommendations_customer (customer_id, rank_position)
+);
+
+-- Emails to clients (see migration 013)
+CREATE TABLE IF NOT EXISTS email_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    type ENUM('quote', 'invoice', 'reminder') NOT NULL,
+    customer_id INT NULL,
+    order_id INT NULL,
+    quote_id INT NULL,
+    recipient VARCHAR(255) NOT NULL,
+    language ENUM('en', 'fr', 'ar') NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    html MEDIUMTEXT NOT NULL,
+    text_body MEDIUMTEXT NOT NULL,
+    -- sent: handed to the mail server; failed: the server refused it;
+    -- outbox: saved only (no mail server set up, or demo mode).
+    status ENUM('sent', 'failed', 'outbox') NOT NULL,
+    error VARCHAR(500) NULL,
+    message_id VARCHAR(255) NULL,
+    sent_by INT NULL,
+    dedupe_key VARCHAR(100) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_email_log_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+    CONSTRAINT fk_email_log_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL,
+    CONSTRAINT fk_email_log_quote FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE SET NULL,
+    CONSTRAINT fk_email_log_user FOREIGN KEY (sent_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE KEY uq_email_log_dedupe (dedupe_key),
+    INDEX idx_email_log_created (created_at),
+    INDEX idx_email_log_order (order_id),
+    INDEX idx_email_log_quote (quote_id)
 );
 
 -- Verify tables and roles

@@ -3,6 +3,10 @@ const { invoiceTotals } = require("../billing/billing");
 const { OrderPlacementError, placeOrder } = require("../services/orderPlacement");
 const { loadPricingContext } = require("../pricing/pricing");
 const { resolvePrice } = require("../pricing/pricingRules");
+const { loadQuote } = require("../email/documents");
+const { publicUrl, sendEmail } = require("../email/mailer");
+const { parseEmailRequest } = require("../email/request");
+const { quoteEmail } = require("../email/templates");
 const {
     DEFAULT_VALIDITY_DAYS,
     addDays,
@@ -258,6 +262,57 @@ const sendQuote = inTransaction(async (connection, req) => {
     return { body: { message: "Quote marked as sent" } };
 });
 
+// POST /api/quotes/:id/email { to?, language?, message? }
+// Emails the quote to the client; a draft is marked as sent once the email is
+// out (or saved to the outbox). No row lock is held while emailing: the email
+// log references the quote, so a lock would make the two wait for each other.
+const emailQuote = async (req, res) => {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: "Invalid quote ID" });
+
+    try {
+        const [[quote]] = await pool.query("SELECT * FROM quotes WHERE id = ?", [id]);
+        if (!quote) return res.status(404).json({ success: false, message: "Quote not found" });
+
+        const isDraft = quote.status === "Draft";
+        if (isDraft) {
+            requireAction(quote, "send");
+            if (dateOnly(quote.valid_until) < dateOnly(new Date())) {
+                throw new QuoteError(409, "This draft's validity date has passed. Edit it before sending.");
+            }
+        } else if (effectiveStatus(quote) !== "Sent") {
+            throw new QuoteError(409, "Only draft or sent quotes can be emailed.");
+        }
+
+        const document = await loadQuote(pool, id);
+        const { value, error } = parseEmailRequest(req.body, document.customer);
+        if (error) throw new QuoteError(400, error);
+
+        const email = quoteEmail(document, { language: value.language, portalUrl: publicUrl(), note: value.note });
+        const result = await sendEmail(pool, email, {
+            type: "quote",
+            to: value.to,
+            language: value.language,
+            customerId: document.customer.id,
+            quoteId: id,
+            sentBy: req.user.userId
+        });
+        if (result.status === "failed") throw new QuoteError(502, `The email couldn't be sent: ${result.error}`);
+
+        // Only if it's still a draft: someone may have changed it meanwhile.
+        if (isDraft) await pool.query("UPDATE quotes SET status = 'Sent', sent_at = NOW() WHERE id = ? AND status = 'Draft'", [id]);
+        return res.json({
+            success: true,
+            message: result.status === "sent" ? `Quote emailed to ${value.to}` : "Quote saved to the outbox (no mail server is set up)",
+            data: result
+        });
+    } catch (error) {
+        if (error instanceof QuoteError) return res.status(error.status).json({ success: false, message: error.message });
+        console.error("Email quote error:", error);
+        return res.status(500).json({ success: false, message: "The quote could not be processed." });
+    }
+};
+
 // POST /api/quotes/:id/accept and /reject
 function decide(decision) {
     return inTransaction(async (connection, req) => {
@@ -330,6 +385,7 @@ module.exports = {
     createQuote,
     deleteQuote,
     duplicateQuote,
+    emailQuote,
     getQuote,
     listQuotes,
     rejectQuote: decide("Rejected"),

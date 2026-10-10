@@ -7,6 +7,7 @@ const {
     createQuote,
     deleteQuote,
     duplicateQuote,
+    emailQuote,
     getQuote,
     listQuotes,
     rejectQuote,
@@ -29,6 +30,7 @@ router.put("/:id", write, updateQuote);
 router.delete("/:id", write, deleteQuote);
 
 router.post("/:id/send", write, sendQuote);
+router.post("/:id/email", write, requirePermission("emails.send"), emailQuote);
 router.post("/:id/accept", write, acceptQuote);
 router.post("/:id/reject", write, rejectQuote);
 router.post("/:id/convert", write, convertQuote);

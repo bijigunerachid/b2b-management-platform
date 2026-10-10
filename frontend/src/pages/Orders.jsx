@@ -29,6 +29,7 @@ import { ORDER_STATUS, STATUS_FLOW, nextStatuses } from "../lib/orderStatus";
 import { paymentBadge } from "../lib/billing";
 import { PRICE_SOURCES, hasDiscount, usePrices } from "../lib/pricing";
 import PaymentPanel from "../components/PaymentPanel";
+import EmailPanel from "../components/EmailPanel";
 import ReturnsPanel from "../components/ReturnsPanel";
 import HistoryPanel from "../components/HistoryPanel";
 import useTable from "../lib/useTable";
@@ -131,7 +132,7 @@ function StatusTimeline({ status }) {
   );
 }
 
-function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating, canWrite, canFulfil, canSeePayments, canSeeHistory, canRecordPayments, canVoidPayments, canReturn, onPaymentsChanged, onReturned }) {
+function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating, canWrite, canFulfil, canSeePayments, canSeeHistory, canRecordPayments, canVoidPayments, canReturn, canSendEmails, canSeeEmails, onPaymentsChanged, onReturned }) {
   // `version` changes the request key so the drawer refetches after updates.
   const { data, loading, error } = useResource(orderId ? `/orders/${orderId}?v=${version}` : null);
   const order = data?.data ?? null;
@@ -267,6 +268,16 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
             )}
 
             {canSeePayments && <ReturnsPanel order={order} version={version} canCreate={canReturn} onChanged={onReturned} />}
+
+            <EmailPanel
+              kind="invoice"
+              documentId={order.id}
+              customerId={order.customer_id}
+              canSend={canSendEmails}
+              canView={canSeeEmails}
+              disabled={cancelled}
+              disabledReason={t("Cancelled orders have no invoice to send.")}
+            />
 
             {canSeeHistory && <HistoryPanel entityType="order" entityId={order.id} version={version} />}
           </div>
@@ -881,6 +892,8 @@ export default function Orders() {
         canRecordPayments={can(user, "payments.write")}
         canVoidPayments={can(user, "payments.void")}
         canReturn={can(user, "returns.write")}
+        canSendEmails={can(user, "emails.send")}
+        canSeeEmails={can(user, "emails.view")}
         onPaymentsChanged={() => {
           // Refresh the whole drawer: returns need the new balance.
           setDrawerVersion((value) => value + 1);

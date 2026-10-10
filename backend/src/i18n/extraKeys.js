@@ -63,7 +63,9 @@ const AUDIT_SUMMARIES = [
     "Deactivated staff account #{id}",
     "Placed order #{id} from the portal",
     "Accepted quote #{id} from the portal",
-    "Declined quote #{id} from the portal"
+    "Declined quote #{id} from the portal",
+    "Emailed the invoice for order #{id}",
+    "Emailed quote #{id}"
 ];
 
 // Parts of price labels ("Gold −6%, 50+ units −4%"); price list names stay as typed.
