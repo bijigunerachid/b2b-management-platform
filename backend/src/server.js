@@ -23,6 +23,7 @@ const auditRoutes = require("./routes/auditRoutes");
 const mlRoutes = require("./routes/mlRoutes");
 const assistantRoutes = require("./routes/assistantRoutes");
 const { demoGuard, demoInfo } = require("./config/demo");
+const { localize } = require("./middleware/localize");
 const { auditTrail } = require("./middleware/auditTrail");
 const { inventoryRouter, purchaseOrderRouter, supplierRouter } = require("./routes/purchasingRoutes");
 const { portalRouter, portalUserRouter } = require("./routes/portalRoutes");
@@ -50,6 +51,9 @@ if (process.env.TRUST_PROXY) {
 }
 
 app.use(securityHeaders);
+// First, so every response (including CORS, rate limit and error messages) is
+// in the language the request asked for.
+app.use(localize);
 
 app.use(cors({
     origin(origin, callback) {
@@ -59,7 +63,7 @@ app.use(cors({
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type"],
+    allowedHeaders: ["Content-Type", "Accept-Language"],
     maxAge: 600
 }));
 

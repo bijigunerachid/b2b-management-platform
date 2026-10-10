@@ -1,4 +1,44 @@
 
+// How fields are named in error messages ("Company name is required."). The
+// translation layer (src/i18n) translates these names along with the message.
+const FIELD_LABELS = {
+    address: "Address",
+    amount: "Amount",
+    average_cost: "Average cost",
+    category_id: "Category",
+    city: "City",
+    company_name: "Company name",
+    contact_name: "Contact name",
+    country: "Country",
+    description: "Description",
+    email: "Email",
+    first_name: "First name",
+    is_active: "Status",
+    last_name: "Last name",
+    lead_time_days: "Lead time",
+    method: "Payment method",
+    name: "Name",
+    note: "Note",
+    notes: "Notes",
+    paid_at: "Payment date",
+    password: "Password",
+    phone: "Phone",
+    price: "Price",
+    reason: "Reason",
+    reference: "Reference",
+    reorder_point: "Reorder point",
+    role_id: "Role",
+    stock: "Stock",
+    supplier_id: "Supplier"
+};
+
+function fieldLabel(rule) {
+    if (rule.label) return rule.label;
+    if (FIELD_LABELS[rule.field]) return FIELD_LABELS[rule.field];
+    const words = rule.field.replace(/_id$/, "").replace(/_/g, " ");
+    return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function validate(rules) {
     return (req, res, next) => {
         const errors = [];
@@ -12,6 +52,7 @@ function validate(rules) {
 
         for (const rule of rules) {
             const value = req.body[rule.field];
+            const label = fieldLabel(rule);
 
             if (rule.required && (
                 value === undefined ||
@@ -20,7 +61,7 @@ function validate(rules) {
             )) {
                 errors.push({
                     field: rule.field,
-                    message: `${rule.field} is required.`
+                    message: `${label} is required.`
                 });
 
                 continue;
@@ -33,7 +74,7 @@ function validate(rules) {
             if (rule.type === "string" && typeof value !== "string") {
                 errors.push({
                     field: rule.field,
-                    message: `${rule.field} must be a string.`
+                    message: `${label} must be a string.`
                 });
             }
 
@@ -43,7 +84,7 @@ function validate(rules) {
             ) {
                 errors.push({
                     field: rule.field,
-                    message: `${rule.field} must be a valid number.`
+                    message: `${label} must be a valid number.`
                 });
             }
 
@@ -53,7 +94,7 @@ function validate(rules) {
             ) {
                 errors.push({
                     field: rule.field,
-                    message: `${rule.field} must be a whole number.`
+                    message: `${label} must be a whole number.`
                 });
             }
 
@@ -64,7 +105,7 @@ function validate(rules) {
             ) {
                 errors.push({
                     field: rule.field,
-                    message: `${rule.field} must be at most ${rule.maxLength} characters.`
+                    message: `${label} must be at most ${rule.maxLength} characters.`
                 });
             }
 
@@ -75,14 +116,14 @@ function validate(rules) {
             ) {
                 errors.push({
                     field: rule.field,
-                    message: `${rule.field} must be at most ${rule.max}.`
+                    message: `${label} must be at most ${rule.max}.`
                 });
             }
 
             if (rule.oneOf && !rule.oneOf.includes(value)) {
                 errors.push({
                     field: rule.field,
-                    message: `${rule.field} must be one of: ${rule.oneOf.join(", ")}.`
+                    message: `${label} must be one of: ${rule.oneOf.join(", ")}.`
                 });
             }
 
@@ -93,7 +134,7 @@ function validate(rules) {
             ) {
                 errors.push({
                     field: rule.field,
-                    message: `${rule.field} must contain at least ${rule.minLength} characters.`
+                    message: `${label} must contain at least ${rule.minLength} characters.`
                 });
             }
 
@@ -104,7 +145,7 @@ function validate(rules) {
             ) {
                 errors.push({
                     field: rule.field,
-                    message: `${rule.field} must be at least ${rule.min}.`
+                    message: `${label} must be at least ${rule.min}.`
                 });
             }
 
@@ -117,7 +158,7 @@ function validate(rules) {
             ) {
                 errors.push({
                     field: rule.field,
-                    message: `${rule.field} must be a valid email address.`
+                    message: `${label} must be a valid email address.`
                 });
             }
         }
@@ -135,3 +176,4 @@ function validate(rules) {
 }
 
 module.exports = validate;
+module.exports.FIELD_LABELS = FIELD_LABELS;

@@ -174,7 +174,7 @@ const createDraftsFromSuggestions = withTransaction(async (connection, req) => {
         created.push({ purchaseOrderId: id, supplier_name: group.supplier_name, lines: group.items.length });
     }
 
-    return { status: 201, body: { message: `Created ${created.length} draft purchase order${created.length === 1 ? "" : "s"}`, data: created } };
+    return { status: 201, body: { message: created.length === 1 ? "Created 1 draft purchase order" : `Created ${created.length} draft purchase orders`, data: created } };
 }, "Could not create purchase orders.");
 
 module.exports = { createDraftsFromSuggestions, getMovements, getReorderSuggestions, getSummary };

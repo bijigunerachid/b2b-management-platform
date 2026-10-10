@@ -66,7 +66,11 @@ test("a customer's price list shows up in the order form", async ({ page }) => {
     let found = false;
     for (let index = 1; index < options.length && !found; index += 1) {
         await form.getByRole("combobox", { name: /^Customer/ }).selectOption({ index });
-        found = await form.getByText(/price list, −\d/).isVisible();
+        // The customer's prices load after the selection: give them a moment
+        // instead of checking once (which made this test flaky).
+        found = await expect(form.getByText(/price list, −\d/))
+            .toBeVisible({ timeout: 1500 })
+            .then(() => true, () => false);
     }
     expect(found).toBe(true);
 
