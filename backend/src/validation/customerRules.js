@@ -6,7 +6,9 @@ const customerRules = [
     { field: "phone", type: "string", maxLength: 30 },
     { field: "address", type: "string", maxLength: 255 },
     { field: "city", type: "string", maxLength: 100 },
-    { field: "country", type: "string", maxLength: 100 }
+    { field: "country", type: "string", maxLength: 100 },
+    { field: "email_language", oneOf: ["en", "fr", "ar"] },
+    { field: "payment_reminders", oneOf: [true, false] }
 ];
 
 module.exports = customerRules;

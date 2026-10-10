@@ -5,6 +5,7 @@ import Button from "../components/ui/Button";
 import Icon from "../components/ui/Icon";
 import { Drawer, Modal } from "../components/ui/Modal";
 import { useConfirm, useToast } from "../components/ui/feedback";
+import EmailPanel from "../components/EmailPanel";
 import {
   Avatar,
   Badge,
@@ -429,7 +430,7 @@ const actionButtons = {
   delete: { label: "Delete", icon: "trash", variant: "danger-ghost" },
 };
 
-function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite }) {
+function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite, canSendEmails, canSeeEmails, onEmailed }) {
   const { data, loading, error } = useResource(quoteId ? `/quotes/${quoteId}?v=${version}` : null);
   const quote = data?.data;
   const items = quote?.items ?? [];
@@ -617,6 +618,17 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
                 <p className="rounded-xl p-4 text-sm app-muted app-text-secondary">{quote.notes}</p>
               </div>
             )}
+
+            <EmailPanel
+              kind="quote"
+              documentId={quote.id}
+              customerId={quote.customer_id}
+              canSend={canWrite && canSendEmails}
+              canView={canSeeEmails}
+              disabled={!["Draft", "Sent"].includes(quote.status)}
+              disabledReason={t("Only draft or sent quotes can be emailed.")}
+              onSent={onEmailed}
+            />
           </div>
         )
       )}
@@ -910,6 +922,13 @@ export default function Quotes() {
         onAction={handleAction}
         busy={busy}
         canWrite={canWrite}
+        canSendEmails={can(user, "emails.send")}
+        canSeeEmails={can(user, "emails.view")}
+        onEmailed={() => {
+          // A draft becomes Sent when it's emailed.
+          reload();
+          setDrawerVersion((value) => value + 1);
+        }}
       />
 
       {canWrite && (

@@ -99,6 +99,22 @@ module.exports = [
         keywords: { en: "invoice bill print pdf vat tax tva 20% due date terms 30 days facture", fr: "facture imprimer pdf tva taxe échéance délai 30 jours", ar: "فاتورة طباعة ضريبة القيمة المضافة تاريخ الاستحقاق أجل 30 يوما" }
     },
     {
+        id: "emails",
+        permission: "emails.view",
+        path: "/emails",
+        title: { en: "Emailing invoices and quotes", fr: "Envoyer factures et devis par e-mail", ar: "إرسال الفواتير وعروض الأسعار بالبريد" },
+        body: {
+            en: "1. Open an order (or a quote) and find Emails, then click Email invoice (or Email to client).\n2. Check the address and the language. They come from the customer, where you can set an email language and turn payment reminders on or off.\n3. Add a message if you like, and click Send. A draft quote is marked as sent at the same time.\nInvoices due in the next few days get an automatic payment reminder, once per invoice. Every email, sent or not, is listed on the Emails page, where you can read it as the client received it. If no mail server is set up, emails are saved there in the outbox instead of being sent.",
+            fr: "1. Ouvrez une commande (ou un devis), section E-mails, puis cliquez sur Envoyer la facture (ou Envoyer au client).\n2. Vérifiez l'adresse et la langue. Elles viennent de la fiche client, où l'on choisit la langue des e-mails et active ou non les rappels de paiement.\n3. Ajoutez un message si besoin, puis cliquez sur Envoyer. Un devis en brouillon est marqué comme envoyé en même temps.\nLes factures arrivant à échéance dans les prochains jours reçoivent un rappel automatique, une fois par facture. Tous les e-mails, envoyés ou non, sont listés sur la page E-mails, où vous pouvez les lire tels que le client les a reçus. Sans serveur d'e-mail configuré, ils y sont enregistrés dans la boîte d'envoi au lieu d'être envoyés.",
+            ar: "1. افتح طلبية (أو عرض سعر) وانتقل إلى قسم الرسائل، ثم اضغط على «إرسال الفاتورة» (أو «إرسال إلى الزبون»).\n2. تحقق من العنوان واللغة، فهما يأتيان من بطاقة الزبون حيث تُحدد لغة الرسائل وتُفعَّل تذكيرات الأداء أو تُعطَّل.\n3. أضف رسالة إن أردت، ثم اضغط على «إرسال». يُوسم عرض السعر المسودة بـ«مُرسل» في الوقت نفسه.\nتتلقى الفواتير التي يحل أجلها خلال الأيام القليلة القادمة تذكيرًا تلقائيًا، مرة واحدة لكل فاتورة. تظهر كل الرسائل، المرسلة وغير المرسلة، في صفحة الرسائل حيث يمكنك قراءتها كما وصلت إلى الزبون. وإذا لم يُعدّ أي خادم بريد، تُحفظ هناك في صندوق الصادر بدل إرسالها."
+        },
+        keywords: {
+            en: "email mail send invoice quote client reminder payment reminder outbox smtp language",
+            fr: "e-mail mail envoyer facture devis client rappel relance boîte d'envoi langue",
+            ar: "بريد رسالة إرسال فاتورة عرض سعر زبون تذكير صندوق الصادر لغة"
+        }
+    },
+    {
         id: "record-payment",
         permission: "payments.view",
         path: "/receivables",

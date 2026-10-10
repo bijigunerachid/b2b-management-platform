@@ -22,6 +22,8 @@ const {
     getOrderReturns
 } = require("../controllers/creditNoteController");
 
+const { emailInvoice } = require("../controllers/emailController");
+
 router.use(protect);
 
 router.get(
@@ -41,6 +43,12 @@ router.post(
     requirePermission("orders.write"),
     createOrder
 );
+router.post(
+    "/:id/email",
+    requirePermission("emails.send"),
+    emailInvoice
+);
+
 router.patch(
     "/:id/status",
     requirePermission("orders.fulfil"),

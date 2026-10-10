@@ -240,6 +240,9 @@ function generateCustomers(random, count, { now, earliest }) {
             address: `${random.int(1, 240)} ${random.pick(STREETS)}`,
             city,
             country,
+            // Most Moroccan clients read French; some prefer Arabic, foreign ones English.
+            // A separate random source, so the rest of the generated data doesn't change.
+            email_language: foreign ? "en" : createRandom(4711 + index).chance(0.25) ? "ar" : "fr",
             created_at: new Date(earliest.getTime() + random.next() * (now.getTime() - earliest.getTime()))
         });
     }

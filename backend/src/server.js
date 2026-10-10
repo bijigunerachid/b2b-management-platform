@@ -21,6 +21,8 @@ const { pricingRouter } = require("./routes/pricingRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const auditRoutes = require("./routes/auditRoutes");
 const mlRoutes = require("./routes/mlRoutes");
+const emailRoutes = require("./routes/emailRoutes");
+const { scheduleReminders } = require("./email/reminders");
 const assistantRoutes = require("./routes/assistantRoutes");
 const { demoGuard, demoInfo } = require("./config/demo");
 const { localize } = require("./middleware/localize");
@@ -117,6 +119,7 @@ app.use("/api/pricing", pricingRouter);
 app.use("/api/reports", reportRoutes);
 app.use("/api/audit", auditRoutes);
 app.use("/api/ml", mlRoutes);
+app.use("/api/emails", emailRoutes);
 app.use("/api/assistant", assistantRoutes);
 app.use("/api/suppliers", supplierRouter);
 app.use("/api/purchase-orders", purchaseOrderRouter);
@@ -135,4 +138,7 @@ if (require.main === module) {
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });
+
+    // Payment reminders before invoices fall due (EMAIL_REMINDERS=false turns them off).
+    scheduleReminders(pool);
 }

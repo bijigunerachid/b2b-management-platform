@@ -32,6 +32,7 @@ const sections = [
       { label: "Orders", path: "/orders", icon: "orders", permission: "orders.view" },
       { label: "Receivables", path: "/receivables", icon: "wallet", permission: "payments.view" },
       { label: "Credit notes", path: "/credit-notes", icon: "undo", permission: "payments.view" },
+      { label: "Emails", path: "/emails", icon: "mail", permission: "emails.view" },
       { label: "Customers", path: "/customers", icon: "customers", permission: "customers.view" },
     ],
   },

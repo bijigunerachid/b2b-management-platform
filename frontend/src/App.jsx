@@ -18,6 +18,7 @@ const Reports = lazy(() => import("./pages/Reports"));
 const Forecast = lazy(() => import("./pages/Forecast"));
 const PaymentRisk = lazy(() => import("./pages/PaymentRisk"));
 const Recommendations = lazy(() => import("./pages/Recommendations"));
+const Emails = lazy(() => import("./pages/Emails"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Quotes = lazy(() => import("./pages/Quotes"));
@@ -74,6 +75,7 @@ export default function App() {
                                     <Route path="/forecast" element={<ProtectedRoute permission="reports.view"><Forecast /></ProtectedRoute>} />
                                     <Route path="/payment-risk" element={<ProtectedRoute permission="reports.view"><PaymentRisk /></ProtectedRoute>} />
                                     <Route path="/recommendations" element={<ProtectedRoute permission="reports.view"><Recommendations /></ProtectedRoute>} />
+                                    <Route path="/emails" element={<ProtectedRoute permission="emails.view"><Emails /></ProtectedRoute>} />
                                     <Route path="/audit" element={<ProtectedRoute permission="audit.view"><AuditLog /></ProtectedRoute>} />
                                     <Route path="/users" element={<ProtectedRoute permission="users.manage"><Users /></ProtectedRoute>} />
                                 </Route>
