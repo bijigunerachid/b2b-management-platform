@@ -6,10 +6,12 @@ import Icon from "./ui/Icon";
 import { Avatar, Popover } from "./ui/primitives";
 import { useConfirm, useToast } from "./ui/feedback";
 import CommandPalette from "./CommandPalette";
+import LanguageMenu from "./LanguageMenu";
 import NotificationsMenu from "./NotificationsMenu";
 import { PageFallback } from "./PageFallback";
 import { can, initials } from "../lib/api";
 
+import { t } from "../i18n";
 const sections = [
   {
     title: "Overview",
@@ -72,8 +74,8 @@ function Logo({ compact }) {
       </div>
       {!compact && (
         <div className="min-w-0">
-          <p className="text-[15px] font-bold leading-tight tracking-tight app-text">B2B Platform</p>
-          <p className="text-xs app-text-muted">Business Management</p>
+          <p className="text-[15px] font-bold leading-tight tracking-tight app-text">{t("B2B Platform")}</p>
+          <p className="text-xs app-text-muted">{t("Business Management")}</p>
         </div>
       )}
     </Link>
@@ -87,14 +89,14 @@ function SidebarContent({ visibleSections, collapsed, onNavigate, user, onLogout
         <Logo compact={collapsed} />
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label="Main navigation">
+      <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label={t("Main navigation")}>
         {visibleSections.map((section) => (
           <div key={section.title} className="mt-4 first:mt-1">
             {collapsed ? (
               <div className="mx-auto mb-2 h-px w-6" style={{ backgroundColor: "var(--border-color)" }} />
             ) : (
               <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider app-text-muted">
-                {section.title}
+                {t(section.title)}
               </p>
             )}
             <div className="flex flex-col gap-0.5">
@@ -104,7 +106,7 @@ function SidebarContent({ visibleSections, collapsed, onNavigate, user, onLogout
                   to={link.path}
                   end={link.path === "/"}
                   onClick={onNavigate}
-                  title={collapsed ? link.label : undefined}
+                  title={collapsed ? t(link.label) : undefined}
                   className={({ isActive }) =>
                     `group relative flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 ${
                       collapsed ? "mx-auto h-11 w-11 justify-center" : "px-3 py-2.5"
@@ -120,12 +122,12 @@ function SidebarContent({ visibleSections, collapsed, onNavigate, user, onLogout
                     <>
                       {isActive && !collapsed && (
                         <span
-                          className="absolute -left-3 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full"
+                          className="absolute -start-3 top-1/2 h-6 w-1 -translate-y-1/2 rounded-e-full"
                           style={{ backgroundColor: "var(--primary)" }}
                         />
                       )}
                       <Icon name={link.icon} size={19} strokeWidth={isActive ? 2.1 : 1.8} />
-                      {!collapsed && <span className="flex-1">{link.label}</span>}
+                      {!collapsed && <span className="flex-1">{t(link.label)}</span>}
                     </>
                   )}
                 </NavLink>
@@ -143,14 +145,14 @@ function SidebarContent({ visibleSections, collapsed, onNavigate, user, onLogout
               <p className="truncate text-sm font-semibold app-text">
                 {user?.first_name} {user?.last_name}
               </p>
-              <p className="truncate text-xs app-text-muted">{user?.role}</p>
+              <p className="truncate text-xs app-text-muted">{t(user?.role)}</p>
             </div>
           )}
           <button
             type="button"
             onClick={onLogout}
-            aria-label="Sign out"
-            title="Sign out"
+            aria-label={t("Sign out")}
+            title={t("Sign out")}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] app-text-secondary"
           >
             <Icon name="logout" size={17} />
@@ -196,9 +198,10 @@ export default function Layout() {
     }
   }, [collapsed]);
 
+  const pageTitle = currentPage ? `${t(currentPage.label)} · B2B Platform` : "B2B Platform";
   useEffect(() => {
-    document.title = currentPage ? `${currentPage.label} · B2B Platform` : "B2B Platform";
-  }, [currentPage]);
+    window.document.title = pageTitle;
+  }, [pageTitle]);
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -214,9 +217,9 @@ export default function Layout() {
 
   const handleLogout = useCallback(async () => {
     const confirmed = await confirm({
-      title: "Sign out?",
-      message: "You will need to sign in again to access the workspace.",
-      confirmLabel: "Sign out",
+      title: t("Sign out?"),
+      message: t("You will need to sign in again to access the workspace."),
+      confirmLabel: t("Sign out"),
       tone: "primary",
       icon: "logout",
     });
@@ -227,7 +230,7 @@ export default function Layout() {
       await logout();
       navigate("/login", { replace: true });
     } catch {
-      toast.error("Could not sign out. Please try again.");
+      toast.error(t("Could not sign out. Please try again."));
     }
   }, [confirm, logout, navigate, toast]);
 
@@ -236,7 +239,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--app-bg)" }}>
       <aside
-        className="fixed inset-y-0 left-0 z-40 hidden border-r transition-[width] duration-200 lg:block"
+        className="fixed inset-y-0 start-0 z-40 hidden border-e transition-[width] duration-200 lg:block"
         style={{
           width: collapsed ? 80 : "var(--sidebar-width)",
           backgroundColor: "var(--surface)",
@@ -252,9 +255,9 @@ export default function Layout() {
         <button
           type="button"
           onClick={() => setCollapsed((value) => !value)}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-3 top-[26px] flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition hover:scale-110 app-text-secondary"
+          aria-label={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
+          title={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
+          className="absolute -end-3 top-[26px] flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition hover:scale-110 app-text-secondary"
           style={{ backgroundColor: "var(--surface)", borderColor: "var(--border-color)" }}
         >
           <Icon name="chevronsLeft" size={13} strokeWidth={2.2} className={`transition-transform ${collapsed ? "rotate-180" : ""}`} />
@@ -270,14 +273,14 @@ export default function Layout() {
             aria-hidden="true"
           />
           <aside
-            className="absolute inset-y-0 left-0 w-[280px] max-w-[85vw] border-r shadow-2xl animate-drawer-left"
+            className="absolute inset-y-0 start-0 w-[280px] max-w-[85vw] border-e shadow-2xl animate-drawer-left"
             style={{ backgroundColor: "var(--surface)", borderColor: "var(--border-color)" }}
           >
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              aria-label="Close navigation"
-              className="absolute right-3 top-5 flex h-9 w-9 items-center justify-center rounded-lg hover:bg-[var(--surface-hover)] app-text-secondary"
+              aria-label={t("Close navigation")}
+              className="absolute end-3 top-5 flex h-9 w-9 items-center justify-center rounded-lg hover:bg-[var(--surface-hover)] app-text-secondary"
             >
               <Icon name="close" size={18} />
             </button>
@@ -294,7 +297,7 @@ export default function Layout() {
 
       <div
         className={`flex min-h-screen min-w-0 flex-col transition-[padding] duration-200 ${
-          collapsed ? "lg:pl-20" : "lg:pl-[var(--sidebar-width)]"
+          collapsed ? "lg:ps-20" : "lg:ps-[var(--sidebar-width)]"
         }`}
       >
         <header
@@ -307,55 +310,56 @@ export default function Layout() {
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
-            aria-label="Open navigation"
+            aria-label={t("Open navigation")}
             className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-[var(--surface-hover)] lg:hidden app-text"
           >
             <Icon name="menu" size={20} />
           </button>
 
-          <nav aria-label="Breadcrumb" className="hidden min-w-0 items-center gap-1.5 text-sm sm:flex">
-            <span className="app-text-muted">{currentSection?.title ?? "Workspace"}</span>
+          <nav aria-label={t("Breadcrumb")} className="hidden min-w-0 items-center gap-1.5 text-sm sm:flex">
+            <span className="app-text-muted">{currentSection ? t(currentSection.title) : t("Workspace")}</span>
             <Icon name="chevronRight" size={14} className="app-text-muted" />
-            <span className="truncate font-semibold app-text">{currentPage?.label ?? "Page"}</span>
+            <span className="truncate font-semibold app-text">{currentPage ? t(currentPage.label) : t("Page")}</span>
           </nav>
 
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+          <div className="ms-auto flex items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={() => setPaletteOpen(true)}
               className="group flex h-10 items-center gap-2.5 rounded-xl border px-3 text-sm transition hover:border-[var(--border-strong)] md:w-64 app-text-muted"
               style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}
-              aria-label="Open command palette"
+              aria-label={t("Open command palette")}
             >
               <Icon name="search" size={17} />
-              <span className="hidden flex-1 text-left md:block">Search anything...</span>
+              <span className="hidden flex-1 text-start md:block">{t("Search anything...")}</span>
               <span className="hidden items-center gap-0.5 md:flex">
                 <span className="kbd">{isMac ? "⌘" : "Ctrl"}</span>
-                <span className="kbd">K</span>
+                <span className="kbd">{t("K")}</span>
               </span>
             </button>
 
             <NotificationsMenu />
 
+            <LanguageMenu />
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-label={theme === "dark" ? t("Switch to light mode") : t("Switch to dark mode")}
+              title={theme === "dark" ? t("Switch to light mode") : t("Switch to dark mode")}
               className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-[var(--surface-hover)] app-text-secondary"
             >
               <Icon name={theme === "dark" ? "sun" : "moon"} size={19} className="transition-transform duration-300 hover:rotate-12" />
             </button>
 
             <Popover
-              label="Account menu"
+              label={t("Account menu")}
               width={260}
               trigger={({ props }) => (
                 <button
                   type="button"
                   {...props}
-                  className="ml-1 flex items-center gap-2 rounded-xl p-1 pr-2 transition hover:bg-[var(--surface-hover)]"
-                  aria-label="Account menu"
+                  className="ms-1 flex items-center gap-2 rounded-xl p-1 pe-2 transition hover:bg-[var(--surface-hover)]"
+                  aria-label={t("Account menu")}
                 >
                   <Avatar label={initials(user?.first_name, user?.last_name)} seed={user?.id} size={34} rounded="rounded-full" />
                   <Icon name="chevronDown" size={15} className="hidden app-text-muted sm:block" />
@@ -375,15 +379,15 @@ export default function Layout() {
                         className="mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold"
                         style={{ backgroundColor: "var(--primary-soft)", color: "var(--primary)" }}
                       >
-                        {user?.role}
+                        {t(user?.role)}
                       </span>
                     </div>
                   </div>
                   <div className="p-1.5">
                     {[
-                      { icon: theme === "dark" ? "sun" : "moon", label: theme === "dark" ? "Light mode" : "Dark mode", run: toggleTheme },
-                      { icon: "command", label: "Command palette", hint: isMac ? "⌘K" : "Ctrl K", run: () => setPaletteOpen(true) },
-                      { icon: "logout", label: "Sign out", run: handleLogout, danger: true },
+                      { icon: theme === "dark" ? "sun" : "moon", label: theme === "dark" ? t("Light mode") : t("Dark mode"), run: toggleTheme },
+                      { icon: "command", label: t("Command palette"), hint: isMac ? "⌘K" : "Ctrl K", run: () => setPaletteOpen(true) },
+                      { icon: "logout", label: t("Sign out"), run: handleLogout, danger: true },
                     ].map((item) => (
                       <button
                         key={item.label}
@@ -399,7 +403,7 @@ export default function Layout() {
                         }`}
                       >
                         <Icon name={item.icon} size={17} />
-                        <span className="flex-1 text-left">{item.label}</span>
+                        <span className="flex-1 text-start">{item.label}</span>
                         {item.hint && <span className="text-xs app-text-muted">{item.hint}</span>}
                       </button>
                     ))}

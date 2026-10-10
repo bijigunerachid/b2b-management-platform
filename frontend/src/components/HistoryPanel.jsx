@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { formatDate, timeAgo, useResource } from "../lib/api";
 
+import { t } from "../i18n";
 function formatValue(value) {
   if (value === null || value === undefined || value === "") return "empty";
   return String(value);
@@ -31,10 +32,10 @@ export default function HistoryPanel({ entityType, entityId, version = 0 }) {
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-bold app-text">History</h3>
+        <h3 className="text-sm font-bold app-text">{t("History")}</h3>
         {total > entries.length && (
           <Link to={`/audit?entity_type=${entityType}&entity_id=${entityId}`} className="text-xs font-semibold hover:underline" style={{ color: "var(--primary)" }}>
-            All {total} entries
+            {t("All {count} entries", { count: total })}
           </Link>
         )}
       </div>
@@ -44,16 +45,16 @@ export default function HistoryPanel({ entityType, entityId, version = 0 }) {
         <div className="skeleton h-14 rounded-xl" />
       ) : entries.length === 0 ? (
         <p className="rounded-xl border border-dashed px-4 py-5 text-center text-sm app-text-secondary" style={{ borderColor: "var(--border-strong)" }}>
-          No recorded changes yet.
+          {t("No recorded changes yet.")}
         </p>
       ) : (
-        <ol className="space-y-3 border-l pl-4" style={{ borderColor: "var(--border-color)" }}>
+        <ol className="space-y-3 border-s ps-4" style={{ borderColor: "var(--border-color)" }}>
           {entries.map((entry) => (
             <li key={entry.id} className="relative">
-              <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: "var(--primary)", backgroundColor: "var(--surface)" }} />
+              <span className="absolute -start-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: "var(--primary)", backgroundColor: "var(--surface)" }} />
               <p className="text-sm app-text">{entry.summary}</p>
               <p className="text-xs app-text-muted" title={formatDate(entry.created_at, true)}>
-                {entry.user_name ?? "Someone"} · {timeAgo(entry.created_at)}
+                {entry.user_name ?? t("Someone")} · {timeAgo(entry.created_at)}
               </p>
               <ChangeList changes={entry.changes} />
             </li>

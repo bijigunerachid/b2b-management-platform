@@ -22,6 +22,7 @@ import { compactMoney, exportCsv, money, number, useResource } from "../lib/api"
 import { localDateInput } from "../lib/billing";
 import useTable from "../lib/useTable";
 
+import { language, t } from "../i18n";
 const LOW_MARGIN = 20;
 
 function daysAgo(days) {
@@ -67,7 +68,7 @@ function axisTicks(max) {
 
 function monthLabel(key, withYear) {
   const [year, month] = key.split("-").map(Number);
-  return new Date(year, month - 1, 1).toLocaleString("en", withYear ? { month: "short", year: "2-digit" } : { month: "short" });
+  return new Date(year, month - 1, 1).toLocaleString(language().intl, withYear ? { month: "short", year: "2-digit" } : { month: "short" });
 }
 
 function percent(value) {
@@ -75,8 +76,8 @@ function percent(value) {
 }
 
 function changeText(value, period) {
-  if (value === null || value === undefined) return `No sales in the previous ${period}`;
-  return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(1)}% vs previous ${period}`;
+  if (value === null || value === undefined) return t("No sales in the previous {period}", { period });
+  return t("{change}% vs previous {period}", { change: `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(1)}`, period });
 }
 
 function MarginChart({ months }) {
@@ -89,28 +90,28 @@ function MarginChart({ months }) {
   return (
     <Card>
       <CardHeader
-        title="Revenue by month"
-        description="Each bar is cost plus margin, excluding VAT and net of returns"
+        title={t("Revenue by month")}
+        description={t("Each bar is cost plus margin, excluding VAT and net of returns")}
         actions={
-          <div className="flex items-center gap-4 text-xs app-text-secondary" aria-label="Legend">
+          <div className="flex items-center gap-4 text-xs app-text-secondary" aria-label={t("Legend")}>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "var(--series-margin)" }} /> Margin
+              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "var(--series-margin)" }} /> {t("Margin")}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "var(--series-cost)" }} /> Cost
+              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "var(--series-cost)" }} /> {t("Cost")}
             </span>
           </div>
         }
       />
       <div className="px-5 pb-5 pt-6">
-        <div className="relative h-[260px] pl-14">
+        <div className="relative h-[260px] ps-14">
           {ticks.map((tick) => (
             <div
               key={tick}
-              className="absolute left-14 right-0 border-t"
+              className="absolute start-14 end-0 border-t"
               style={{ bottom: `${(tick / max) * 100}%`, borderColor: tick === 0 ? "var(--border-strong)" : "var(--chart-grid)", borderStyle: tick === 0 ? "solid" : "dashed" }}
             >
-              <span className="absolute -left-14 -translate-y-1/2 pr-2 text-right text-[11px] tabular-nums app-text-muted" style={{ width: 52 }}>
+              <span className="absolute -start-14 -translate-y-1/2 pe-2 text-end text-[11px] tabular-nums app-text-muted" style={{ width: 52 }}>
                 {compactMoney(tick).replace(" MAD", "")}
               </span>
             </div>
@@ -130,7 +131,7 @@ function MarginChart({ months }) {
                   onFocus={() => setHovered(index)}
                   onBlur={() => setHovered(null)}
                   tabIndex={0}
-                  aria-label={`${monthLabel(month.month, true)}: revenue ${money(month.revenue)}, cost ${money(month.cost)}, margin ${money(month.margin)} (${percent(month.margin_percent)})`}
+                  aria-label={t("{month}: revenue {revenue}, cost {cost}, margin {margin} ({percent})", { month: monthLabel(month.month, true), revenue: money(month.revenue), cost: money(month.cost), margin: money(month.margin), percent: percent(month.margin_percent) })}
                 >
                   {isHovered && <div className="absolute inset-0 rounded-lg" style={{ backgroundColor: "var(--surface-hover)", opacity: 0.6 }} />}
                   <div className="relative flex w-full max-w-12 flex-col justify-end" style={{ height: "100%", opacity: hovered === null || isHovered ? 1 : 0.45 }}>
@@ -152,7 +153,7 @@ function MarginChart({ months }) {
                       className="pointer-events-none absolute z-10 w-max min-w-44 rounded-lg border px-3 py-2 text-xs animate-fade-in"
                       style={{
                         bottom: `calc(${Math.max((month.revenue / max) * 100, 4)}% + 10px)`,
-                        ...(index > months.length / 2 ? { right: 0 } : { left: 0 }),
+                        ...(index > months.length / 2 ? { insetInlineEnd: 0 } : { insetInlineStart: 0 }),
                         backgroundColor: "var(--surface)",
                         borderColor: "var(--border-color)",
                         boxShadow: "var(--pop-shadow)",
@@ -160,10 +161,10 @@ function MarginChart({ months }) {
                     >
                       <p className="mb-1 font-semibold app-text">{monthLabel(month.month, true)}</p>
                       {[
-                        ["Revenue", money(month.revenue), null],
-                        ["Margin", `${money(month.margin)} (${percent(month.margin_percent)})`, "var(--series-margin)"],
-                        ["Cost", money(month.cost), "var(--series-cost)"],
-                        ["Orders", number(month.orders), null],
+                        [t("Revenue"), money(month.revenue), null],
+                        [t("Margin"), `${money(month.margin)} (${percent(month.margin_percent)})`, "var(--series-margin)"],
+                        [t("Cost"), money(month.cost), "var(--series-cost)"],
+                        [t("Orders"), number(month.orders), null],
                       ].map(([label, value, color]) => (
                         <p key={label} className="flex items-center justify-between gap-4">
                           <span className="flex items-center gap-1.5 app-text-secondary">
@@ -207,19 +208,19 @@ function Breakdown({ report }) {
     exportCsv(
       `sales-by-${dimension}-${report.range.from}-to-${report.range.to}`,
       [
-        [DIMENSIONS[dimension].noun, (row) => row.label],
-        ["Orders", (row) => row.orders],
-        ["Units", (row) => row.units],
-        ["Revenue (MAD, HT)", (row) => row.revenue],
-        ["Cost (MAD)", (row) => row.cost],
-        ["Margin (MAD)", (row) => row.margin],
-        ["Margin %", (row) => row.margin_percent ?? ""],
-        ["Returns (MAD, HT)", (row) => row.returns],
-        ["Discounts (MAD)", (row) => row.discounts],
+        [t(DIMENSIONS[dimension].noun), (row) => row.label],
+        [t("Orders"), (row) => row.orders],
+        [t("Units"), (row) => row.units],
+        [t("Revenue (MAD, HT)"), (row) => row.revenue],
+        [t("Cost (MAD)"), (row) => row.cost],
+        [t("Margin (MAD)"), (row) => row.margin],
+        [t("Margin %"), (row) => row.margin_percent ?? ""],
+        [t("Returns (MAD, HT)"), (row) => row.returns],
+        [t("Discounts (MAD)"), (row) => row.discounts],
       ],
       table.sorted
     );
-    toast.info(`Exported ${table.sorted.length} rows to CSV.`);
+    toast.info(t("Exported {count} rows to CSV.", { count: table.sorted.length }));
   }
 
   const linkFor = (row) =>
@@ -229,14 +230,14 @@ function Breakdown({ report }) {
     <Card>
       <div className="flex flex-wrap items-center gap-3 border-b p-4" style={{ borderColor: "var(--border-color)" }}>
         <SegmentedControl
-          label="Group sales by"
+          label={t("Group sales by")}
           value={dimension}
           onChange={(value) => {
             setDimension(value);
             setSearch("");
             table.setPage(1);
           }}
-          options={Object.entries(DIMENSIONS).map(([value, meta]) => ({ value, label: meta.label, count: (report[meta.key] ?? []).length }))}
+          options={Object.entries(DIMENSIONS).map(([value, meta]) => ({ value, label: t(meta.label), count: (report[meta.key] ?? []).length }))}
         />
         <SearchInput
           value={search}
@@ -244,28 +245,28 @@ function Breakdown({ report }) {
             setSearch(value);
             table.setPage(1);
           }}
-          placeholder={`Search ${DIMENSIONS[dimension].label.toLowerCase()}...`}
+          placeholder={t("Search {what}...", { what: t(DIMENSIONS[dimension].label).toLowerCase() })}
           className="sm:w-64"
         />
-        <Button icon="download" onClick={handleExport} disabled={filtered.length === 0} className="ml-auto">
-          Export
+        <Button icon="download" onClick={handleExport} disabled={filtered.length === 0} className="ms-auto">
+          {t("Export")}
         </Button>
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon="search" title={rows.length ? "Nothing matches" : "No sales in this period"} description={rows.length ? "Try another search." : "Pick a longer date range."} />
+        <EmptyState icon="search" title={rows.length ? t("Nothing matches") : t("No sales in this period")} description={rows.length ? t("Try another search.") : t("Pick a longer date range.")} />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[760px] text-start text-sm">
             <TableHead>
-              <SortHeader label={DIMENSIONS[dimension].noun} column="label" sort={table.sort} onSort={table.toggleSort} />
-              <SortHeader label="Units" column="units" sort={table.sort} onSort={table.toggleSort} align="right" />
-              <SortHeader label="Revenue" column="revenue" sort={table.sort} onSort={table.toggleSort} align="right" />
-              <Th className="hidden 2xl:table-cell">Share</Th>
-              <SortHeader label="Margin" column="margin" sort={table.sort} onSort={table.toggleSort} align="right" />
-              <SortHeader label="Margin %" column="margin_percent" sort={table.sort} onSort={table.toggleSort} align="right" />
-              <SortHeader label="Returns" column="returns" sort={table.sort} onSort={table.toggleSort} align="right" />
-              {showDiscounts && <Th align="right">Discounts</Th>}
+              <SortHeader label={t(DIMENSIONS[dimension].noun)} column="label" sort={table.sort} onSort={table.toggleSort} />
+              <SortHeader label={t("Units")} column="units" sort={table.sort} onSort={table.toggleSort} align="right" />
+              <SortHeader label={t("Revenue")} column="revenue" sort={table.sort} onSort={table.toggleSort} align="right" />
+              <Th className="hidden 2xl:table-cell">{t("Share")}</Th>
+              <SortHeader label={t("Margin")} column="margin" sort={table.sort} onSort={table.toggleSort} align="right" />
+              <SortHeader label={t("Margin %")} column="margin_percent" sort={table.sort} onSort={table.toggleSort} align="right" />
+              <SortHeader label={t("Returns")} column="returns" sort={table.sort} onSort={table.toggleSort} align="right" />
+              {showDiscounts && <Th align="right">{t("Discounts")}</Th>}
             </TableHead>
             <tbody>
               {table.rows.map((row) => {
@@ -277,17 +278,17 @@ function Breakdown({ report }) {
                     <td className="max-w-[240px] px-5 py-3">
                       {link ? (
                         <Link to={link} className="block truncate font-medium hover:underline app-text">
-                          {row.label ?? "Uncategorized"}
+                          {row.label ?? t("Uncategorized")}
                         </Link>
                       ) : (
-                        <p className="truncate font-medium app-text">{row.label ?? "Uncategorized"}</p>
+                        <p className="truncate font-medium app-text">{row.label ?? t("Uncategorized")}</p>
                       )}
                       <p className="truncate text-xs app-text-muted">
-                        {[row.category_name, row.city, row.products !== undefined && `${row.products} products`, `${number(row.orders)} orders`].filter(Boolean).join(" · ")}
+                        {[row.category_name, row.city, row.products !== undefined && t("{count} products", { count: row.products }), t("{count} orders", { count: number(row.orders) })].filter(Boolean).join(" · ")}
                       </p>
                     </td>
-                    <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums app-text-secondary">{number(row.units)}</td>
-                    <td className="whitespace-nowrap px-5 py-3 text-right font-semibold tabular-nums app-text">{money(row.revenue)}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-end tabular-nums app-text-secondary">{number(row.units)}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-end font-semibold tabular-nums app-text">{money(row.revenue)}</td>
                     <td className="hidden px-5 py-3 2xl:table-cell">
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 w-20 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }}>
@@ -296,15 +297,15 @@ function Breakdown({ report }) {
                         <span className="text-xs tabular-nums app-text-muted">{share.toFixed(1)}%</span>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums app-text">{money(row.margin)}</td>
-                    <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums">
+                    <td className="whitespace-nowrap px-5 py-3 text-end tabular-nums app-text">{money(row.margin)}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-end tabular-nums">
                       <span className={low ? "inline-flex items-center gap-1 font-semibold" : "app-text-secondary"} style={low ? { color: "var(--warning)" } : undefined}>
                         {low && <Icon name="alert" size={13} />}
                         {percent(row.margin_percent)}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums app-text-muted">{row.returns > 0 ? money(row.returns) : "—"}</td>
-                    {showDiscounts && <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums app-text-muted">{row.discounts > 0 ? money(row.discounts) : "—"}</td>}
+                    <td className="whitespace-nowrap px-5 py-3 text-end tabular-nums app-text-muted">{row.returns > 0 ? money(row.returns) : "—"}</td>
+                    {showDiscounts && <td className="whitespace-nowrap px-5 py-3 text-end tabular-nums app-text-muted">{row.discounts > 0 ? money(row.discounts) : "—"}</td>}
                   </tr>
                 );
               })}
@@ -313,7 +314,7 @@ function Breakdown({ report }) {
         </div>
       )}
       {filtered.length > 0 && (
-        <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label={DIMENSIONS[dimension].label.toLowerCase()} />
+        <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label={t(DIMENSIONS[dimension].label).toLowerCase()} />
       )}
     </Card>
   );
@@ -327,7 +328,7 @@ export default function Reports() {
 
   const { data, loading, error, reload } = useResource(`/reports/sales?from=${range.from}&to=${range.to}`);
   const report = data?.data;
-  const period = report ? `${report.range.days} days` : "period";
+  const period = report ? t("{count} days", { count: report.range.days }) : t("period");
 
   function choosePreset(value) {
     if (value === "custom") {
@@ -349,24 +350,24 @@ export default function Reports() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Reports"
-        description="Sales from orders that weren't cancelled, by order date. Excluding VAT, net of returns."
-        actions={<Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={loading ? "[&_svg]:animate-spin" : ""} />}
+        title={t("Reports")}
+        description={t("Sales from orders that weren't cancelled, by order date. Excluding VAT, net of returns.")}
+        actions={<Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label={t("Refresh")} title={t("Refresh")} className={loading ? "[&_svg]:animate-spin" : ""} />}
       />
 
       <div className="flex flex-wrap items-center gap-3">
         <SegmentedControl
-          label="Period"
+          label={t("Period")}
           value={preset?.value ?? "custom"}
           onChange={choosePreset}
-          options={[...PRESETS.map(({ value, label }) => ({ value, label })), { value: "custom", label: "Custom" }]}
+          options={[...PRESETS.map(({ value, label }) => ({ value, label: t(label) })), { value: "custom", label: t("Custom") }]}
         />
         {!preset && (
           <form onSubmit={applyCustom} className="flex flex-wrap items-center gap-2">
-            <input type="date" value={draft.from} max={draft.to} onChange={(event) => setDraft((d) => ({ ...d, from: event.target.value }))} className="app-input h-10 w-auto" aria-label="From" />
-            <span className="text-sm app-text-muted">to</span>
-            <input type="date" value={draft.to} min={draft.from} max={localDateInput()} onChange={(event) => setDraft((d) => ({ ...d, to: event.target.value }))} className="app-input h-10 w-auto" aria-label="To" />
-            <Button type="submit">Apply</Button>
+            <input type="date" value={draft.from} max={draft.to} onChange={(event) => setDraft((d) => ({ ...d, from: event.target.value }))} className="app-input h-10 w-auto" aria-label={t("From")} />
+            <span className="text-sm app-text-muted">{t("to")}</span>
+            <input type="date" value={draft.to} min={draft.from} max={localDateInput()} onChange={(event) => setDraft((d) => ({ ...d, to: event.target.value }))} className="app-input h-10 w-auto" aria-label={t("To")} />
+            <Button type="submit">{t("Apply")}</Button>
           </form>
         )}
       </div>
@@ -388,25 +389,25 @@ export default function Reports() {
       ) : (
         <div className={`space-y-6 transition-opacity ${loading ? "opacity-60" : ""}`}>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Revenue" value={compactMoney(totals.revenue)} hint={changeText(report.changes.revenue, period)} icon="revenue" tone="primary" />
+            <StatCard label={t("Revenue")} value={compactMoney(totals.revenue)} hint={changeText(report.changes.revenue, period)} icon="revenue" tone="primary" />
             <StatCard
-              label="Gross margin"
+              label={t("Gross margin")}
               value={compactMoney(totals.margin)}
-              hint={`${percent(totals.margin_percent)} of revenue, ${changeText(report.changes.margin, period).toLowerCase()}`}
+              hint={`${t("{percent} of revenue", { percent: percent(totals.margin_percent) })}, ${changeText(report.changes.margin, period).toLowerCase()}`}
               icon="wallet"
               tone="success"
             />
             <StatCard
-              label="Orders"
+              label={t("Orders")}
               value={number(totals.orders)}
-              hint={`${totals.orders ? money(totals.revenue / totals.orders) : money(0)} average, ${changeText(report.changes.orders, period).toLowerCase()}`}
+              hint={`${t("{amount} average", { amount: totals.orders ? money(totals.revenue / totals.orders) : money(0) })}, ${changeText(report.changes.orders, period).toLowerCase()}`}
               icon="orders"
               tone="info"
             />
             <StatCard
-              label="Returns"
+              label={t("Returns")}
               value={compactMoney(totals.returns)}
-              hint={`${grossSales > 0 ? ((totals.returns / grossSales) * 100).toFixed(1) : "0.0"}% of sales`}
+              hint={t("{percent}% of sales", { percent: grossSales > 0 ? ((totals.returns / grossSales) * 100).toFixed(1) : "0.0" })}
               icon="undo"
               tone="warning"
             />

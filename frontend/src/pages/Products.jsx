@@ -28,6 +28,7 @@ import {
 import { api, can, exportCsv, initials, isActiveFlag, money, number, toList, useResource } from "../lib/api";
 import { StockAdjustModal, StockHistoryDrawer } from "../components/StockHistory";
 
+import { t } from "../i18n";
 const PAGE_SIZE = 10;
 const LOW_STOCK = 5;
 
@@ -53,19 +54,19 @@ function StockMeter({ stock, reorderPoint = 5, onOrder = 0 }) {
   return (
     <div>
       <div className="flex items-center gap-3">
-        <span className="w-10 text-right font-semibold tabular-nums app-text">{stock}</span>
+        <span className="w-10 text-end font-semibold tabular-nums app-text">{stock}</span>
         <div className="h-1.5 w-20 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }} title={`Reorder point: ${reorderPoint}`}>
           <div className="h-full rounded-full" style={{ width: `${Math.max(width, stock > 0 ? 4 : 0)}%`, backgroundColor: `var(--${tone})` }} />
         </div>
         {(stock === 0 || low) && (
           <Badge tone={tone} className="!px-2 !py-0.5 text-[11px]">
-            {stock === 0 ? "Out" : "Low"}
+            {stock === 0 ? t("Out") : t("Low")}
           </Badge>
         )}
       </div>
       {onOrder > 0 && (
-        <p className="mt-0.5 pl-[52px] text-[11px] font-medium" style={{ color: "var(--primary)" }}>
-          +{onOrder} on order
+        <p className="mt-0.5 ps-[52px] text-[11px] font-medium" style={{ color: "var(--primary)" }}>
+          +{t("{count} on order", { count: onOrder })}
         </p>
       )}
     </div>
@@ -198,13 +199,13 @@ export default function Products() {
     const price = Number(form.price);
     const stock = Number(form.stock);
 
-    if (!Number.isFinite(price) || price < 0) return setFormError("Enter a valid, non-negative price.");
-    if (!isEditing && (!Number.isInteger(stock) || stock < 0)) return setFormError("Stock must be a whole number of 0 or more.");
+    if (!Number.isFinite(price) || price < 0) return setFormError(t("Enter a valid, non-negative price."));
+    if (!isEditing && (!Number.isInteger(stock) || stock < 0)) return setFormError(t("Stock must be a whole number of 0 or more."));
     const reorderPoint = Number(form.reorder_point);
-    if (!Number.isInteger(reorderPoint) || reorderPoint < 0) return setFormError("Reorder point must be a whole number of 0 or more.");
-    if (!form.category_id) return setFormError("Choose a category for this product.");
+    if (!Number.isInteger(reorderPoint) || reorderPoint < 0) return setFormError(t("Reorder point must be a whole number of 0 or more."));
+    if (!form.category_id) return setFormError(t("Choose a category for this product."));
     const averageCost = form.average_cost === "" ? undefined : Number(form.average_cost);
-    if (averageCost !== undefined && (!Number.isFinite(averageCost) || averageCost < 0)) return setFormError("Unit cost must be 0 or more.");
+    if (averageCost !== undefined && (!Number.isFinite(averageCost) || averageCost < 0)) return setFormError(t("Unit cost must be 0 or more."));
 
     setSaving(true);
 
@@ -228,12 +229,12 @@ export default function Products() {
       });
       setFormOpen(false);
       clearNewParam();
-      toast.success(`${payload.name} was ${isEditing ? "updated" : "added to your catalog"}.`, {
-        title: isEditing ? "Product updated" : "Product created",
+      toast.success(isEditing ? t("{name} was updated.", { name: payload.name }) : t("{name} was added to your catalog.", { name: payload.name }), {
+        title: isEditing ? t("Product updated") : t("Product created"),
       });
       reloadAll();
     } catch (err) {
-      setFormError(err.message || "Unable to save product.");
+      setFormError(err.message || t("Unable to save product."));
     } finally {
       setSaving(false);
     }
@@ -252,10 +253,10 @@ export default function Products() {
           is_active: nextActive,
         },
       });
-      toast.success(`${product.name} is now ${nextActive ? "active" : "inactive"}.`);
+      toast.success(nextActive ? t("{name} is now active.", { name: product.name }) : t("{name} is now inactive.", { name: product.name }));
       reloadAll();
     } catch (err) {
-      toast.error(err.message || "Unable to update product.");
+      toast.error(err.message || t("Unable to update product."));
     } finally {
       setTogglingId(null);
     }
@@ -263,19 +264,19 @@ export default function Products() {
 
   async function handleDelete(product) {
     const confirmed = await confirm({
-      title: `Delete ${product.name}?`,
-      message: "This permanently removes the product. Products used in orders can't be deleted, so deactivate them instead.",
-      confirmLabel: "Delete product",
+      title: t("Delete {name}?", { name: product.name }),
+      message: t("This permanently removes the product. Products used in orders can't be deleted, so deactivate them instead."),
+      confirmLabel: t("Delete product"),
     });
     if (!confirmed) return;
 
     try {
       await api(`/products/${product.id}`, { method: "DELETE" });
-      toast.success(`${product.name} was deleted.`);
+      toast.success(t("{name} was deleted.", { name: product.name }));
       if (products.length === 1 && page > 1) setPage(page - 1);
       reloadAll();
     } catch (err) {
-      toast.error(err.message || "Unable to delete product.", { title: "Delete failed" });
+      toast.error(err.message || t("Unable to delete product."), { title: t("Delete failed") });
     }
   }
 
@@ -297,18 +298,18 @@ export default function Products() {
         "products",
         [
           ["ID", (p) => p.id],
-          ["Name", (p) => p.name],
-          ["Category", (p) => p.category_name],
-          ["Price (MAD)", (p) => p.price],
-          ["Stock", (p) => p.stock],
-          ["Active", (p) => (isActiveFlag(p.is_active) ? "Yes" : "No")],
-          ["Description", (p) => p.description],
+          [t("Name"), (p) => p.name],
+          [t("Category"), (p) => p.category_name],
+          [t("Price (MAD)"), (p) => p.price],
+          [t("Stock"), (p) => p.stock],
+          [t("Active"), (p) => (isActiveFlag(p.is_active) ? t("Yes") : t("No"))],
+          [t("Description"), (p) => p.description],
         ],
         rows
       );
-      toast.info(`Exported ${rows.length} products to CSV.`);
+      toast.info(t("Exported {count} products to CSV.", { count: rows.length }));
     } catch (err) {
-      toast.error(err.message || "Export failed.");
+      toast.error(err.message || t("Export failed."));
     } finally {
       setExporting(false);
     }
@@ -330,15 +331,15 @@ export default function Products() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Products"
+        title={t("Products")}
         actions={
           <>
             <Button icon="download" onClick={handleExport} loading={exporting} disabled={pagination.total === 0}>
-              Export
+              {t("Export")}
             </Button>
             {canWrite && (
               <Button variant="primary" icon="plus" onClick={openCreate}>
-                Add product
+                {t("Add product")}
               </Button>
             )}
           </>
@@ -346,12 +347,12 @@ export default function Products() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total products" value={number(totalAll)} icon="products" loading={totalAll === undefined} />
-        <StatCard label="Categories" value={number(categories.length)} icon="categories" tone="info" loading={categoriesResource.loading && !categoriesResource.data} />
+        <StatCard label={t("Total products")} value={number(totalAll)} icon="products" loading={totalAll === undefined} />
+        <StatCard label={t("Categories")} value={number(categories.length)} icon="categories" tone="info" loading={categoriesResource.loading && !categoriesResource.data} />
         <StatCard
-          label="Low stock"
+          label={t("Low stock")}
           value={number(lowCount)}
-          hint="At or below their reorder point"
+          hint={t("At or below their reorder point")}
           icon="alert"
           tone="warning"
           loading={lowCount === undefined}
@@ -361,9 +362,9 @@ export default function Products() {
           }}
         />
         <StatCard
-          label="Inactive"
+          label={t("Inactive")}
           value={number(inactiveCount)}
-          hint="Hidden from new orders"
+          hint={t("Hidden from new orders")}
           icon="ban"
           tone="danger"
           loading={inactiveCount === undefined}
@@ -384,7 +385,7 @@ export default function Products() {
               setSearch(value);
               setPage(1);
             }}
-            placeholder="Search name or description..."
+            placeholder={t("Search name or description...")}
             className="xl:w-72"
           />
           <select
@@ -393,10 +394,10 @@ export default function Products() {
               setCategoryId(event.target.value);
               setPage(1);
             }}
-            aria-label="Filter by category"
+            aria-label={t("Filter by category")}
             className="app-input h-10 py-0 xl:w-48"
           >
-            <option value="">All categories</option>
+            <option value="">{t("All categories")}</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -409,10 +410,10 @@ export default function Products() {
               setSupplierFilter(event.target.value);
               setPage(1);
             }}
-            aria-label="Filter by supplier"
+            aria-label={t("Filter by supplier")}
             className="app-input h-10 py-0 xl:w-48"
           >
-            <option value="">All suppliers</option>
+            <option value="">{t("All suppliers")}</option>
             {toList(suppliersResource.data).map((supplier) => (
               <option key={supplier.id} value={supplier.id}>
                 {supplier.name}
@@ -420,17 +421,17 @@ export default function Products() {
             ))}
           </select>
           <SegmentedControl
-            label="Status filter"
+            label={t("Status filter")}
             value={status}
             onChange={(value) => {
               setStatus(value);
               setPage(1);
             }}
             options={[
-              { value: "all", label: "All" },
-              { value: "active", label: "Active" },
-              { value: "inactive", label: "Inactive" },
-              { value: "low", label: "Low stock" },
+              { value: "all", label: t("All") },
+              { value: "active", label: t("Active") },
+              { value: "inactive", label: t("Inactive") },
+              { value: "low", label: t("Low stock") },
             ]}
           />
           <Button
@@ -438,9 +439,9 @@ export default function Products() {
             variant="ghost"
             icon="refresh"
             onClick={reloadAll}
-            aria-label="Refresh"
-            title="Refresh"
-            className={`xl:ml-auto ${productsResource.loading ? "[&_svg]:animate-spin" : ""}`}
+            aria-label={t("Refresh")}
+            title={t("Refresh")}
+            className={`xl:ms-auto ${productsResource.loading ? "[&_svg]:animate-spin" : ""}`}
           />
         </div>
 
@@ -449,8 +450,8 @@ export default function Products() {
         ) : products.length === 0 ? (
           <EmptyState
             icon={filtering ? "search" : "products"}
-            title={filtering ? "No matching products" : "No products yet"}
-            description={filtering ? "Try a different search, category, or status." : "Add your first product to start building your catalog."}
+            title={filtering ? t("No matching products") : t("No products yet")}
+            description={filtering ? t("Try a different search, category, or status.") : t("Add your first product to start building your catalog.")}
             action={
               filtering ? (
                 <Button
@@ -463,12 +464,12 @@ export default function Products() {
                     setPage(1);
                   }}
                 >
-                  Clear filters
+                  {t("Clear filters")}
                 </Button>
               ) : (
                 canWrite && (
                   <Button variant="primary" icon="plus" onClick={openCreate}>
-                    Add your first product
+                    {t("Add your first product")}
                   </Button>
                 )
               )
@@ -476,14 +477,14 @@ export default function Products() {
           />
         ) : (
           <div className={`overflow-x-auto transition-opacity ${productsResource.loading ? "opacity-60" : ""}`}>
-            <table className="w-full min-w-[900px] text-left text-sm">
+            <table className="w-full min-w-[900px] text-start text-sm">
               <TableHead>
-                <SortHeader label="Product" column="name" sort={sort} onSort={toggleSort} />
-                <SortHeader label="Category" column="category" sort={sort} onSort={toggleSort} />
-                <SortHeader label="Price" column="price" sort={sort} onSort={toggleSort} />
-                <SortHeader label="Stock" column="stock" sort={sort} onSort={toggleSort} />
-                <Th>Active</Th>
-                <Th align="right">Actions</Th>
+                <SortHeader label={t("Product")} column="name" sort={sort} onSort={toggleSort} />
+                <SortHeader label={t("Category")} column="category" sort={sort} onSort={toggleSort} />
+                <SortHeader label={t("Price")} column="price" sort={sort} onSort={toggleSort} />
+                <SortHeader label={t("Stock")} column="stock" sort={sort} onSort={toggleSort} />
+                <Th>{t("Active")}</Th>
+                <Th align="right">{t("Actions")}</Th>
               </TableHead>
               <tbody>
                 {products.map((product) => {
@@ -504,7 +505,7 @@ export default function Products() {
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
-                        <Badge tone="neutral">{product.category_name || "Uncategorized"}</Badge>
+                        <Badge tone="neutral">{product.category_name || t("Uncategorized")}</Badge>
                       </td>
                       <td className="whitespace-nowrap px-5 py-3.5 font-semibold tabular-nums app-text">{money(product.price)}</td>
                       <td className="px-5 py-3.5">
@@ -517,20 +518,20 @@ export default function Products() {
                             checked={active}
                             disabled={togglingId === product.id}
                             onChange={(next) => toggleActive(product, next)}
-                            label={active ? `Deactivate ${product.name}` : `Activate ${product.name}`}
+                            label={active ? t("Deactivate {name}", { name: product.name }) : t("Activate {name}", { name: product.name })}
                           />
                         ) : (
                           <Badge tone={active ? "success" : "neutral"} dot>
-                            {active ? "Active" : "Inactive"}
+                            {active ? t("Active") : t("Inactive")}
                           </Badge>
                         )}
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex justify-end gap-1">
-                          <IconAction icon="box" label="Stock history" onClick={() => setHistoryFor(product)} />
-                          {canWrite && <IconAction icon="edit" label="Edit product" onClick={() => openEdit(product)} />}
-                          {canDelete && <IconAction icon="trash" label="Delete product" tone="danger" onClick={() => handleDelete(product)} />}
-                          {!canWrite && !canDelete && <span className="text-xs app-text-muted">View only</span>}
+                          <IconAction icon="box" label={t("Stock history")} onClick={() => setHistoryFor(product)} />
+                          {canWrite && <IconAction icon="edit" label={t("Edit product")} onClick={() => openEdit(product)} />}
+                          {canDelete && <IconAction icon="trash" label={t("Delete product")} tone="danger" onClick={() => handleDelete(product)} />}
+                          {!canWrite && !canDelete && <span className="text-xs app-text-muted">{t("View only")}</span>}
                         </div>
                       </td>
                     </tr>
@@ -548,7 +549,7 @@ export default function Products() {
             total={Number(pagination.total) || 0}
             pageSize={PAGE_SIZE}
             onPageChange={setPage}
-            label="products"
+            label={t("products")}
           />
         )}
       </Card>
@@ -559,15 +560,15 @@ export default function Products() {
         busy={saving}
         size="lg"
         icon={isEditing ? "edit" : "products"}
-        title={isEditing ? `Edit ${editing.name}` : "Add a new product"}
-        description={isEditing ? "Update pricing, stock, and availability." : "Add an item to your catalog so it can be ordered."}
+        title={isEditing ? t("Edit {name}", { name: editing.name }) : t("Add a new product")}
+        description={isEditing ? t("Update pricing, stock, and availability.") : t("Add an item to your catalog so it can be ordered.")}
         footer={
           <>
             <Button onClick={closeForm} disabled={saving}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" form="product-form" variant="primary" loading={saving} icon="check">
-              {isEditing ? "Save changes" : "Create product"}
+              {isEditing ? t("Save changes") : t("Create product")}
             </Button>
           </>
         }
@@ -577,22 +578,22 @@ export default function Products() {
 
           {categories.length === 0 && !categoriesResource.loading && (
             <InlineAlert tone="warning">
-              You need at least one category first.{" "}
+              {t("You need at least one category first.")}{" "}
               <Link to="/categories?new=1" className="font-semibold underline">
-                Create a category
+                {t("Create a category")}
               </Link>
             </InlineAlert>
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Product name" required className="sm:col-span-2">
-              {(id) => <input id={id} name="name" value={form.name} onChange={handleChange} required minLength={2} maxLength={150} placeholder="e.g. Ergonomic office chair" className="app-input" />}
+            <Field label={t("Product name")} required className="sm:col-span-2">
+              {(id) => <input id={id} name="name" value={form.name} onChange={handleChange} required minLength={2} maxLength={150} placeholder={t("e.g. Ergonomic office chair")} className="app-input" />}
             </Field>
 
-            <Field label="Category" required>
+            <Field label={t("Category")} required>
               {(id) => (
                 <select id={id} name="category_id" value={form.category_id} onChange={handleChange} required className="app-input">
-                  <option value="">Select a category</option>
+                  <option value="">{t("Select a category")}</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
@@ -602,60 +603,60 @@ export default function Products() {
               )}
             </Field>
 
-            <Field label="Price" required hint={form.price !== "" ? money(form.price) : "Price in Moroccan dirhams"}>
+            <Field label={t("Price")} required hint={form.price !== "" ? money(form.price) : t("Price in Moroccan dirhams")}>
               {(id) => (
                 <div className="relative">
-                  <input id={id} name="price" type="number" min="0" step="0.01" value={form.price} onChange={handleChange} required placeholder="0.00" className="app-input pr-14" />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold app-text-muted">MAD</span>
+                  <input id={id} name="price" type="number" min="0" step="0.01" value={form.price} onChange={handleChange} required placeholder="0.00" className="app-input pe-14" />
+                  <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-semibold app-text-muted">{t("MAD")}</span>
                 </div>
               )}
             </Field>
 
             {isEditing ? (
-              <Field label="Stock" hint="Changes are recorded in the stock ledger with a reason.">
+              <Field label={t("Stock")} hint={t("Changes are recorded in the stock ledger with a reason.")}>
                 {(id) => (
                   <div className="flex items-center gap-2">
                     <input id={id} value={number(editing.stock)} readOnly className="app-input tabular-nums app-muted" />
                     {canAdjust && (
                       <Button icon="edit" onClick={() => setAdjusting(editing)}>
-                        Adjust
+                        {t("Adjust")}
                       </Button>
                     )}
                   </div>
                 )}
               </Field>
             ) : (
-              <Field label="Opening stock" required hint="Recorded as the opening balance in the stock ledger">
+              <Field label={t("Opening stock")} required hint={t("Recorded as the opening balance in the stock ledger")}>
                 {(id) => (
                   <div className="flex items-center gap-2">
-                    <Button size="icon" icon="minus" aria-label="Decrease stock" onClick={() => setForm((f) => ({ ...f, stock: String(Math.max(0, (Number(f.stock) || 0) - 1)) }))} />
+                    <Button size="icon" icon="minus" aria-label={t("Decrease stock")} onClick={() => setForm((f) => ({ ...f, stock: String(Math.max(0, (Number(f.stock) || 0) - 1)) }))} />
                     <input id={id} name="stock" type="number" min="0" step="1" value={form.stock} onChange={handleChange} required placeholder="0" className="app-input text-center tabular-nums" />
-                    <Button size="icon" icon="plus" aria-label="Increase stock" onClick={() => setForm((f) => ({ ...f, stock: String((Number(f.stock) || 0) + 1) }))} />
+                    <Button size="icon" icon="plus" aria-label={t("Increase stock")} onClick={() => setForm((f) => ({ ...f, stock: String((Number(f.stock) || 0) + 1) }))} />
                   </div>
                 )}
               </Field>
             )}
 
-            <Field label="Unit cost (HT)" hint="Used for margins. Receiving a purchase order updates it to the weighted average.">
+            <Field label={t("Unit cost (HT)")} hint={t("Used for margins. Receiving a purchase order updates it to the weighted average.")}>
               {(id) => (
                 <div className="relative">
-                  <input id={id} name="average_cost" type="number" min="0" step="0.01" value={form.average_cost} onChange={handleChange} placeholder="Unknown" className="app-input pr-14 tabular-nums" />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold app-text-muted">MAD</span>
+                  <input id={id} name="average_cost" type="number" min="0" step="0.01" value={form.average_cost} onChange={handleChange} placeholder={t("Unknown")} className="app-input pe-14 tabular-nums" />
+                  <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-semibold app-text-muted">{t("MAD")}</span>
                 </div>
               )}
             </Field>
 
-            <Field label="Reorder point" hint="Flag as low stock and suggest a reorder at or below this level (0 = never)">
+            <Field label={t("Reorder point")} hint={t("Flag as low stock and suggest a reorder at or below this level (0 = never)")}>
               {(id) => <input id={id} name="reorder_point" type="number" min="0" step="1" value={form.reorder_point} onChange={handleChange} className="app-input tabular-nums" />}
             </Field>
 
-            <Field label="Preferred supplier" hint="Used to group reorder suggestions">
+            <Field label={t("Preferred supplier")} hint={t("Used to group reorder suggestions")}>
               {(id) => (
                 <select id={id} name="supplier_id" value={form.supplier_id} onChange={handleChange} className="app-input">
-                  <option value="">No preferred supplier</option>
+                  <option value="">{t("No preferred supplier")}</option>
                   {suppliers.map((supplier) => (
                     <option key={supplier.id} value={supplier.id}>
-                      {supplier.name} · {supplier.lead_time_days} days lead time
+                      {supplier.name} · {t("{count} days lead time", { count: supplier.lead_time_days })}
                     </option>
                   ))}
                 </select>
@@ -664,14 +665,14 @@ export default function Products() {
 
             <div className="flex items-center justify-between gap-4 rounded-xl border p-3.5" style={{ borderColor: "var(--border-color)" }}>
               <div>
-                <p className="text-sm font-semibold app-text">Active</p>
-                <p className="text-xs app-text-muted">Inactive products can't be ordered.</p>
+                <p className="text-sm font-semibold app-text">{t("Active")}</p>
+                <p className="text-xs app-text-muted">{t("Inactive products can't be ordered.")}</p>
               </div>
-              <Switch checked={form.is_active} onChange={(value) => setForm((f) => ({ ...f, is_active: value }))} label="Product is active" />
+              <Switch checked={form.is_active} onChange={(value) => setForm((f) => ({ ...f, is_active: value }))} label={t("Product is active")} />
             </div>
 
-            <Field label="Description" className="sm:col-span-2" hint={`${form.description.length}/1000`}>
-              {(id) => <textarea id={id} name="description" rows={3} maxLength={1000} value={form.description} onChange={handleChange} placeholder="Materials, dimensions, packaging..." className="app-input resize-y" />}
+            <Field label={t("Description")} className="sm:col-span-2" hint={`${form.description.length}/1000`}>
+              {(id) => <textarea id={id} name="description" rows={3} maxLength={1000} value={form.description} onChange={handleChange} placeholder={t("Materials, dimensions, packaging...")} className="app-input resize-y" />}
             </Field>
           </div>
 

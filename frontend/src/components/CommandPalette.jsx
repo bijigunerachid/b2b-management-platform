@@ -5,6 +5,7 @@ import Icon from "./ui/Icon";
 import { api, can, money, toList } from "../lib/api";
 import { useTheme } from "../context/ThemeContext";
 
+import { t } from "../i18n";
 export default function CommandPalette({ open, onClose, user, links, onLogout }) {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -51,12 +52,12 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
     const go = (path) => () => navigate(path);
 
     const navigation = links
-      .filter((link) => matches(link.label, "go to page"))
+      .filter((link) => matches(t(link.label), link.label, t("go to page")))
       .map((link) => ({
         id: `nav-${link.path}`,
         icon: link.icon,
-        label: link.label,
-        hint: "Page",
+        label: t(link.label),
+        hint: t("Page"),
         run: go(link.path),
       }));
 
@@ -64,55 +65,55 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
       can(user, "customers.write") && {
         id: "new-customer",
         icon: "userPlus",
-        label: "Add new customer",
+        label: t("Add new customer"),
         run: go("/customers?new=1"),
       },
       can(user, "products.write") && {
         id: "new-product",
         icon: "products",
-        label: "Add new product",
+        label: t("Add new product"),
         run: go("/products?new=1"),
       },
       can(user, "quotes.write") && {
         id: "new-quote",
         icon: "fileText",
-        label: "Create new quote",
+        label: t("Create new quote"),
         run: go("/quotes?new=1"),
       },
       can(user, "purchasing.write") && {
         id: "new-purchase-order",
         icon: "truck",
-        label: "Create purchase order",
+        label: t("Create purchase order"),
         run: go("/purchase-orders?new=1"),
       },
       {
         id: "reorder",
         icon: "box",
-        label: "Review reorder suggestions",
+        label: t("Review reorder suggestions"),
         run: go("/inventory"),
       },
       can(user, "orders.write") && {
         id: "new-order",
         icon: "orders",
-        label: "Create new order",
+        label: t("Create new order"),
         run: go("/orders?new=1"),
       },
       can(user, "products.write") && {
         id: "new-category",
         icon: "categories",
-        label: "Add new category",
+        label: t("Add new category"),
         run: go("/categories?new=1"),
       },
       {
         id: "theme",
         icon: theme === "dark" ? "sun" : "moon",
-        label: `Switch to ${theme === "dark" ? "light" : "dark"} mode`,
+        label: theme === "dark" ? t("Switch to light mode") : t("Switch to dark mode"),
         run: toggleTheme,
       },
       {
         id: "logout",
         icon: "logout",
-        label: "Sign out",
+        label: t("Sign out"),
         run: onLogout,
       },
     ]
@@ -120,14 +121,14 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
       .filter((action) => matches(action.label));
 
     const result = [
-      { title: "Navigation", items: navigation },
-      { title: "Actions", items: actions },
+      { title: t("Navigation"), items: navigation },
+      { title: t("Actions"), items: actions },
     ];
 
     if (term.length >= 2 && records) {
       result.push(
         {
-          title: "Customers",
+          title: t("Customers"),
           items: records.customers
             .filter((customer) => matches(customer.company_name, customer.contact_name, customer.email, customer.city))
             .slice(0, 5)
@@ -140,7 +141,7 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
             })),
         },
         {
-          title: "Products",
+          title: t("Products"),
           items: records.products
             .filter((product) => matches(product.name, product.category_name))
             .slice(0, 5)
@@ -148,20 +149,20 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
               id: `product-${product.id}`,
               icon: "box",
               label: product.name,
-              hint: `${money(product.price)} · ${product.stock} in stock`,
+              hint: `${money(product.price)} · ${t("{count} in stock", { count: product.stock })}`,
               run: go(`/products?q=${encodeURIComponent(product.name)}`),
             })),
         },
         {
-          title: "Orders",
+          title: t("Orders"),
           items: records.orders
             .filter((order) => matches(`#${order.id}`, String(order.id), order.company_name, order.status))
             .slice(0, 5)
             .map((order) => ({
               id: `order-${order.id}`,
               icon: "orders",
-              label: `Order #${order.id} · ${order.company_name}`,
-              hint: `${order.status} · ${money(order.total_amount)}`,
+              label: `${t("Order #{id}", { id: order.id })} · ${order.company_name}`,
+              hint: `${t(order.status)} · ${money(order.total_amount)}`,
               run: go(`/orders?view=${order.id}`),
             })),
         }
@@ -224,7 +225,7 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t("Command palette")}
         className="relative w-full max-w-xl overflow-hidden rounded-2xl border animate-pop-in"
         style={{
           backgroundColor: "var(--surface)",
@@ -242,15 +243,15 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
               setQuery(event.target.value);
               setActive(0);
             }}
-            placeholder="Search pages, actions, customers, orders..."
-            aria-label="Search commands"
+            placeholder={t("Search pages, actions, customers, orders...")}
+            aria-label={t("Search commands")}
             role="combobox"
             aria-expanded="true"
             aria-controls="command-results"
             aria-activedescendant={flat[activeIndex] ? `cmd-${flat[activeIndex].id}` : undefined}
             className="h-14 flex-1 bg-transparent text-[15px] outline-none app-text placeholder:text-[var(--text-muted)]"
           />
-          <span className="kbd">Esc</span>
+          <span className="kbd">{t("Esc")}</span>
         </div>
 
         <div ref={listRef} id="command-results" role="listbox" className="max-h-[min(420px,60vh)] overflow-y-auto p-2">
@@ -258,7 +259,7 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
             <div className="px-4 py-10 text-center">
               <p className="text-sm font-medium app-text">No results for “{query}”</p>
               <p className="mt-1 text-xs app-text-secondary">
-                {records ? "Try a company name, product, or order number." : "Loading records..."}
+                {records ? t("Try a company name, product, or order number.") : t("Loading records...")}
               </p>
             </div>
           ) : (
@@ -282,7 +283,7 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
                       data-index={itemIndex}
                       onMouseMove={() => setActive(itemIndex)}
                       onClick={() => run(item)}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-start text-sm transition-colors"
                       style={selected ? { backgroundColor: "var(--primary-soft)" } : undefined}
                     >
                       <span
@@ -310,9 +311,9 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
           className="flex items-center gap-4 border-t px-4 py-2.5 text-xs app-text-muted"
           style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}
         >
-          <span className="flex items-center gap-1.5"><span className="kbd">↑</span><span className="kbd">↓</span> navigate</span>
-          <span className="flex items-center gap-1.5"><span className="kbd">↵</span> select</span>
-          <span className="ml-auto hidden sm:block">Tip: type 2+ letters to search records</span>
+          <span className="flex items-center gap-1.5"><span className="kbd">↑</span><span className="kbd">↓</span> {t("navigate")}</span>
+          <span className="flex items-center gap-1.5"><span className="kbd">↵</span> {t("select")}</span>
+          <span className="ms-auto hidden sm:block">{t("Tip: type 2+ letters to search records")}</span>
         </div>
       </div>
     </div>,

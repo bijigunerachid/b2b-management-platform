@@ -10,6 +10,7 @@ import ThemeToggle from "../ThemeToggle";
 import company from "../../config/company";
 import { money } from "../../lib/api";
 
+import { t } from "../../i18n";
 export const paper = {
   ink: "#111827",
   muted: "#6b7280",
@@ -42,7 +43,7 @@ export function PartyBlock({ title, children }) {
 
 export function SellerBlock() {
   return (
-    <PartyBlock title="From">
+    <PartyBlock title={t("From")}>
       <p className="font-semibold">{company.name}</p>
       <p>{company.address}</p>
       <p>{company.city}</p>
@@ -56,7 +57,7 @@ export function CustomerBlock({ title, customer, fallbackName }) {
   return (
     <PartyBlock title={title}>
       <p className="font-semibold">{customer?.company_name ?? fallbackName}</p>
-      {customer?.contact_name && <p>Attn: {customer.contact_name}</p>}
+      {customer?.contact_name && <p>{t("Attn: {name}", { name: customer.contact_name })}</p>}
       {customer?.address && <p>{customer.address}</p>}
       {(customer?.city || customer?.country) && <p>{[customer.city, customer.country].filter(Boolean).join(", ")}</p>}
       {customer?.email && <p>{customer.email}</p>}
@@ -67,12 +68,12 @@ export function CustomerBlock({ title, customer, fallbackName }) {
 
 export function DetailsBlock({ rows }) {
   return (
-    <PartyBlock title="Details">
+    <PartyBlock title={t("Details")}>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
         {rows.map(([label, value, options]) => (
           <div key={label} className="contents">
-            <dt style={{ color: paper.muted }}>{label}</dt>
-            <dd className="text-right font-medium" style={options?.danger ? { color: paper.danger } : undefined}>
+            <dt style={{ color: paper.muted }}>{t(label)}</dt>
+            <dd className="text-end font-medium" style={options?.danger ? { color: paper.danger } : undefined}>
               {value}
             </dd>
           </div>
@@ -113,12 +114,12 @@ export function DocumentHeader({ title, number, stamp }) {
         <div>
           <p className="text-lg font-extrabold tracking-tight">{company.name}</p>
           <p className="text-[12px]" style={{ color: paper.muted }}>
-            {company.tagline}
+            {t(company.tagline)}
           </p>
         </div>
       </div>
 
-      <div className="text-right">
+      <div className="text-end">
         <p className="text-[28px] font-extrabold leading-none tracking-tight" style={{ color: paper.accent }}>
           {title}
         </p>
@@ -128,7 +129,7 @@ export function DocumentHeader({ title, number, stamp }) {
             className="mt-3 inline-block rounded-md border-2 px-2.5 py-0.5 text-[11px] font-black tracking-[0.18em]"
             style={{ color: stamp.color, borderColor: stamp.color }}
           >
-            {stamp.label}
+            {t(stamp.label)}
           </span>
         )}
       </div>
@@ -143,22 +144,22 @@ export function LineTable({ lines, showDiscount = false }) {
     <table className="w-full border-collapse text-[12.5px]">
       <thead>
         <tr style={{ backgroundColor: "#f3f6fb" }}>
-          <th className={`${th} rounded-l-md text-left`} style={{ color: paper.muted }}>
-            Description
+          <th className={`${th} rounded-s-md text-start`} style={{ color: paper.muted }}>
+            {t("Description")}
           </th>
-          <th className={`${th} text-right`} style={{ color: paper.muted }}>
-            Qty
+          <th className={`${th} text-end`} style={{ color: paper.muted }}>
+            {t("Qty")}
           </th>
           {showDiscount && (
-            <th className={`${th} text-right`} style={{ color: paper.muted }}>
-              List price
+            <th className={`${th} text-end`} style={{ color: paper.muted }}>
+              {t("List price")}
             </th>
           )}
-          <th className={`${th} text-right`} style={{ color: paper.muted }}>
-            Unit price (HT)
+          <th className={`${th} text-end`} style={{ color: paper.muted }}>
+            {t("Unit price (HT)")}
           </th>
-          <th className={`${th} rounded-r-md text-right`} style={{ color: paper.muted }}>
-            Amount (HT)
+          <th className={`${th} rounded-e-md text-end`} style={{ color: paper.muted }}>
+            {t("Amount (HT)")}
           </th>
         </tr>
       </thead>
@@ -170,16 +171,16 @@ export function LineTable({ lines, showDiscount = false }) {
               <td className="px-3 py-3">
                 <p className="font-semibold">{line.description}</p>
                 <p className="text-[11px]" style={{ color: paper.muted }}>
-                  Ref. P-{String(line.productId).padStart(5, "0")}
+                  {t("Ref.")} P-{String(line.productId).padStart(5, "0")}
                 </p>
               </td>
-              <td className="px-3 py-3 text-right tabular-nums">{line.quantity}</td>
+              <td className="px-3 py-3 text-end tabular-nums">{line.quantity}</td>
               {showDiscount && (
-                <td className="px-3 py-3 text-right tabular-nums" style={{ color: paper.muted }}>
+                <td className="px-3 py-3 text-end tabular-nums" style={{ color: paper.muted }}>
                   {discount > 0.0005 ? (
                     <>
                       <span className="line-through">{money(line.listPrice)}</span>
-                      <span className="ml-1.5 font-semibold" style={{ color: paper.success }}>
+                      <span className="ms-1.5 font-semibold" style={{ color: paper.success }}>
                         −{Math.round(discount * 100)}%
                       </span>
                     </>
@@ -188,8 +189,8 @@ export function LineTable({ lines, showDiscount = false }) {
                   )}
                 </td>
               )}
-              <td className="px-3 py-3 text-right tabular-nums">{money(line.unitPrice)}</td>
-              <td className="px-3 py-3 text-right font-semibold tabular-nums">{money(line.amount)}</td>
+              <td className="px-3 py-3 text-end tabular-nums">{money(line.unitPrice)}</td>
+              <td className="px-3 py-3 text-end font-semibold tabular-nums">{money(line.amount)}</td>
             </tr>
           );
         })}
@@ -203,15 +204,15 @@ export function TotalsBlock({ subtotal, vatRate, vat, total, before, after }) {
     <dl className="w-full max-w-[280px] text-[13px]">
       {before}
       <div className="flex justify-between py-1.5">
-        <dt style={{ color: paper.muted }}>Subtotal (HT)</dt>
+        <dt style={{ color: paper.muted }}>{t("Subtotal (HT)")}</dt>
         <dd className="tabular-nums">{money(subtotal)}</dd>
       </div>
       <div className="flex justify-between border-b py-1.5" style={{ borderColor: paper.rule }}>
-        <dt style={{ color: paper.muted }}>VAT (TVA {Math.round(vatRate * 100)}%)</dt>
+        <dt style={{ color: paper.muted }}>{t("VAT ({percent}%)", { percent: Math.round(vatRate * 100) })}</dt>
         <dd className="tabular-nums">{money(vat)}</dd>
       </div>
       <div className="mt-2 flex items-center justify-between rounded-lg px-3 py-3" style={{ backgroundColor: "#eff4ff" }}>
-        <dt className="font-bold">Total (TTC)</dt>
+        <dt className="font-bold">{t("Total (TTC)")}</dt>
         <dd className="text-lg font-extrabold tabular-nums" style={{ color: paper.accent }}>
           {money(total)}
         </dd>
@@ -256,10 +257,10 @@ export function DocumentPage({ backTo, backLabel, number, title, invalid, error,
             <Icon name="chevronLeft" size={17} /> {backLabel}
           </Link>
           {number && <span className="hidden text-sm app-text-muted sm:inline">· {number}</span>}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ms-auto flex items-center gap-2">
             <ThemeToggle />
             <Button variant="primary" icon="download" onClick={() => window.print()} disabled={!ready}>
-              Print / Save as PDF
+              {t("Print / Save as PDF")}
             </Button>
           </div>
         </div>
@@ -267,7 +268,7 @@ export function DocumentPage({ backTo, backLabel, number, title, invalid, error,
 
       <div className="px-4 pt-8 print:p-0">
         {invalid ? (
-          <EmptyState icon="alert" title="Invalid link" description="This document link is not valid." />
+          <EmptyState icon="alert" title={t("Invalid link")} description={t("This document link is not valid.")} />
         ) : error ? (
           <div className="mx-auto max-w-[210mm]">
             <ErrorState message={error} onRetry={onRetry} />

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { API_URL } from "../lib/api";
 import { useToast } from "../components/ui/feedback";
+import { t } from "../i18n";
 
 const AuthContext = createContext(null);
 
@@ -49,8 +50,8 @@ export function AuthProvider({ children }) {
 
             userRef.current = null;
             setUser(null);
-            toast.warning(event.detail || "Please sign in again.", {
-                title: "Session ended"
+            toast.warning(event.detail || t("Please sign in again."), {
+                title: t("Session ended")
             });
         }
 
@@ -69,7 +70,7 @@ export function AuthProvider({ children }) {
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            throw new Error(result.message || "Login failed");
+            throw new Error(result.message || t("Login failed"));
         }
 
         const signedIn = result.data ?? result.user ?? null;

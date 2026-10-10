@@ -1,5 +1,6 @@
 import { Spinner } from "./ui/Button";
 
+import { t } from "../i18n";
 export function PageFallback({ fullScreen = false }) {
   if (fullScreen) {
     return (
@@ -12,7 +13,7 @@ export function PageFallback({ fullScreen = false }) {
   }
 
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Loading page">
+    <div className="space-y-6" aria-busy="true" aria-label={t("Loading page")}>
       <div className="skeleton h-14 w-72" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[1, 2, 3, 4].map((item) => (

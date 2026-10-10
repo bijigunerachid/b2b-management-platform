@@ -8,6 +8,7 @@ import { Field, InlineAlert, SegmentedControl, toneStyle } from "./ui/primitives
 import { api, formatDate, number, timeAgo, useResource } from "../lib/api";
 import { ADJUSTMENT_REASONS, MOVEMENT_TYPES } from "../lib/purchasing";
 
+import { t } from "../i18n";
 export function StockAdjustModal({ product, onClose, onAdjusted }) {
   const toast = useToast();
   const [direction, setDirection] = useState("remove");
@@ -33,9 +34,9 @@ export function StockAdjustModal({ product, onClose, onAdjusted }) {
     event.preventDefault();
     setError("");
 
-    if (!Number.isInteger(amount) || amount < 1) return setError("Enter a whole quantity of at least 1.");
-    if (after < 0) return setError(`Only ${stock} in stock: you can remove at most ${stock}.`);
-    if (form.reason === "Other" && form.note.trim().length < 3) return setError("Describe the reason in the note.");
+    if (!Number.isInteger(amount) || amount < 1) return setError(t("Enter a whole quantity of at least 1."));
+    if (after < 0) return setError(t("Only {count} in stock: you can remove at most {count}.", { count: stock }));
+    if (form.reason === "Other" && form.note.trim().length < 3) return setError(t("Describe the reason in the note."));
 
     setSaving(true);
     try {
@@ -43,11 +44,11 @@ export function StockAdjustModal({ product, onClose, onAdjusted }) {
         method: "POST",
         body: { quantity: delta, reason: form.reason, note: form.note.trim() },
       });
-      toast.success(`${product.name}: ${delta > 0 ? "+" : ""}${delta} → ${result.data.stock} in stock.`, { title: "Stock adjusted" });
+      toast.success(`${product.name}: ${delta > 0 ? "+" : ""}${delta} → ${t("{count} in stock", { count: result.data.stock })}.`, { title: t("Stock adjusted") });
       onAdjusted?.();
       onClose();
     } catch (err) {
-      setError(err.message || "Could not adjust stock.");
+      setError(err.message || t("Could not adjust stock."));
     } finally {
       setSaving(false);
     }
@@ -61,14 +62,14 @@ export function StockAdjustModal({ product, onClose, onAdjusted }) {
       size="sm"
       icon="edit"
       title={product?.name ?? ""}
-      description={`Currently ${number(stock)} in stock. Every change is recorded with its reason.`}
+      description={t("Currently {count} in stock. Every change is recorded with its reason.", { count: number(stock) })}
       footer={
         <>
           <Button onClick={onClose} disabled={saving}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button type="submit" form="adjust-form" variant="primary" loading={saving} icon="check" disabled={amount < 1 || after < 0}>
-            {amount > 0 ? `Set stock to ${number(after)}` : "Adjust stock"}
+            {amount > 0 ? t("Set stock to {count}", { count: number(after) }) : t("Adjust stock")}
           </Button>
         </>
       }
@@ -76,15 +77,15 @@ export function StockAdjustModal({ product, onClose, onAdjusted }) {
       <form id="adjust-form" onSubmit={handleSubmit} className="space-y-4">
         <InlineAlert>{error}</InlineAlert>
         <SegmentedControl
-          label="Direction"
+          label={t("Direction")}
           value={direction}
           onChange={setDirection}
           options={[
-            { value: "remove", label: "Remove stock" },
-            { value: "add", label: "Add stock" },
+            { value: "remove", label: t("Remove stock") },
+            { value: "add", label: t("Add stock") },
           ]}
         />
-        <Field label="Quantity" required hint={amount > 0 ? `${number(stock)} → ${number(after)}` : "Units to " + (direction === "add" ? "add" : "remove")}>
+        <Field label={t("Quantity")} required hint={amount > 0 ? `${number(stock)} → ${number(after)}` : direction === "add" ? t("Units to add") : t("Units to remove")}>
           {(id) => (
             <input
               id={id}
@@ -98,7 +99,7 @@ export function StockAdjustModal({ product, onClose, onAdjusted }) {
             />
           )}
         </Field>
-        <Field label="Reason" required>
+        <Field label={t("Reason")} required>
           {(id) => (
             <select id={id} value={form.reason} onChange={(event) => setForm((f) => ({ ...f, reason: event.target.value }))} className="app-input">
               {ADJUSTMENT_REASONS.map((reason) => (
@@ -107,7 +108,7 @@ export function StockAdjustModal({ product, onClose, onAdjusted }) {
             </select>
           )}
         </Field>
-        <Field label="Note" required={form.reason === "Other"} hint="Optional detail, e.g. location or count sheet number">
+        <Field label={t("Note")} required={form.reason === "Other"} hint={t("Optional detail, e.g. location or count sheet number")}>
           {(id) => <input id={id} value={form.note} onChange={(event) => setForm((f) => ({ ...f, note: event.target.value }))} maxLength={200} className="app-input" />}
         </Field>
       </form>
@@ -127,7 +128,7 @@ export function MovementRow({ movement, showProduct = true }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold app-text">
           {showProduct ? movement.product_name : meta.label}
-          {showProduct && <span className="ml-2 text-xs font-normal app-text-muted">{meta.label}</span>}
+          {showProduct && <span className="ms-2 text-xs font-normal app-text-muted">{meta.label}</span>}
         </p>
         <p className="truncate text-xs app-text-muted">
           {movement.reason}
@@ -135,7 +136,7 @@ export function MovementRow({ movement, showProduct = true }) {
             <>
               {" · "}
               <Link to={`/orders?view=${movement.order_id}`} className="hover:underline" style={{ color: "var(--primary)" }}>
-                Order #{movement.order_id}
+                {t("Order #{id}", { id: movement.order_id })}
               </Link>
             </>
           )}
@@ -143,7 +144,7 @@ export function MovementRow({ movement, showProduct = true }) {
             <>
               {" · "}
               <Link to={`/credit-notes/${movement.credit_note_id}/print`} target="_blank" rel="noopener" className="hover:underline" style={{ color: "var(--primary)" }}>
-                View credit note
+                {t("View credit note")}
               </Link>
             </>
           )}
@@ -151,7 +152,7 @@ export function MovementRow({ movement, showProduct = true }) {
             <>
               {" · "}
               <Link to={`/purchase-orders?view=${movement.purchase_order_id}`} className="hover:underline" style={{ color: "var(--primary)" }}>
-                View PO
+                {t("View PO")}
               </Link>
             </>
           )}
@@ -161,7 +162,7 @@ export function MovementRow({ movement, showProduct = true }) {
           {movement.created_by_name && ` · ${movement.created_by_name}`}
         </p>
       </div>
-      <div className="text-right">
+      <div className="text-end">
         <p className="text-sm font-bold tabular-nums" style={{ color: positive ? "var(--success)" : "var(--danger)" }}>
           {positive ? "+" : "−"}
           {number(Math.abs(movement.quantity))}
@@ -185,13 +186,13 @@ export function StockHistoryDrawer({ product, onClose, canAdjust, onChanged }) {
         open={Boolean(product)}
         onClose={onClose}
         title={product?.name ?? ""}
-        description={product ? `${number(current)} in stock · reorder at ${number(product.reorder_point ?? 5)}${Number(product.on_order) > 0 ? ` · ${number(product.on_order)} on order` : ""}` : ""}
+        description={product ? `${t("{count} in stock", { count: number(current) })} · ${t("reorder at {count}", { count: number(product.reorder_point ?? 5) })}${Number(product.on_order) > 0 ? ` · ${t("{count} on order", { count: number(product.on_order) })}` : ""}` : ""}
         icon="box"
         footer={
           product &&
           canAdjust && (
             <Button variant="primary" icon="edit" onClick={() => setAdjusting({ ...product, stock: current })}>
-              Adjust stock
+              {t("Adjust stock")}
             </Button>
           )
         }
@@ -206,7 +207,7 @@ export function StockHistoryDrawer({ product, onClose, canAdjust, onChanged }) {
           </div>
         ) : movements.length === 0 ? (
           <p className="rounded-xl border border-dashed p-6 text-center text-sm app-text-secondary" style={{ borderColor: "var(--border-strong)" }}>
-            No stock movements recorded yet.
+            {t("No stock movements recorded yet.")}
           </p>
         ) : (
           <>
@@ -217,7 +218,7 @@ export function StockHistoryDrawer({ product, onClose, canAdjust, onChanged }) {
             </ul>
             {data?.pagination?.total > movements.length && (
               <p className="mt-3 text-center text-xs app-text-muted">
-                Showing the latest {movements.length} of {number(data.pagination.total)} movements.
+                {t("Showing the latest {count} of {total} movements.", { count: movements.length, total: number(data.pagination.total) })}
               </p>
             )}
           </>

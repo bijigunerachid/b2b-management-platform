@@ -4,6 +4,7 @@ import Icon from "./ui/Icon";
 import { Popover, toneStyle } from "./ui/primitives";
 import { formatDate, money, timeAgo, useResource } from "../lib/api";
 
+import { t } from "../i18n";
 const SEEN_KEY = "b2b-seen-notifications";
 
 function readSeen() {
@@ -25,8 +26,8 @@ function buildNotifications(stats) {
       id: `stock-${product.id}-${product.stock}`,
       tone: out ? "danger" : "warning",
       icon: out ? "ban" : "alert",
-      title: out ? `${product.name} is out of stock` : `${product.name} is running low`,
-      body: out ? "Out of stock" : `Only ${product.stock} units left.`,
+      title: out ? t("{product} is out of stock", { product: product.name }) : t("{product} is running low", { product: product.name }),
+      body: out ? t("Out of stock") : t("Only {count} units left.", { count: product.stock }),
       to: "/inventory",
     });
   }
@@ -38,8 +39,8 @@ function buildNotifications(stats) {
       id: `overdue-${overdueCount}-${Math.round(stats.receivables.overdue)}`,
       tone: "danger",
       icon: "wallet",
-      title: `${overdueCount} overdue invoice${overdueCount === 1 ? "" : "s"}`,
-      body: `${money(stats.receivables.overdue)} past the 30-day payment terms.`,
+      title: overdueCount === 1 ? t("1 overdue invoice") : t("{count} overdue invoices", { count: overdueCount }),
+      body: t("{amount} past the 30-day payment terms.", { amount: money(stats.receivables.overdue) }),
       to: "/receivables",
     });
   }
@@ -50,8 +51,8 @@ function buildNotifications(stats) {
       id: `quote-expiring-${quote.id}-${quote.valid_until}`,
       tone: "warning",
       icon: "fileText",
-      title: `Quote for ${quote.company_name} ${days === 0 ? "expires today" : `expires in ${days} day${days === 1 ? "" : "s"}`}`,
-      body: `Valid until ${formatDate(`${quote.valid_until}T00:00:00`)}`,
+      title: days === 0 ? t("Quote for {customer} expires today", { customer: quote.company_name }) : days === 1 ? t("Quote for {customer} expires tomorrow", { customer: quote.company_name }) : t("Quote for {customer} expires in {count} days", { customer: quote.company_name, count: days }),
+      body: t("Valid until {date}", { date: formatDate(`${quote.valid_until}T00:00:00`) }),
       to: `/quotes?view=${quote.id}`,
     });
   }
@@ -62,8 +63,8 @@ function buildNotifications(stats) {
       id: `po-late-${lateDeliveries}`,
       tone: "danger",
       icon: "truck",
-      title: `${lateDeliveries} supplier deliver${lateDeliveries === 1 ? "y is" : "ies are"} overdue`,
-      body: "Past the expected delivery date",
+      title: lateDeliveries === 1 ? t("1 supplier delivery is overdue") : t("{count} supplier deliveries are overdue", { count: lateDeliveries }),
+      body: t("Past the expected delivery date"),
       to: "/purchase-orders?status=late",
     });
   }
@@ -74,8 +75,8 @@ function buildNotifications(stats) {
       id: `quotes-accepted-${readyToConvert}`,
       tone: "info",
       icon: "orders",
-      title: `${readyToConvert} accepted quote${readyToConvert === 1 ? "" : "s"} ready to convert`,
-      body: "Turn them into orders to reserve the stock.",
+      title: readyToConvert === 1 ? t("1 accepted quote ready to convert") : t("{count} accepted quotes ready to convert", { count: readyToConvert }),
+      body: t("Turn them into orders to reserve the stock."),
       to: "/quotes",
     });
   }
@@ -86,8 +87,8 @@ function buildNotifications(stats) {
       id: `pending-${pending}`,
       tone: "primary",
       icon: "clock",
-      title: `${pending} order${pending === 1 ? "" : "s"} awaiting processing`,
-      body: "Waiting to be processed",
+      title: pending === 1 ? t("1 order awaiting processing") : t("{count} orders awaiting processing", { count: pending }),
+      body: t("Waiting to be processed"),
       to: "/orders?status=Pending",
     });
   }
@@ -97,7 +98,7 @@ function buildNotifications(stats) {
       id: `order-${order.id}`,
       tone: "success",
       icon: "orders",
-      title: `New order #${order.id} from ${order.company_name ?? "a customer"}`,
+      title: t("New order #{id} from {customer}", { id: order.id, customer: order.company_name ?? t("a customer") }),
       body: `${money(order.total_amount)} · ${timeAgo(order.created_at)}`,
       to: `/orders?view=${order.id}`,
     });
@@ -125,7 +126,7 @@ export default function NotificationsMenu() {
 
   return (
     <Popover
-      label="Notifications"
+      label={t("Notifications")}
       width={360}
       trigger={({ open, props }) => (
         <button
@@ -135,13 +136,13 @@ export default function NotificationsMenu() {
             if (!open) reload();
             props.onClick(event);
           }}
-          aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+          aria-label={unread ? t("Notifications, {count} unread", { count: unread }) : t("Notifications")}
           className="relative flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-[var(--surface-hover)] app-text-secondary"
         >
           <Icon name="bell" size={19} className={unread ? "origin-top animate-[wiggle_1s_ease-in-out_2]" : ""} />
           {unread > 0 && (
             <span
-              className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ring-2 ring-[var(--surface)]"
+              className="absolute end-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ring-2 ring-[var(--surface)]"
               style={{ backgroundColor: "var(--danger)" }}
             >
               {unread > 9 ? "9+" : unread}
@@ -154,12 +155,12 @@ export default function NotificationsMenu() {
         <div>
           <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border-color)" }}>
             <div>
-              <p className="text-sm font-bold app-text">Notifications</p>
+              <p className="text-sm font-bold app-text">{t("Notifications")}</p>
               <p className="text-xs app-text-muted">{unread ? `${unread} unread` : "No unread notifications"}</p>
             </div>
             {unread > 0 && (
               <button type="button" onClick={markAllSeen} className="text-xs font-semibold hover:underline" style={{ color: "var(--primary)" }}>
-                Mark all read
+                {t("Mark all read")}
               </button>
             )}
           </div>
@@ -182,8 +183,8 @@ export default function NotificationsMenu() {
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl" style={toneStyle("success")}>
                   <Icon name="checkCircle" size={22} />
                 </div>
-                <p className="text-sm font-semibold app-text">No notifications</p>
-                <p className="mt-1 text-xs app-text-secondary">Low stock, overdue invoices and pending orders show up here.</p>
+                <p className="text-sm font-semibold app-text">{t("No notifications")}</p>
+                <p className="mt-1 text-xs app-text-secondary">{t("Low stock, overdue invoices and pending orders show up here.")}</p>
               </div>
             ) : (
               notifications.map((item) => {

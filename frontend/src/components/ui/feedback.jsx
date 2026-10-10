@@ -5,6 +5,7 @@ import Icon from "./Icon";
 import { Modal } from "./Modal";
 import Button from "./Button";
 
+import { t } from "../../i18n";
 const ToastContext = createContext(null);
 
 const toastTones = {
@@ -30,7 +31,7 @@ function Toast({ toast, onDismiss }) {
         boxShadow: "var(--pop-shadow)",
       }}
     >
-      <div className="flex items-start gap-3 p-3.5 pr-10">
+      <div className="flex items-start gap-3 p-3.5 pe-10">
         <div
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
           style={{ backgroundColor: tone.soft, color: tone.color }}
@@ -48,14 +49,14 @@ function Toast({ toast, onDismiss }) {
       <button
         type="button"
         onClick={() => onDismiss(toast.id)}
-        aria-label="Dismiss notification"
-        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-[var(--surface-hover)] app-text-secondary"
+        aria-label={t("Dismiss notification")}
+        className="absolute end-2 top-2 flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-[var(--surface-hover)] app-text-secondary"
       >
         <Icon name="close" size={15} />
       </button>
 
       <div
-        className="toast-progress absolute bottom-0 left-0 h-0.5 w-full"
+        className="toast-progress absolute bottom-0 start-0 h-0.5 w-full"
         style={{
           backgroundColor: tone.color,
           animationDuration: `${toast.duration}ms`,
@@ -104,7 +105,7 @@ export function ToastProvider({ children }) {
       {createPortal(
         <div
           aria-live="polite"
-          className="pointer-events-none fixed bottom-4 right-4 z-[80] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2"
+          className="pointer-events-none fixed bottom-4 end-4 z-[80] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2"
         >
           {toasts.map((toast) => (
             <Toast key={toast.id} toast={toast} onDismiss={dismiss} />
@@ -153,18 +154,18 @@ export function ConfirmProvider({ children }) {
         size="sm"
         icon={request?.icon ?? (tone === "danger" ? "alert" : "info")}
         iconTone={tone}
-        title={request?.title ?? "Are you sure?"}
+        title={request?.title ?? t("Are you sure?")}
         footer={
           <>
             <Button variant="secondary" onClick={() => settle(false)}>
-              {request?.cancelLabel ?? "Cancel"}
+              {request?.cancelLabel ?? t("Cancel")}
             </Button>
             <Button
               variant={tone === "danger" ? "danger" : "primary"}
               onClick={() => settle(true)}
               data-autofocus
             >
-              {request?.confirmLabel ?? "Confirm"}
+              {request?.confirmLabel ?? t("Confirm")}
             </Button>
           </>
         }

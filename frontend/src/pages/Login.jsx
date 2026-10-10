@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/ThemeToggle";
+import LanguageMenu from "../components/LanguageMenu";
 import Icon from "../components/ui/Icon";
 import Button from "../components/ui/Button";
 import { InlineAlert } from "../components/ui/primitives";
 
+import { t } from "../i18n";
 export default function Login() {
     const { user, login } = useAuth();
     const navigate = useNavigate();
@@ -40,7 +42,7 @@ export default function Login() {
             const account = await login(email.trim(), password);
             navigate(homeFor(account), { replace: true });
         } catch (err) {
-            setError(err.message || "Unable to sign in.");
+            setError(err.message || t("Unable to sign in."));
         } finally {
             setSubmitting(false);
         }
@@ -57,18 +59,21 @@ export default function Login() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/15">
                         <Icon name="box" size={20} strokeWidth={2} />
                     </div>
-                    <p className="font-semibold">B2B Platform</p>
+                    <p className="font-semibold">{t("B2B Platform")}</p>
                 </div>
                 <div className="max-w-md">
-                    <p className="text-2xl font-semibold leading-snug">Quotes, orders, invoices and stock for your wholesale business.</p>
-                    <p className="mt-3 text-sm text-white/70">Clients can sign in here too, to order and see their invoices.</p>
+                    <p className="text-2xl font-semibold leading-snug">{t("Quotes, orders, invoices and stock for your wholesale business.")}</p>
+                    <p className="mt-3 text-sm text-white/70">{t("Clients can sign in here too, to order and see their invoices.")}</p>
                 </div>
                 <p className="text-xs text-white/50">© {new Date().getFullYear()} B2B Platform</p>
             </section>
 
             {/* Sign-in form */}
             <section className="relative flex items-center justify-center px-5 py-12 sm:px-8">
-                <ThemeToggle className="absolute right-5 top-5" />
+                <div className="absolute end-5 top-5 flex items-center gap-1">
+                    <LanguageMenu />
+                    <ThemeToggle />
+                </div>
 
                 <div className="w-full max-w-[400px] animate-rise">
                     <div className="mb-8 flex items-center gap-3 lg:hidden">
@@ -78,21 +83,21 @@ export default function Login() {
                         >
                             <Icon name="box" size={22} strokeWidth={2} />
                         </div>
-                        <p className="text-lg font-bold app-text">B2B Platform</p>
+                        <p className="text-lg font-bold app-text">{t("B2B Platform")}</p>
                     </div>
 
-                    <h1 className="text-2xl font-bold tracking-tight app-text">Sign in</h1>
-                    <p className="mt-1 text-sm app-text-secondary">Use the email address your account was created with.</p>
+                    <h1 className="text-2xl font-bold tracking-tight app-text">{t("Sign in")}</h1>
+                    <p className="mt-1 text-sm app-text-secondary">{t("Use the email address your account was created with.")}</p>
 
                     <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate={false}>
                         <InlineAlert>{error}</InlineAlert>
 
                         <div>
                             <label htmlFor="email" className="mb-1.5 block text-sm font-medium app-text">
-                                Email address
+                                {t("Email address")}
                             </label>
                             <div className="relative">
-                                <Icon name="mail" size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 app-text-muted" />
+                                <Icon name="mail" size={17} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 app-text-muted" />
                                 <input
                                     id="email"
                                     type="email"
@@ -101,8 +106,8 @@ export default function Login() {
                                     required
                                     autoComplete="email"
                                     autoFocus
-                                    placeholder="you@company.com"
-                                    className="app-input h-11 pl-10"
+                                    placeholder={t("you@company.com")}
+                                    className="app-input h-11 ps-10"
                                     aria-invalid={Boolean(error)}
                                 />
                             </div>
@@ -110,10 +115,10 @@ export default function Login() {
 
                         <div>
                             <label htmlFor="password" className="mb-1.5 block text-sm font-medium app-text">
-                                Password
+                                {t("Password")}
                             </label>
                             <div className="relative">
-                                <Icon name="lock" size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 app-text-muted" />
+                                <Icon name="lock" size={17} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 app-text-muted" />
                                 <input
                                     id="password"
                                     type={showPassword ? "text" : "password"}
@@ -123,32 +128,32 @@ export default function Login() {
                                     onKeyDown={trackCapsLock}
                                     required
                                     autoComplete="current-password"
-                                    placeholder="Enter your password"
-                                    className="app-input h-11 pl-10 pr-11"
+                                    placeholder={t("Enter your password")}
+                                    className="app-input h-11 ps-10 pe-11"
                                     aria-invalid={Boolean(error)}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword((value) => !value)}
-                                    aria-label={showPassword ? "Hide password" : "Show password"}
-                                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition hover:bg-[var(--surface-hover)] app-text-muted"
+                                    aria-label={showPassword ? t("Hide password") : t("Show password")}
+                                    className="absolute end-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition hover:bg-[var(--surface-hover)] app-text-muted"
                                 >
                                     <Icon name={showPassword ? "eyeOff" : "eye"} size={17} />
                                 </button>
                             </div>
                             {capsLock && (
                                 <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium" style={{ color: "var(--warning)" }}>
-                                    <Icon name="alert" size={13} /> Caps Lock is on
+                                    <Icon name="alert" size={13} /> {t("Caps Lock is on")}
                                 </p>
                             )}
                         </div>
 
                         <Button type="submit" variant="primary" size="lg" loading={submitting} iconRight="arrowRight" className="w-full">
-                            {submitting ? "Signing in..." : "Sign in"}
+                            {submitting ? t("Signing in...") : t("Sign in")}
                         </Button>
                     </form>
 
-                    <p className="mt-6 text-xs app-text-muted">Forgot your password? Ask your administrator to reset it.</p>
+                    <p className="mt-6 text-xs app-text-muted">{t("Forgot your password? Ask your administrator to reset it.")}</p>
                 </div>
             </section>
         </main>

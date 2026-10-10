@@ -5,6 +5,7 @@ import { QuoteSheet } from "../../pages/QuoteDocument";
 import { CreditNoteSheet } from "../../pages/CreditNoteDocument";
 import { buildInvoice } from "../../lib/invoice";
 import { useResource } from "../../lib/api";
+import { t } from "../../i18n";
 
 export function PortalInvoice() {
   const { id } = useParams();
@@ -16,7 +17,7 @@ export function PortalInvoice() {
   return (
     <DocumentPage
       backTo={order ? `/portal/orders?view=${order.id}` : "/portal/orders"}
-      backLabel="Back to order"
+      backLabel={t("Back to order")}
       number={number}
       title={number ? `${number} · ${order.company_name}` : null}
       invalid={!validId}
@@ -38,7 +39,7 @@ export function PortalQuoteDocument() {
   return (
     <DocumentPage
       backTo={quote ? `/portal/quotes?view=${quote.id}` : "/portal/quotes"}
-      backLabel="Back to quote"
+      backLabel={t("Back to quote")}
       number={quote?.number}
       title={quote ? `${quote.number} · ${quote.company_name}` : null}
       invalid={!validId}
@@ -60,7 +61,7 @@ export function PortalCreditNote() {
   return (
     <DocumentPage
       backTo={note ? `/portal/orders?view=${note.order_id}` : "/portal/orders"}
-      backLabel="Back to order"
+      backLabel={t("Back to order")}
       number={note?.number}
       title={note ? `${note.number} · ${note.customer?.company_name}` : null}
       invalid={!validId}

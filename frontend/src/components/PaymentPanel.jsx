@@ -7,6 +7,7 @@ import { Badge, Field, IconAction, InlineAlert, toneStyle } from "./ui/primitive
 import { api, formatDate, money, useResource } from "../lib/api";
 import { PAYMENT_METHODS, localDateInput, paymentBadge } from "../lib/billing";
 
+import { t } from "../i18n";
 const methodIcons = {
   "Bank transfer": "building",
   Cheque: "receipt",
@@ -38,8 +39,8 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
     event.preventDefault();
     setError("");
 
-    if (!Number.isFinite(amount) || amount <= 0) return setError("Enter an amount greater than zero.");
-    if (amount > billing.balance + 0.005) return setError(`The balance due is ${money(billing.balance)}.`);
+    if (!Number.isFinite(amount) || amount <= 0) return setError(t("Enter an amount greater than zero."));
+    if (amount > billing.balance + 0.005) return setError(t("The balance due is {amount}.", { amount: money(billing.balance) }));
 
     setSaving(true);
     try {
@@ -55,13 +56,13 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
       });
       const status = result.data?.billing?.payment_status;
       toast.success(
-        status === "Paid" ? `Order #${order.id} is now paid in full.` : `${money(amount)} recorded. ${money(result.data?.billing?.balance)} still due.`,
-        { title: "Payment recorded" }
+        status === "Paid" ? t("Order #{id} is now paid in full.", { id: order.id }) : t("{amount} recorded. {balance} still due.", { amount: money(amount), balance: money(result.data?.billing?.balance) }),
+        { title: t("Payment recorded") }
       );
       onRecorded();
       onClose();
     } catch (err) {
-      setError(err.message || "Could not record the payment.");
+      setError(err.message || t("Could not record the payment."));
     } finally {
       setSaving(false);
     }
@@ -74,16 +75,16 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
       busy={saving}
       icon="wallet"
       iconTone="success"
-      eyebrow={order ? `Order #${order.id}` : "Payment"}
-      title="Record a payment"
+      eyebrow={order ? t("Order #{id}", { id: order.id }) : t("Payment")}
+      title={t("Record a payment")}
       description={order?.company_name}
       footer={
         <>
           <Button onClick={onClose} disabled={saving}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button type="submit" form="payment-form" variant="primary" loading={saving} icon="check">
-            Record {Number.isFinite(amount) && amount > 0 ? money(amount) : "payment"}
+            {Number.isFinite(amount) && amount > 0 ? t("Record {amount}", { amount: money(amount) }) : t("Record payment")}
           </Button>
         </>
       }
@@ -94,9 +95,9 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
 
           <div className="grid grid-cols-3 gap-2 rounded-xl p-3 text-center app-muted">
             {[
-              [billing.credited > 0 ? "After credits" : "Invoice total", billing.total_due],
-              ["Already paid", billing.amount_paid],
-              ["Balance due", billing.balance],
+              [billing.credited > 0 ? t("After credits") : t("Invoice total"), billing.total_due],
+              [t("Already paid"), billing.amount_paid],
+              [t("Balance due"), billing.balance],
             ].map(([label, value]) => (
               <div key={label}>
                 <p className="text-[11px] font-medium uppercase tracking-wide app-text-muted">{label}</p>
@@ -105,7 +106,7 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
             ))}
           </div>
 
-          <Field label="Amount" required hint={remaining > 0 ? `${money(remaining)} will remain due.` : "This settles the invoice in full."}>
+          <Field label={t("Amount")} required hint={remaining > 0 ? t("{amount} will remain due.", { amount: money(remaining) }) : t("This settles the invoice in full.")}>
             {(id) => (
               <>
                 <div className="relative">
@@ -118,10 +119,10 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
                     value={form.amount}
                     onChange={update("amount")}
                     required
-                    className="app-input pr-14 text-base font-semibold tabular-nums"
+                    className="app-input pe-14 text-base font-semibold tabular-nums"
                     data-autofocus
                   />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold app-text-muted">MAD</span>
+                  <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-semibold app-text-muted">{t("MAD")}</span>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {[0.25, 0.5, 1].map((share) => (
@@ -132,7 +133,7 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
                       className="rounded-lg border px-2.5 py-1 text-xs font-semibold transition hover:bg-[var(--surface-hover)] app-text-secondary"
                       style={{ borderColor: "var(--border-color)" }}
                     >
-                      {share === 1 ? "Full balance" : `${share * 100}%`}
+                      {share === 1 ? t("Full balance") : `${share * 100}%`}
                     </button>
                   ))}
                 </div>
@@ -141,7 +142,7 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Method" required>
+            <Field label={t("Method")} required>
               {(id) => (
                 <select id={id} value={form.method} onChange={update("method")} className="app-input">
                   {PAYMENT_METHODS.map((method) => (
@@ -150,7 +151,7 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
                 </select>
               )}
             </Field>
-            <Field label="Payment date" required>
+            <Field label={t("Payment date")} required>
               {(id) => (
                 <input
                   id={id}
@@ -166,11 +167,11 @@ export function RecordPaymentModal({ open, onClose, order, billing, onRecorded }
             </Field>
           </div>
 
-          <Field label="Reference" hint="Transfer reference, cheque number...">
-            {(id) => <input id={id} value={form.reference} onChange={update("reference")} maxLength={100} placeholder="e.g. VIR-20261009-4821" className="app-input" />}
+          <Field label={t("Reference")} hint={t("Transfer reference, cheque number...")}>
+            {(id) => <input id={id} value={form.reference} onChange={update("reference")} maxLength={100} placeholder={t("e.g. VIR-20261009-4821")} className="app-input" />}
           </Field>
-          <Field label="Note">
-            {(id) => <input id={id} value={form.note} onChange={update("note")} maxLength={255} placeholder="Optional" className="app-input" />}
+          <Field label={t("Note")}>
+            {(id) => <input id={id} value={form.note} onChange={update("note")} maxLength={255} placeholder={t("Optional")} className="app-input" />}
           </Field>
         </form>
       )}
@@ -193,16 +194,16 @@ function VoidPaymentModal({ payment, onClose, onVoided }) {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (reason.trim().length < 3) return setError("Explain why this payment is being voided.");
+    if (reason.trim().length < 3) return setError(t("Explain why this payment is being voided."));
 
     setSaving(true);
     try {
       await api(`/payments/${payment.id}/void`, { method: "PATCH", body: { reason: reason.trim() } });
-      toast.success(`${money(payment.amount)} payment was voided.`, { title: "Payment voided" });
+      toast.success(t("{amount} payment was voided.", { amount: money(payment.amount) }), { title: t("Payment voided") });
       onVoided();
       onClose();
     } catch (err) {
-      setError(err.message || "Could not void the payment.");
+      setError(err.message || t("Could not void the payment."));
     } finally {
       setSaving(false);
     }
@@ -216,15 +217,15 @@ function VoidPaymentModal({ payment, onClose, onVoided }) {
       size="sm"
       icon="ban"
       iconTone="danger"
-      title="Void this payment?"
-      description={payment ? `${money(payment.amount)} · ${payment.method} · ${formatDate(`${payment.paid_at}T00:00:00`)}` : ""}
+      title={t("Void this payment?")}
+      description={payment ? `${money(payment.amount)} · ${t(payment.method)} · ${formatDate(`${payment.paid_at}T00:00:00`)}` : ""}
       footer={
         <>
           <Button onClick={onClose} disabled={saving}>
-            Keep payment
+            {t("Keep payment")}
           </Button>
           <Button type="submit" form="void-form" variant="danger" loading={saving}>
-            Void payment
+            {t("Void payment")}
           </Button>
         </>
       }
@@ -232,9 +233,9 @@ function VoidPaymentModal({ payment, onClose, onVoided }) {
       <form id="void-form" onSubmit={handleSubmit} className="space-y-3">
         <InlineAlert>{error}</InlineAlert>
         <p className="text-sm app-text-secondary">
-          The payment stays in the history for auditing but no longer counts toward the amount paid.
+          {t("The payment stays in the history for auditing but no longer counts toward the amount paid.")}
         </p>
-        <Field label="Reason" required>
+        <Field label={t("Reason")} required>
           {(id) => (
             <textarea
               id={id}
@@ -242,7 +243,7 @@ function VoidPaymentModal({ payment, onClose, onVoided }) {
               onChange={(event) => setReason(event.target.value)}
               rows={3}
               maxLength={255}
-              placeholder="e.g. Recorded twice, cheque bounced..."
+              placeholder={t("e.g. Recorded twice, cheque bounced...")}
               className="app-input resize-none"
             />
           )}
@@ -276,10 +277,10 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-bold app-text">Payments</h3>
+        <h3 className="text-sm font-bold app-text">{t("Payments")}</h3>
         {canRecord && !isVoid && billing.balance > 0 && (
           <Button size="sm" variant="primary" icon="plus" onClick={() => setRecordOpen(true)}>
-            Record payment
+            {t("Record payment")}
           </Button>
         )}
       </div>
@@ -287,21 +288,21 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
       <div className="rounded-xl border p-4" style={{ borderColor: "var(--border-color)" }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide app-text-muted">Balance due</p>
+            <p className="text-xs font-medium uppercase tracking-wide app-text-muted">{t("Balance due")}</p>
             <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums app-text">{money(billing.balance)}</p>
             <p className="mt-0.5 text-xs app-text-secondary">
               {billing.payment_status === "Credited"
-                ? `Invoice of ${money(billing.invoice_total)} fully credited`
-                : `of ${money(billing.total_due)} incl. VAT${billing.credited > 0 ? `, after ${money(billing.credited)} credited` : ""}`}
+                ? t("Invoice of {amount} fully credited", { amount: money(billing.invoice_total) })
+                : billing.credited > 0 ? t("of {total} incl. VAT, after {credited} credited", { total: money(billing.total_due), credited: money(billing.credited) }) : t("of {total} incl. VAT", { total: money(billing.total_due) })}
               {!isVoid && billing.balance > 0 && (
                 <>
                   {" · "}
                   <span style={billing.overdue ? { color: "var(--danger)", fontWeight: 600 } : undefined}>
                     {billing.overdue
-                      ? `${billing.days_overdue} days overdue`
+                      ? t("{count} days overdue", { count: billing.days_overdue })
                       : dueIn === 0
-                        ? "due today"
-                        : `due in ${dueIn} days (${formatDate(billing.due_date)})`}
+                        ? t("due today")
+                        : t("due in {count} days ({date})", { count: dueIn, date: formatDate(billing.due_date) })}
                   </span>
                 </>
               )}
@@ -321,8 +322,8 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
               />
             </div>
             <p className="mt-1.5 text-xs app-text-muted">
-              {money(billing.amount_paid)} paid · {progress.toFixed(0)}%
-              {billing.refunded > 0 && ` · ${money(billing.refunded)} refunded`}
+              {t("{amount} paid", { amount: money(billing.amount_paid) })} · {progress.toFixed(0)}%
+              {billing.refunded > 0 && ` · ${t("{amount} refunded", { amount: money(billing.refunded) })}`}
             </p>
           </div>
         )}
@@ -335,7 +336,7 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
           <div className="skeleton h-14 rounded-xl" />
         ) : payments.length === 0 ? (
           <p className="rounded-xl border border-dashed px-4 py-5 text-center text-sm app-text-secondary" style={{ borderColor: "var(--border-strong)" }}>
-            {isVoid ? "This order was cancelled; no payment is due." : "No payments recorded yet."}
+            {isVoid ? t("This order was cancelled; no payment is due.") : t("No payments recorded yet.")}
           </p>
         ) : (
           <ul className="divide-y overflow-hidden rounded-xl border" style={{ borderColor: "var(--border-color)" }}>
@@ -349,23 +350,23 @@ export default function PaymentPanel({ order, version = 0, canRecord, canVoid, o
                   <div className="min-w-0 flex-1">
                     <p className={`text-sm font-semibold tabular-nums ${voided ? "line-through app-text-muted" : "app-text"}`}>
                       {money(payment.amount)}
-                      <span className="ml-2 text-xs font-normal app-text-muted">{payment.method}</span>
+                      <span className="ms-2 text-xs font-normal app-text-muted">{payment.method}</span>
                     </p>
                     <p className="truncate text-xs app-text-muted">
                       {formatDate(`${payment.paid_at}T00:00:00`)}
                       {payment.reference && ` · ${payment.reference}`}
-                      {payment.recorded_by_name && ` · by ${payment.recorded_by_name}`}
+                      {payment.recorded_by_name && ` · ${t("by {name}", { name: payment.recorded_by_name })}`}
                     </p>
                     {payment.note && <p className="mt-0.5 text-xs app-text-secondary">{payment.note}</p>}
                     {voided && (
                       <p className="mt-1 text-xs font-medium" style={{ color: "var(--danger)" }}>
-                        Voided {formatDate(payment.voided_at)}
-                        {payment.voided_by_name && ` by ${payment.voided_by_name}`}: {payment.void_reason}
+                        {t("Voided {date}", { date: formatDate(payment.voided_at) })}
+                        {payment.voided_by_name && ` ${t("by {name}", { name: payment.voided_by_name })}`}: {payment.void_reason}
                       </p>
                     )}
                   </div>
                   {canVoid && !voided && (
-                    <IconAction icon="ban" label="Void payment" tone="danger" onClick={() => setVoiding(payment)} />
+                    <IconAction icon="ban" label={t("Void payment")} tone="danger" onClick={() => setVoiding(payment)} />
                   )}
                 </li>
               );

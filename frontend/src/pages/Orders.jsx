@@ -33,6 +33,7 @@ import ReturnsPanel from "../components/ReturnsPanel";
 import HistoryPanel from "../components/HistoryPanel";
 import useTable from "../lib/useTable";
 
+import { t } from "../i18n";
 const STATUSES = Object.keys(ORDER_STATUS);
 
 const periods = {
@@ -73,14 +74,14 @@ function LinePrice({ line }) {
         <>
           <span className="tabular-nums">
             <span className="line-through">{money(line.list_price)}</span>{" "}
-            <span className="font-semibold app-text">{money(line.unit_price)}</span> each
+            <span className="font-semibold app-text">{t("{price} each", { price: money(line.unit_price) })}</span>
           </span>
           <Badge tone={PRICE_SOURCES[line.price_source]?.tone}>{line.label}</Badge>
         </>
       )}
       {line.next_break && (
         <span>
-          {line.next_break.min_quantity}+ units: {line.next_break.discount_percent}% volume discount
+          {t("{count}+ units: {percent}% volume discount", { count: line.next_break.min_quantity, percent: line.next_break.discount_percent })}
         </span>
       )}
     </p>
@@ -108,7 +109,7 @@ function StatusTimeline({ status }) {
           <li key={step} className="relative flex flex-1 flex-col items-center text-center">
             {!isLast && (
               <span
-                className="absolute left-1/2 top-4 h-0.5 w-full"
+                className="absolute start-1/2 top-4 h-0.5 w-full"
                 style={{ backgroundColor: !cancelled && index < reached ? "var(--success)" : "var(--border-color)" }}
               />
             )}
@@ -122,7 +123,7 @@ function StatusTimeline({ status }) {
             >
               <Icon name={done && index < reached ? "check" : meta.icon} size={15} strokeWidth={2.2} />
             </span>
-            <span className={`mt-2 text-xs font-semibold ${done ? "app-text" : "app-text-muted"}`}>{step}</span>
+            <span className={`mt-2 text-xs font-semibold ${done ? "app-text" : "app-text-muted"}`}>{t(step)}</span>
           </li>
         );
       })}
@@ -141,8 +142,8 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
     <Drawer
       open={open}
       onClose={onClose}
-      title={orderId ? `Order #${orderId}` : ""}
-      description={order ? `Placed ${formatDate(order.created_at, true)} · ${timeAgo(order.created_at)}` : "Loading..."}
+      title={orderId ? t("Order #{id}", { id: orderId }) : ""}
+      description={order ? `${t("Placed {date}", { date: formatDate(order.created_at, true) })} · ${timeAgo(order.created_at)}` : t("Loading...")}
       icon="orders"
       footer={
         order && (
@@ -157,13 +158,13 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
                   icon={actionLabels[status].icon}
                   loading={updating === order.id}
                   onClick={() => onChangeStatus(order, status)}
-                  className={status === "Cancelled" ? "order-first mr-auto" : "order-2"}
+                  className={status === "Cancelled" ? "order-first me-auto" : "order-2"}
                 >
-                  {actionLabels[status].label}
+                  {t(actionLabels[status].label)}
                 </Button>
               ))}
             {canWrite && order.status !== "Cancelled" && order.status !== "Completed" && order.billing?.amount_paid > 0 && (
-              <span className="order-first mr-auto max-w-[180px] text-xs app-text-muted">To cancel, void its payments first.</span>
+              <span className="order-first me-auto max-w-[180px] text-xs app-text-muted">{t("To cancel, void its payments first.")}</span>
             )}
             <Link
               to={`/orders/${order.id}/invoice`}
@@ -172,7 +173,7 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
               className="order-1 inline-flex h-10 items-center gap-2 rounded-[var(--control-radius)] border px-4 text-sm font-semibold transition hover:bg-[var(--surface-hover)] app-text"
               style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface)" }}
             >
-              <Icon name="download" size={17} /> Invoice
+              <Icon name="download" size={17} /> {t("Invoice")}
             </Link>
           </>
         )
@@ -196,8 +197,8 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
                     <Icon name="ban" size={19} />
                   </div>
                   <div>
-                    <p className="font-semibold app-text">This order was cancelled</p>
-                    <p className="text-sm app-text-secondary">Reserved stock was returned to inventory.</p>
+                    <p className="font-semibold app-text">{t("This order was cancelled")}</p>
+                    <p className="text-sm app-text-secondary">{t("Reserved stock was returned to inventory.")}</p>
                   </div>
                 </div>
               ) : (
@@ -212,7 +213,7 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
             >
               <Avatar label={initials(order.company_name)} seed={order.customer_id} />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium uppercase tracking-wide app-text-muted">Customer</p>
+                <p className="text-xs font-medium uppercase tracking-wide app-text-muted">{t("Customer")}</p>
                 <p className="truncate font-semibold app-text">{order.company_name}</p>
               </div>
               <Icon name="chevronRight" size={18} className="app-text-muted" />
@@ -220,14 +221,14 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
 
             <div>
               <h3 className="mb-3 text-sm font-bold app-text">
-                Items <span className="font-normal app-text-muted">({items.length})</span>
+                {t("Items")} <span className="font-normal app-text-muted">({items.length})</span>
               </h3>
               <div className="overflow-hidden rounded-xl border" style={{ borderColor: "var(--border-color)" }}>
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-start text-sm">
                   <TableHead>
-                    <Th className="!px-4">Product</Th>
-                    <Th className="!px-4" align="right">Qty</Th>
-                    <Th className="!px-4" align="right">Subtotal</Th>
+                    <Th className="!px-4">{t("Product")}</Th>
+                    <Th className="!px-4" align="right">{t("Qty")}</Th>
+                    <Th className="!px-4" align="right">{t("Subtotal")}</Th>
                   </TableHead>
                   <tbody>
                     {items.map((item) => (
@@ -235,13 +236,13 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
                         <td className="px-4 py-3">
                           <p className="font-medium app-text">{item.product_name}</p>
                           <p className="text-xs app-text-muted">
-                            {hasDiscount(item) && <span className="mr-1 line-through">{money(item.list_price)}</span>}
-                            {money(item.unit_price)} each
-                            {item.price_source && item.price_source !== "list" && ` · ${PRICE_SOURCES[item.price_source]?.label}`}
+                            {hasDiscount(item) && <span className="me-1 line-through">{money(item.list_price)}</span>}
+                            {t("{price} each", { price: money(item.unit_price) })}
+                            {item.price_source && item.price_source !== "list" && ` · ${t(PRICE_SOURCES[item.price_source]?.label)}`}
                           </p>
                         </td>
-                        <td className="px-4 py-3 text-right tabular-nums app-text">×{item.quantity}</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums app-text">
+                        <td className="px-4 py-3 text-end tabular-nums app-text">×{item.quantity}</td>
+                        <td className="px-4 py-3 text-end font-semibold tabular-nums app-text">
                           {money(item.subtotal ?? item.quantity * item.unit_price)}
                         </td>
                       </tr>
@@ -249,7 +250,7 @@ function OrderDrawer({ orderId, version, open, onClose, onChangeStatus, updating
                   </tbody>
                 </table>
                 <div className="flex items-center justify-between border-t px-4 py-3.5" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}>
-                  <span className="text-sm font-semibold app-text-secondary">Order total (excl. VAT)</span>
+                  <span className="text-sm font-semibold app-text-secondary">{t("Order total (excl. VAT)")}</span>
                   <span className="text-lg font-bold tabular-nums app-text">{money(order.total_amount)}</span>
                 </div>
               </div>
@@ -330,15 +331,15 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
     event.preventDefault();
     setFormError("");
 
-    if (!customerId) return setFormError("Select a customer for this order.");
+    if (!customerId) return setFormError(t("Select a customer for this order."));
 
     const items = lines
       .filter((line) => line.product_id)
       .map((line) => ({ product_id: Number(line.product_id), quantity: Number(line.quantity) }));
 
-    if (items.length === 0) return setFormError("Add at least one product.");
+    if (items.length === 0) return setFormError(t("Add at least one product."));
     if (items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) {
-      return setFormError("Quantities must be whole numbers of 1 or more.");
+      return setFormError(t("Quantities must be whole numbers of 1 or more."));
     }
 
     const overStock = lines.find((line) => {
@@ -347,19 +348,19 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
     });
     if (overStock) {
       const product = productById.get(overStock.product_id);
-      return setFormError(`Only ${product.stock} units of ${product.name} are in stock.`);
+      return setFormError(t("Only {count} units of {product} are in stock.", { count: product.stock, product: product.name }));
     }
 
     setSaving(true);
     try {
       const result = await api("/orders", { method: "POST", body: { customer_id: Number(customerId), items } });
-      toast.success(`${money(total)} order for ${selectedCustomer?.company_name ?? "customer"} was created.`, {
-        title: "Order created",
+      toast.success(t("{amount} order for {customer} was created.", { amount: money(total), customer: selectedCustomer?.company_name ?? t("customer") }), {
+        title: t("Order created"),
       });
       reset();
       onCreated(result.data?.orderId);
     } catch (err) {
-      setFormError(err.message || "Could not create the order.");
+      setFormError(err.message || t("Could not create the order."));
     } finally {
       setSaving(false);
     }
@@ -374,14 +375,14 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
       busy={saving}
       size="xl"
       icon="orders"
-      title="Create an order"
+      title={t("Create an order")}
       footer={
         <>
           <Button onClick={close} disabled={saving}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button type="submit" form="order-form" variant="primary" loading={saving} icon="check" disabled={units === 0 || !customerId}>
-            Create order · {money(total)}
+            {t("Create order")} · {money(total)}
           </Button>
         </>
       }
@@ -400,10 +401,10 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
           <div className="min-w-0 space-y-5">
             <InlineAlert>{formError}</InlineAlert>
 
-            <Field label="Customer" required>
+            <Field label={t("Customer")} required>
               {(id) => (
                 <select id={id} value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="app-input">
-                  <option value="">Select a customer...</option>
+                  <option value="">{t("Select a customer...")}</option>
                   {customers.map((customer) => (
                     <option key={customer.id} value={customer.id}>
                       {customer.company_name}
@@ -415,21 +416,20 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
             </Field>
             {customers.length === 0 && (
               <InlineAlert tone="warning">
-                No customers yet.{" "}
+                {t("No customers yet.")}{" "}
                 <Link to="/customers?new=1" className="font-semibold underline">
-                  Add a customer
-                </Link>{" "}
-                first.
+                  {t("Add a customer")}
+                </Link>
               </InlineAlert>
             )}
 
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-medium app-text">
-                  Products <span style={{ color: "var(--danger)" }}>*</span>
+                  {t("Products")} <span style={{ color: "var(--danger)" }}>*</span>
                 </p>
                 <Button size="sm" variant="ghost" icon="plus" onClick={() => setLines((current) => [...current, newLine()])} disabled={selectedIds.size >= products.length}>
-                  Add line
+                  {t("Add line")}
                 </Button>
               </div>
 
@@ -448,16 +448,16 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
                       <select
                         value={line.product_id}
                         onChange={(event) => updateLine(line.key, { product_id: event.target.value })}
-                        aria-label={`Product for line ${index + 1}`}
+                        aria-label={t("Product for line {number}", { number: index + 1 })}
                         className="app-input col-span-2 sm:col-span-1"
                       >
-                        <option value="">Select a product...</option>
+                        <option value="">{t("Select a product...")}</option>
                         {products.map((option) => {
                           const taken = selectedIds.has(String(option.id)) && String(option.id) !== line.product_id;
                           const outOfStock = Number(option.stock) === 0;
                           return (
                             <option key={option.id} value={option.id} disabled={taken || outOfStock}>
-                              {option.name} · {money(option.price)} {outOfStock ? "(out of stock)" : `(${option.stock} in stock)`}
+                              {option.name} · {money(option.price)} {outOfStock ? `(${t("out of stock")})` : `(${t("{count} in stock", { count: option.stock })})`}
                             </option>
                           );
                         })}
@@ -470,18 +470,18 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
                         step="1"
                         value={line.quantity}
                         onChange={(event) => updateLine(line.key, { quantity: event.target.value })}
-                        aria-label={`Quantity for line ${index + 1}`}
+                        aria-label={t("Quantity for line {number}", { number: index + 1 })}
                         aria-invalid={tooMany}
                         className="app-input text-center tabular-nums"
                       />
 
-                      <p className="text-right text-sm font-semibold tabular-nums app-text sm:pr-1">
+                      <p className="text-end text-sm font-semibold tabular-nums app-text sm:pe-1">
                         {product ? money(unitPriceOf(product) * quantity) : "—"}
                       </p>
 
                       <IconAction
                         icon="trash"
-                        label={`Remove line ${index + 1}`}
+                        label={t("Remove line {number}", { number: index + 1 })}
                         tone="danger"
                         disabled={lines.length === 1}
                         onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
@@ -491,7 +491,7 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
 
                       {tooMany && (
                         <p className="col-span-full text-xs font-medium" style={{ color: "var(--danger)" }}>
-                          Only {product.stock} in stock.
+                          {t("Only {count} in stock.", { count: product.stock })}
                         </p>
                       )}
                     </div>
@@ -500,13 +500,13 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
               </div>
 
               {products.length === 0 && (
-                <InlineAlert tone="warning">No active products are available to order.</InlineAlert>
+                <InlineAlert tone="warning">{t("No active products are available to order.")}</InlineAlert>
               )}
             </div>
           </div>
 
           <aside className="h-fit rounded-xl border p-5 lg:sticky lg:top-0" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}>
-            <p className="text-xs font-semibold uppercase tracking-wider app-text-muted">Order summary</p>
+            <p className="text-xs font-semibold uppercase tracking-wider app-text-muted">{t("Order summary")}</p>
 
             <div className="mt-4 flex items-center gap-3">
               {selectedCustomer ? (
@@ -515,27 +515,27 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold app-text">{selectedCustomer.company_name}</p>
                     <p className="truncate text-xs app-text-muted">
-                      {selectedCustomer.price_list_name ? `${selectedCustomer.price_list_name} price list, −${Number(selectedCustomer.price_list_discount)}%` : "Catalog prices"}
+                      {selectedCustomer.price_list_name ? t("{list} price list, −{percent}%", { list: selectedCustomer.price_list_name, percent: Number(selectedCustomer.price_list_discount) }) : t("Catalog prices")}
                     </p>
                   </div>
                 </>
               ) : (
-                <p className="text-sm app-text-muted">No customer selected</p>
+                <p className="text-sm app-text-muted">{t("No customer selected")}</p>
               )}
             </div>
 
             <dl className="mt-5 space-y-2 border-t pt-4 text-sm" style={{ borderColor: "var(--border-color)" }}>
               <div className="flex justify-between">
-                <dt className="app-text-secondary">Products</dt>
+                <dt className="app-text-secondary">{t("Products")}</dt>
                 <dd className="font-semibold app-text">{selectedIds.size}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="app-text-secondary">Units</dt>
+                <dt className="app-text-secondary">{t("Units")}</dt>
                 <dd className="font-semibold app-text">{units}</dd>
               </div>
               {savings > 0 && (
                 <div className="flex justify-between">
-                  <dt className="app-text-secondary">Discounts</dt>
+                  <dt className="app-text-secondary">{t("Discounts")}</dt>
                   <dd className="font-semibold tabular-nums" style={{ color: "var(--success)" }}>
                     −{money(savings)}
                   </dd>
@@ -544,9 +544,9 @@ function CreateOrderModal({ open, onClose, onCreated, initialCustomerId }) {
             </dl>
 
             <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--border-color)" }}>
-              <p className="text-xs app-text-secondary">Total</p>
+              <p className="text-xs app-text-secondary">{t("Total")}</p>
               <p className={`mt-0.5 text-2xl font-bold tracking-tight tabular-nums app-text ${pricing ? "opacity-60" : ""}`}>{money(total)}</p>
-              <p className="mt-2 text-xs app-text-muted">Excluding VAT, with this customer's prices.</p>
+              <p className="mt-2 text-xs app-text-muted">{t("Excluding VAT, with this customer's prices.")}</p>
             </div>
           </aside>
         </form>
@@ -627,11 +627,11 @@ export default function Orders() {
   async function changeStatus(order, nextStatus) {
     const cancelling = nextStatus === "Cancelled";
     const confirmed = await confirm({
-      title: cancelling ? `Cancel order #${order.id}?` : `Move order #${order.id} to ${nextStatus}?`,
+      title: cancelling ? t("Cancel order #{id}?", { id: order.id }) : t("Move order #{id} to {status}?", { id: order.id, status: t(nextStatus) }),
       message: cancelling
-        ? "The order will be cancelled and its reserved stock returned to inventory. This can't be undone."
-        : `The order for ${order.company_name} will move from ${order.status} to ${nextStatus}.`,
-      confirmLabel: actionLabels[nextStatus].label,
+        ? t("The order will be cancelled and its reserved stock returned to inventory. This can't be undone.")
+        : t("The order for {customer} will move from {from} to {to}.", { customer: order.company_name, from: t(order.status), to: t(nextStatus) }),
+      confirmLabel: t(actionLabels[nextStatus].label),
       tone: cancelling ? "danger" : "primary",
       icon: actionLabels[nextStatus].icon,
     });
@@ -640,11 +640,11 @@ export default function Orders() {
     setUpdating(order.id);
     try {
       await api(`/orders/${order.id}/status`, { method: "PATCH", body: { status: nextStatus } });
-      toast.success(`Order #${order.id} is now ${nextStatus}.`, { title: "Status updated" });
+      toast.success(t("Order #{id} is now {status}.", { id: order.id, status: t(nextStatus) }), { title: t("Status updated") });
       reload();
       setDrawerVersion((value) => value + 1);
     } catch (err) {
-      toast.error(err.message || "Could not update the order.", { title: "Update failed" });
+      toast.error(err.message || t("Could not update the order."), { title: t("Update failed") });
     } finally {
       setUpdating(null);
     }
@@ -654,15 +654,15 @@ export default function Orders() {
     exportCsv(
       "orders",
       [
-        ["Order", (o) => o.id],
-        ["Customer", (o) => o.company_name],
-        ["Status", (o) => o.status],
-        ["Total (MAD)", (o) => o.total_amount],
-        ["Created", (o) => o.created_at],
+        [t("Order"), (o) => o.id],
+        [t("Customer"), (o) => o.company_name],
+        [t("Status"), (o) => t(o.status)],
+        [t("Total (MAD)"), (o) => o.total_amount],
+        [t("Created"), (o) => o.created_at],
       ],
       table.sorted
     );
-    toast.info(`Exported ${table.sorted.length} orders to CSV.`);
+    toast.info(t("Exported {count} orders to CSV.", { count: table.sorted.length }));
   }
 
   function closeCreate() {
@@ -673,15 +673,15 @@ export default function Orders() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Orders"
+        title={t("Orders")}
         actions={
           <>
             <Button icon="download" onClick={handleExport} disabled={filtered.length === 0}>
-              Export
+              {t("Export")}
             </Button>
             {canWrite && (
               <Button variant="primary" icon="plus" onClick={() => setCreateOpen(true)}>
-                Create order
+                {t("Create order")}
               </Button>
             )}
           </>
@@ -689,10 +689,10 @@ export default function Orders() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Completed revenue" value={compactMoney(revenue)} hint={`${periods[period.key].label}, net of returns`} icon="revenue" tone="success" loading={loading && !data} />
-        <StatCard label="Average order" value={money(average)} hint="Across completed orders" icon="orders" tone="primary" loading={loading && !data} />
-        <StatCard label="Pending" value={number(counts.Pending)} hint="Awaiting review" icon="clock" tone="warning" loading={loading && !data} onClick={() => setStatus("Pending")} />
-        <StatCard label="Processing" value={number(counts.Processing)} hint="Being prepared" icon="truck" tone="info" loading={loading && !data} onClick={() => setStatus("Processing")} />
+        <StatCard label={t("Completed revenue")} value={compactMoney(revenue)} hint={t("{period}, net of returns", { period: t(periods[period.key].label) })} icon="revenue" tone="success" loading={loading && !data} />
+        <StatCard label={t("Average order")} value={money(average)} hint={t("Across completed orders")} icon="orders" tone="primary" loading={loading && !data} />
+        <StatCard label={t("Pending")} value={number(counts.Pending)} hint={t("Awaiting review")} icon="clock" tone="warning" loading={loading && !data} onClick={() => setStatus("Pending")} />
+        <StatCard label={t("Processing")} value={number(counts.Processing)} hint={t("Being prepared")} icon="truck" tone="info" loading={loading && !data} onClick={() => setStatus("Processing")} />
       </div>
 
       {error && <ErrorState message={error} onRetry={reload} />}
@@ -700,7 +700,7 @@ export default function Orders() {
       <Card>
         <div className="space-y-3 border-b p-4" style={{ borderColor: "var(--border-color)" }}>
           <SegmentedControl
-            label="Filter by status"
+            label={t("Filter by status")}
             value={status}
             onChange={(value) => {
               setStatus(value);
@@ -715,7 +715,7 @@ export default function Orders() {
                 setSearch(value);
                 table.setPage(1);
               }}
-              placeholder="Search order # or customer..."
+              placeholder={t("Search order # or customer...")}
               className="sm:w-80"
             />
             <select
@@ -725,12 +725,12 @@ export default function Orders() {
                 setPeriod({ key: event.target.value, cutoff: days ? Date.now() - days * 86400000 : null });
                 table.setPage(1);
               }}
-              aria-label="Filter by date"
+              aria-label={t("Filter by date")}
               className="app-input h-10 py-0 sm:w-44"
             >
               {Object.entries(periods).map(([value, option]) => (
                 <option key={value} value={value}>
-                  {option.label}
+                  {t(option.label)}
                 </option>
               ))}
             </select>
@@ -740,16 +740,16 @@ export default function Orders() {
                 setPaymentFilter(event.target.value);
                 table.setPage(1);
               }}
-              aria-label="Filter by payment"
+              aria-label={t("Filter by payment")}
               className="app-input h-10 py-0 sm:w-44"
             >
               {Object.entries(paymentFilters).map(([value, option]) => (
                 <option key={value} value={value}>
-                  {option.label}
+                  {t(option.label)}
                 </option>
               ))}
             </select>
-            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={`sm:ml-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
+            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label={t("Refresh")} title={t("Refresh")} className={`sm:ms-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
           </div>
         </div>
 
@@ -758,8 +758,8 @@ export default function Orders() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={orders.length ? "search" : "orders"}
-            title={orders.length ? "No orders match these filters" : "No orders yet"}
-            description={orders.length ? "Try another status, period, or search term." : "Create your first order to start tracking sales."}
+            title={orders.length ? t("No orders match these filters") : t("No orders yet")}
+            description={orders.length ? t("Try another status, period, or search term.") : t("Create your first order to start tracking sales.")}
             action={
               orders.length ? (
                 <Button
@@ -770,12 +770,12 @@ export default function Orders() {
                     setPaymentFilter("all");
                   }}
                 >
-                  Clear filters
+                  {t("Clear filters")}
                 </Button>
               ) : (
                 canWrite && (
                   <Button variant="primary" icon="plus" onClick={() => setCreateOpen(true)}>
-                    Create your first order
+                    {t("Create your first order")}
                   </Button>
                 )
               )
@@ -783,14 +783,14 @@ export default function Orders() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[780px] text-left text-sm">
+            <table className="w-full min-w-[780px] text-start text-sm">
               <TableHead>
-                <SortHeader label="Order" column="id" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Customer" column="customer" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Date" column="date" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Status" column="status" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Total" column="total" sort={table.sort} onSort={table.toggleSort} align="right" />
-                <Th align="right">Actions</Th>
+                <SortHeader label={t("Order")} column="id" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Customer")} column="customer" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Date")} column="date" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Status")} column="status" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Total")} column="total" sort={table.sort} onSort={table.toggleSort} align="right" />
+                <Th align="right">{t("Actions")}</Th>
               </TableHead>
               <tbody>
                 {table.rows.map((order) => {
@@ -832,24 +832,24 @@ export default function Orders() {
                           })()}
                         </div>
                       </td>
-                      <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold tabular-nums app-text">{money(order.total_amount)}</td>
+                      <td className="whitespace-nowrap px-5 py-3.5 text-end font-semibold tabular-nums app-text">{money(order.total_amount)}</td>
                       <td className="px-5 py-3.5" onClick={(event) => event.stopPropagation()}>
                         <div className="flex justify-end gap-1">
                           {canFulfil && forward && (
                             <IconAction
                               icon={actionLabels[forward].icon}
-                              label={actionLabels[forward].label}
+                              label={t(actionLabels[forward].label)}
                               disabled={updating === order.id}
                               onClick={() => changeStatus(order, forward)}
                             />
                           )}
-                          <IconAction icon="eye" label="View order" onClick={() => updateParams({ view: order.id })} />
+                          <IconAction icon="eye" label={t("View order")} onClick={() => updateParams({ view: order.id })} />
                           <a
                             href={`/orders/${order.id}/invoice`}
                             target="_blank"
                             rel="noopener"
-                            aria-label={`Open invoice for order ${order.id}`}
-                            title="Open invoice"
+                            aria-label={t("Open invoice for order {id}", { id: order.id })}
+                            title={t("Open invoice")}
                             className="flex h-8 w-8 items-center justify-center rounded-lg transition text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                           >
                             <Icon name="download" size={17} />
@@ -865,7 +865,7 @@ export default function Orders() {
         )}
 
         {filtered.length > 0 && (
-          <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label="orders" />
+          <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label={t("orders")} />
         )}
       </Card>
 

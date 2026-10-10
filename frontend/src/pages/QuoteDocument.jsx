@@ -15,6 +15,7 @@ import {
   paper,
 } from "../components/document/Document";
 
+import { t } from "../i18n";
 const stamps = {
   Draft: { label: "DRAFT", color: paper.muted },
   Sent: { label: "AWAITING APPROVAL", color: paper.accent },
@@ -37,15 +38,15 @@ export function QuoteSheet({ quote, customer }) {
   const listTotal = lines.reduce((sum, line) => sum + line.listPrice * line.quantity, 0);
   const savings = Math.round((listTotal - quote.total_amount) * 100) / 100;
   const hasDiscount = savings > 0.004;
-  const watermark = quote.status === "Draft" ? "DRAFT" : quote.status === "Expired" ? "EXPIRED" : null;
+  const watermark = quote.status === "Draft" ? t("DRAFT") : quote.status === "Expired" ? t("EXPIRED") : null;
 
   return (
-    <Sheet label={`Quote ${quote.number}`} watermark={watermark}>
-      <DocumentHeader title="QUOTE" number={quote.number} stamp={stamps[quote.status]} />
+    <Sheet label={t("Quote {number}", { number: quote.number })} watermark={watermark}>
+      <DocumentHeader title={t("QUOTE")} number={quote.number} stamp={stamps[quote.status]} />
 
       <section className="grid gap-8 py-7 sm:grid-cols-3">
         <SellerBlock />
-        <CustomerBlock title="Prepared for" customer={customer} fallbackName={quote.company_name} />
+        <CustomerBlock title={t("Prepared for")} customer={customer} fallbackName={quote.company_name} />
         <DetailsBlock
           rows={[
             ["Date", formatDate(quote.sent_at ?? quote.created_at)],
@@ -62,15 +63,17 @@ export function QuoteSheet({ quote, customer }) {
         <div className="max-w-xs space-y-3 text-[12px] leading-5" style={{ color: paper.muted }}>
           {quote.notes && (
             <div>
-              <Label className="mb-1">Notes</Label>
+              <Label className="mb-1">{t("Notes")}</Label>
               <p style={{ color: paper.ink }}>{quote.notes}</p>
             </div>
           )}
           <div>
-            <Label className="mb-1">Terms</Label>
+            <Label className="mb-1">{t("Terms")}</Label>
             <p>
-              Prices are in Moroccan dirhams and valid until {formatDate(`${quote.valid_until}T00:00:00`)}, subject to stock
-              availability. Payment due {company.paymentTermsDays} days after invoice.
+              {t("Prices are in Moroccan dirhams and valid until {date}, subject to stock availability. Payment due {days} days after invoice.", {
+                date: formatDate(`${quote.valid_until}T00:00:00`),
+                days: company.paymentTermsDays,
+              })}
             </p>
           </div>
         </div>
@@ -83,7 +86,7 @@ export function QuoteSheet({ quote, customer }) {
           before={
             hasDiscount && (
               <div className="flex justify-between py-1.5">
-                <dt style={{ color: paper.muted }}>You save</dt>
+                <dt style={{ color: paper.muted }}>{t("You save")}</dt>
                 <dd className="font-semibold tabular-nums" style={{ color: paper.success }}>
                   {money(savings)}
                 </dd>
@@ -96,17 +99,17 @@ export function QuoteSheet({ quote, customer }) {
       {/* Acceptance */}
       <section className="mt-10 grid gap-6 sm:grid-cols-2" style={{ breakInside: "avoid" }}>
         <div>
-          <Label className="mb-2">For {company.name}</Label>
+          <Label className="mb-2">{t("For {company}", { company: company.name })}</Label>
           <div className="h-24 rounded-lg border border-dashed" style={{ borderColor: paper.rule }} />
           <p className="mt-1.5 text-[11px]" style={{ color: paper.muted }}>
-            {quote.created_by_name ?? "Authorized signature"}
+            {quote.created_by_name ?? t("Authorized signature")}
           </p>
         </div>
         <div>
-          <Label className="mb-2">Customer acceptance</Label>
+          <Label className="mb-2">{t("Customer acceptance")}</Label>
           <div className="h-24 rounded-lg border border-dashed" style={{ borderColor: paper.rule }} />
           <p className="mt-1.5 text-[11px]" style={{ color: paper.muted }}>
-            Name, date, signature and company stamp: “Bon pour accord”
+            {t("Name, date, signature and company stamp: “Bon pour accord”")}
           </p>
         </div>
       </section>
@@ -126,7 +129,7 @@ export default function QuoteDocument() {
   return (
     <DocumentPage
       backTo={quote ? `/quotes?view=${quote.id}` : "/quotes"}
-      backLabel="Back to quote"
+      backLabel={t("Back to quote")}
       number={quote?.number}
       title={quote ? `${quote.number} · ${quote.company_name}` : null}
       invalid={!validId}

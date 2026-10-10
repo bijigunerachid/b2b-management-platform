@@ -30,11 +30,12 @@
   from { opacity: 1; transform: none; }
   to { opacity: 0; transform: translateY(4px) scale(0.98); }
 }
-@keyframes drawer-in { from { transform: translateX(100%); } to { transform: none; } }
-@keyframes drawer-out { from { transform: none; } to { transform: translateX(100%); } }
-@keyframes drawer-left { from { transform: translateX(-100%); } to { transform: none; } }
+/* --dir is 1 left-to-right and -1 right-to-left, so slides come from the reading end. */
+@keyframes drawer-in { from { transform: translateX(calc(100% * var(--dir, 1))); } to { transform: none; } }
+@keyframes drawer-out { from { transform: none; } to { transform: translateX(calc(100% * var(--dir, 1))); } }
+@keyframes drawer-left { from { transform: translateX(calc(-100% * var(--dir, 1))); } to { transform: none; } }
 @keyframes toast-in {
-  from { opacity: 0; transform: translateX(24px) scale(0.96); }
+  from { opacity: 0; transform: translateX(calc(24px * var(--dir, 1))) scale(0.96); }
   to { opacity: 1; transform: none; }
 }
 @keyframes rise {
@@ -93,6 +94,19 @@
   --card-radius: 16px;
   --control-radius: 10px;
   --sidebar-width: 264px;
+}
+
+:root {
+  --dir: 1;
+}
+
+[dir="rtl"] {
+  --dir: -1;
+}
+
+/* Arrows point the way you read. */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
 }
 
 html.dark {
@@ -258,10 +272,14 @@ html.dark {
 
   select.app-input {
     appearance: none;
-    padding-right: 36px;
+    padding-inline-end: 36px;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a95a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
+  }
+
+  [dir="rtl"] select.app-input {
+    background-position: left 12px center;
   }
 
   .app-primary-button {
@@ -292,6 +310,10 @@ html.dark {
     );
     background-size: 200% 100%;
     animation: var(--animate-shimmer);
+  }
+
+  [dir="rtl"] .toast-progress {
+    transform-origin: right;
   }
 
   .toast-progress {

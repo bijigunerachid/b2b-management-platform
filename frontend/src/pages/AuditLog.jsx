@@ -6,6 +6,7 @@ import { Badge, Card, EmptyState, ErrorState, PageHeader, Pagination, SearchInpu
 import { ChangeList } from "../components/HistoryPanel";
 import { formatDate, timeAgo, useResource } from "../lib/api";
 
+import { t } from "../i18n";
 const AREAS = [
   ["", "All activity"],
   ["auth", "Sign-ins"],
@@ -54,32 +55,32 @@ function Entry({ entry }) {
           <p className="text-sm app-text">
             {entry.summary}
             {link && (
-              <Link to={link} className="ml-2 text-xs font-semibold hover:underline" style={{ color: "var(--primary)" }}>
-                Open
+              <Link to={link} className="ms-2 text-xs font-semibold hover:underline" style={{ color: "var(--primary)" }}>
+                {t("Open")}
               </Link>
             )}
           </p>
           <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs app-text-muted">
-            <span>{entry.user_name ?? (entry.action === "auth.login_failed" ? "Unknown" : "System")}</span>
-            {entry.user_role && <span>· {entry.user_role}</span>}
+            <span>{entry.user_name ?? (entry.action === "auth.login_failed" ? t("Unknown") : t("System"))}</span>
+            {entry.user_role && <span>· {t(entry.user_role)}</span>}
             <Badge tone={tone(entry.action)}>{entry.action}</Badge>
           </p>
           <ChangeList changes={entry.changes} />
           {open && (
             <dl className="mt-2 grid gap-x-4 gap-y-1 rounded-lg p-3 text-xs app-muted sm:grid-cols-[auto_1fr]">
-              <dt className="app-text-muted">Request</dt>
+              <dt className="app-text-muted">{t("Request")}</dt>
               <dd className="font-mono app-text">
                 {entry.method} {entry.path} → {entry.status}
               </dd>
               {entry.ip && (
                 <>
-                  <dt className="app-text-muted">IP address</dt>
+                  <dt className="app-text-muted">{t("IP address")}</dt>
                   <dd className="font-mono app-text">{entry.ip}</dd>
                 </>
               )}
               {entry.details && (
                 <>
-                  <dt className="app-text-muted">Sent data</dt>
+                  <dt className="app-text-muted">{t("Sent data")}</dt>
                   <dd className="overflow-x-auto">
                     <pre className="whitespace-pre-wrap break-all font-mono app-text">{JSON.stringify(entry.details, null, 2)}</pre>
                   </dd>
@@ -90,7 +91,7 @@ function Entry({ entry }) {
         </div>
         {hasMore && (
           <Button size="sm" variant="ghost" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-            {open ? "Less" : "Details"}
+            {open ? t("Less") : t("Details")}
             <Icon name="chevronDown" size={15} className={open ? "rotate-180" : ""} />
           </Button>
         )}
@@ -140,31 +141,31 @@ export default function AuditLog() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Audit log"
-        description="Every change made through the app, and every sign-in attempt. Entries can't be edited or deleted."
-        actions={<Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={loading ? "[&_svg]:animate-spin" : ""} />}
+        title={t("Audit log")}
+        description={t("Every change made through the app, and every sign-in attempt. Entries can't be edited or deleted.")}
+        actions={<Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label={t("Refresh")} title={t("Refresh")} className={loading ? "[&_svg]:animate-spin" : ""} />}
       />
 
       <Card>
         <div className="flex flex-wrap items-center gap-3 border-b p-4" style={{ borderColor: "var(--border-color)" }}>
-          <SearchInput value={search} onChange={setSearch} placeholder="Search summary or person..." className="sm:w-72" />
-          <select value={params.get("action") ?? ""} onChange={(event) => set({ action: event.target.value })} className="app-input h-10 w-auto" aria-label="Area">
+          <SearchInput value={search} onChange={setSearch} placeholder={t("Search summary or person...")} className="sm:w-72" />
+          <select value={params.get("action") ?? ""} onChange={(event) => set({ action: event.target.value })} className="app-input h-10 w-auto" aria-label={t("Area")}>
             {AREAS.map(([value, label]) => (
               <option key={value} value={value}>
-                {label}
+                {t(label)}
               </option>
             ))}
           </select>
-          <select value={params.get("user_id") ?? ""} onChange={(event) => set({ user_id: event.target.value })} className="app-input h-10 w-auto max-w-56" aria-label="Person">
-            <option value="">Everyone</option>
+          <select value={params.get("user_id") ?? ""} onChange={(event) => set({ user_id: event.target.value })} className="app-input h-10 w-auto max-w-56" aria-label={t("Person")}>
+            <option value="">{t("Everyone")}</option>
             {people.map((person) => (
               <option key={person.id} value={person.id}>
-                {person.name} ({person.role})
+                {person.name} ({t(person.role)})
               </option>
             ))}
           </select>
-          <input type="date" value={params.get("from") ?? ""} onChange={(event) => set({ from: event.target.value })} className="app-input h-10 w-auto" aria-label="From" />
-          <input type="date" value={params.get("to") ?? ""} onChange={(event) => set({ to: event.target.value })} className="app-input h-10 w-auto" aria-label="To" />
+          <input type="date" value={params.get("from") ?? ""} onChange={(event) => set({ from: event.target.value })} className="app-input h-10 w-auto" aria-label={t("From")} />
+          <input type="date" value={params.get("to") ?? ""} onChange={(event) => set({ to: event.target.value })} className="app-input h-10 w-auto" aria-label={t("To")} />
           {(filtered || params.get("entity_id")) && (
             <Button
               variant="ghost"
@@ -174,14 +175,14 @@ export default function AuditLog() {
                 setParams({}, { replace: true });
               }}
             >
-              Clear
+              {t("Clear")}
             </Button>
           )}
         </div>
 
         {params.get("entity_type") && params.get("entity_id") && (
           <p className="border-b px-5 py-2.5 text-sm app-text-secondary" style={{ borderColor: "var(--border-color)" }}>
-            Showing the history of {params.get("entity_type").replace("_", " ")} #{params.get("entity_id")}
+            {t("Showing the history of {type} #{id}", { type: t(params.get("entity_type").replace("_", " ")), id: params.get("entity_id") })}
           </p>
         )}
 
@@ -189,7 +190,7 @@ export default function AuditLog() {
         {loading && !data ? (
           <TableSkeleton columns={3} />
         ) : entries.length === 0 ? (
-          <EmptyState icon="list" title={filtered ? "Nothing matches" : "No activity yet"} description={filtered ? "Try other filters." : "Changes will appear here as people use the app."} />
+          <EmptyState icon="list" title={filtered ? t("Nothing matches") : t("No activity yet")} description={filtered ? t("Try other filters.") : t("Changes will appear here as people use the app.")} />
         ) : (
           <ul className={`divide-y transition-opacity ${loading ? "opacity-60" : ""}`} style={{ borderColor: "var(--border-color)" }}>
             {entries.map((entry) => (
@@ -205,7 +206,7 @@ export default function AuditLog() {
             total={pagination.total}
             pageSize={pagination.limit}
             onPageChange={(page) => set({ page: String(page) })}
-            label="entries"
+            label={t("entries")}
           />
         )}
       </Card>

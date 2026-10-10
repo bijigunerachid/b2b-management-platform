@@ -5,6 +5,7 @@ import { Spinner } from "./ui/Button";
 import { EmptyState } from "./ui/primitives";
 import { can } from "../lib/api";
 
+import { t } from "../i18n";
 // With children it guards just that page; without, it guards the nested routes.
 export default function ProtectedRoute({ permission, area = "staff", children }) {
   const { user, loading } = useAuth();
@@ -21,7 +22,7 @@ export default function ProtectedRoute({ permission, area = "staff", children })
         </div>
         <div className="flex items-center gap-2 text-sm font-medium app-text-secondary">
           <Spinner size={15} />
-          Checking your session...
+          {t("Checking your session...")}
         </div>
       </div>
     );
@@ -39,8 +40,8 @@ export default function ProtectedRoute({ permission, area = "staff", children })
     return (
       <EmptyState
         icon="lock"
-        title="You don't have access to this page"
-        description={`Your role (${user.role}) can't open it. Ask an administrator if you need access.`}
+        title={t("You don't have access to this page")}
+        description={t("Your role ({role}) can't open it. Ask an administrator if you need access.", { role: t(user.role) })}
       />
     );
   }

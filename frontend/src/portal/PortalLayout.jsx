@@ -8,11 +8,13 @@ import { Drawer } from "../components/ui/Modal";
 import { useConfirm, useToast } from "../components/ui/feedback";
 import { Avatar, InlineAlert, Popover } from "../components/ui/primitives";
 import { PageFallback } from "../components/PageFallback";
+import LanguageMenu from "../components/LanguageMenu";
 import { api, initials, money } from "../lib/api";
 import company from "../config/company";
 import { hasDiscount, usePrices } from "../lib/pricing";
 import { CartProvider, useCart } from "./CartContext";
 
+import { t } from "../i18n";
 const links = [
   { to: "/portal", label: "Home", icon: "dashboard", end: true },
   { to: "/portal/catalog", label: "Catalog", icon: "products" },
@@ -42,10 +44,10 @@ function CartDrawer() {
       });
       cart.clear();
       cart.setOpen(false);
-      toast.success(`We received order #${result.data.orderId}. We'll confirm it shortly.`, { title: "Order placed" });
+      toast.success(t("We received order #{id}. We'll confirm it shortly.", { id: result.data.orderId }), { title: t("Order placed") });
       navigate(`/portal/orders?view=${result.data.orderId}`);
     } catch (err) {
-      setError(err.message || "Your order could not be placed.");
+      setError(err.message || t("Your order could not be placed."));
     } finally {
       setPlacing(false);
     }
@@ -55,17 +57,17 @@ function CartDrawer() {
     <Drawer
       open={cart.open}
       onClose={() => !placing && cart.setOpen(false)}
-      title={cart.lines.length ? `${cart.units} item${cart.units === 1 ? "" : "s"}` : "Your cart is empty"}
-      description="Your prices, including your discounts."
+      title={cart.lines.length ? (cart.units === 1 ? t("1 item") : t("{count} items", { count: cart.units })) : t("Your cart is empty")}
+      description={t("Your prices, including your discounts.")}
       icon="orders"
       footer={
         cart.lines.length > 0 && (
           <>
-            <Button variant="ghost" onClick={cart.clear} disabled={placing} className="mr-auto">
-              Empty cart
+            <Button variant="ghost" onClick={cart.clear} disabled={placing} className="me-auto">
+              {t("Empty cart")}
             </Button>
             <Button variant="primary" icon="check" loading={placing} onClick={placeOrder}>
-              Place order · {money(subtotal + vat)}
+              {t("Place order")} · {money(subtotal + vat)}
             </Button>
           </>
         )
@@ -74,7 +76,7 @@ function CartDrawer() {
       <InlineAlert>{error}</InlineAlert>
       {cart.lines.length === 0 ? (
         <div className="py-12 text-center">
-          <p className="text-sm app-text-secondary">Browse the catalog and add products to your cart.</p>
+          <p className="text-sm app-text-secondary">{t("Browse the catalog and add products to your cart.")}</p>
           <Button
             className="mt-4"
             variant="primary"
@@ -84,7 +86,7 @@ function CartDrawer() {
               navigate("/portal/catalog");
             }}
           >
-            Open the catalog
+            {t("Open the catalog")}
           </Button>
         </div>
       ) : (
@@ -97,49 +99,49 @@ function CartDrawer() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold app-text">{line.name}</p>
                   <p className="text-xs app-text-muted">
-                    {hasDiscount(price) && <span className="mr-1 line-through">{money(price.list_price)}</span>}
-                    {money(priceOf(line))} each
+                    {hasDiscount(price) && <span className="me-1 line-through">{money(price.list_price)}</span>}
+                    {t("{price} each", { price: money(priceOf(line)) })}
                     {price?.label && ` · ${price.label}`}
                   </p>
                   {price?.next_break && (
                     <p className="text-xs font-medium" style={{ color: "var(--success)" }}>
-                      Order {price.next_break.min_quantity - line.quantity} more for a {price.next_break.discount_percent}% volume discount
+                      {t("Order {count} more for a {percent}% volume discount", { count: price.next_break.min_quantity - line.quantity, percent: price.next_break.discount_percent })}
                     </p>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button size="icon-sm" icon="minus" aria-label={`Fewer ${line.name}`} onClick={() => cart.setQuantity(line.product_id, line.quantity - 1)} />
+                  <Button size="icon-sm" icon="minus" aria-label={t("Fewer {product}", { product: line.name })} onClick={() => cart.setQuantity(line.product_id, line.quantity - 1)} />
                   <input
                     type="number"
                     min="1"
                     value={line.quantity}
                     onChange={(event) => cart.setQuantity(line.product_id, Math.max(1, Number.parseInt(event.target.value, 10) || 1))}
-                    aria-label={`Quantity of ${line.name}`}
+                    aria-label={t("Quantity of {product}", { product: line.name })}
                     className="app-input h-8 w-16 px-1 py-0 text-center tabular-nums"
                   />
-                  <Button size="icon-sm" icon="plus" aria-label={`More ${line.name}`} onClick={() => cart.setQuantity(line.product_id, line.quantity + 1)} />
+                  <Button size="icon-sm" icon="plus" aria-label={t("More {product}", { product: line.name })} onClick={() => cart.setQuantity(line.product_id, line.quantity + 1)} />
                 </div>
-                <p className="w-24 text-right text-sm font-semibold tabular-nums app-text">{money(priceOf(line) * line.quantity)}</p>
+                <p className="w-24 text-end text-sm font-semibold tabular-nums app-text">{money(priceOf(line) * line.quantity)}</p>
               </li>
               );
             })}
           </ul>
           <dl className={`space-y-1.5 rounded-xl p-4 text-sm app-muted transition-opacity ${pricing ? "opacity-60" : ""}`}>
             <div className="flex justify-between">
-              <dt className="app-text-secondary">Subtotal (HT)</dt>
+              <dt className="app-text-secondary">{t("Subtotal (HT)")}</dt>
               <dd className="tabular-nums app-text">{money(subtotal)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="app-text-secondary">VAT {Math.round(company.vatRate * 100)}%</dt>
+              <dt className="app-text-secondary">{t("VAT {percent}%", { percent: Math.round(company.vatRate * 100) })}</dt>
               <dd className="tabular-nums app-text">{money(vat)}</dd>
             </div>
             <div className="flex justify-between pt-1 text-base">
-              <dt className="font-semibold app-text">Total</dt>
+              <dt className="font-semibold app-text">{t("Total")}</dt>
               <dd className="font-bold tabular-nums app-text">{money(subtotal + vat)}</dd>
             </div>
           </dl>
           <p className="text-xs app-text-muted">
-            Payment terms: {company.paymentTermsDays} days after invoice. Your order is reviewed by our team before it ships.
+            {t("Payment terms: {days} days after invoice. Your order is reviewed by our team before it ships.", { days: company.paymentTermsDays })}
           </p>
         </div>
       )}
@@ -157,11 +159,11 @@ function Shell() {
 
   useEffect(() => {
     const page = links.find((link) => (link.end ? location.pathname === link.to : location.pathname.startsWith(link.to)));
-    document.title = `${page?.label ?? "Portal"} · ${company.name} client portal`;
+    document.title = `${page ? t(page.label) : t("Portal")} · ${t("{company} client portal", { company: company.name })}`;
   }, [location.pathname]);
 
   async function signOut() {
-    if (!(await confirm({ title: "Sign out?", message: "You'll need your password to sign in again.", confirmLabel: "Sign out", tone: "primary", icon: "logout" }))) return;
+    if (!(await confirm({ title: t("Sign out?"), message: t("You'll need your password to sign in again."), confirmLabel: t("Sign out"), tone: "primary", icon: "logout" }))) return;
     await logout().catch(() => {});
     navigate("/login", { replace: true });
   }
@@ -179,11 +181,11 @@ function Shell() {
             </div>
             <div className="hidden min-w-0 sm:block">
               <p className="truncate text-sm font-bold leading-tight app-text">{company.name}</p>
-              <p className="truncate text-xs app-text-muted">Client portal · {user?.company_name}</p>
+              <p className="truncate text-xs app-text-muted">{t("Client portal")} · {user?.company_name}</p>
             </div>
           </div>
 
-          <nav className="ml-auto hidden items-center gap-1 md:flex" aria-label="Portal navigation">
+          <nav className="ms-auto hidden items-center gap-1 md:flex" aria-label={t("Portal navigation")}>
             {links.map((link) => (
               <NavLink
                 key={link.to}
@@ -194,38 +196,39 @@ function Shell() {
                 }
                 style={({ isActive }) => (isActive ? { backgroundColor: "var(--primary-soft)" } : undefined)}
               >
-                {link.label}
+                {t(link.label)}
               </NavLink>
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-1 md:ml-2">
+          <div className="ms-auto flex items-center gap-1 md:ms-2">
             <button
               type="button"
               onClick={() => cart.setOpen(true)}
-              aria-label={`Cart, ${cart.units} items`}
+              aria-label={t("Cart, {count} items", { count: cart.units })}
               className="relative flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-[var(--surface-hover)] app-text-secondary"
             >
               <Icon name="orders" size={19} />
               {cart.units > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white" style={{ backgroundColor: "var(--primary)" }}>
+                <span className="absolute end-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white" style={{ backgroundColor: "var(--primary)" }}>
                   {cart.units > 99 ? "99+" : cart.units}
                 </span>
               )}
             </button>
+            <LanguageMenu />
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-label={theme === "dark" ? t("Switch to light mode") : t("Switch to dark mode")}
               className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-[var(--surface-hover)] app-text-secondary"
             >
               <Icon name={theme === "dark" ? "sun" : "moon"} size={19} />
             </button>
             <Popover
-              label="Account menu"
+              label={t("Account menu")}
               width={250}
               trigger={({ props }) => (
-                <button type="button" {...props} aria-label="Account menu" className="rounded-xl p-1 transition hover:bg-[var(--surface-hover)]">
+                <button type="button" {...props} aria-label={t("Account menu")} className="rounded-xl p-1 transition hover:bg-[var(--surface-hover)]">
                   <Avatar label={initials(user?.first_name, user?.last_name)} seed={user?.id} size={32} rounded="rounded-full" />
                 </button>
               )}
@@ -260,7 +263,7 @@ function Shell() {
                       }}
                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-soft)]"
                     >
-                      <Icon name="logout" size={17} /> Sign out
+                      <Icon name="logout" size={17} /> {t("Sign out")}
                     </button>
                   </div>
                 </div>
@@ -269,7 +272,7 @@ function Shell() {
           </div>
         </div>
 
-        <nav className="flex gap-1 overflow-x-auto border-t px-3 py-2 md:hidden" style={{ borderColor: "var(--border-color)" }} aria-label="Portal navigation">
+        <nav className="flex gap-1 overflow-x-auto border-t px-3 py-2 md:hidden" style={{ borderColor: "var(--border-color)" }} aria-label={t("Portal navigation")}>
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -279,7 +282,7 @@ function Shell() {
               style={({ isActive }) => (isActive ? { backgroundColor: "var(--primary-soft)" } : undefined)}
             >
               <Icon name={link.icon} size={15} />
-              {link.label}
+              {t(link.label)}
             </NavLink>
           ))}
         </nav>

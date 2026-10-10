@@ -27,6 +27,7 @@ import { can, compactMoney, exportCsv, formatDate, initials, money, number, useR
 import { AGEING_BUCKETS, paymentBadge } from "../lib/billing";
 import useTable from "../lib/useTable";
 
+import { t } from "../i18n";
 const bucketColor = {
   current: "var(--primary)",
   "1-30": "color-mix(in srgb, var(--danger) 45%, var(--surface))",
@@ -49,8 +50,8 @@ function AgeingChart({ buckets, outstanding, selected, onSelect }) {
   return (
     <Card className="flex flex-col">
       <CardHeader
-        title="Receivables ageing"
-        description="Click a bar to filter the list below"
+        title={t("Receivables ageing")}
+        description={t("Click a bar to filter the list below")}
       />
       <div className="flex-1 space-y-3 p-5">
         {AGEING_BUCKETS.map(({ key, label }) => {
@@ -64,13 +65,13 @@ function AgeingChart({ buckets, outstanding, selected, onSelect }) {
               type="button"
               onClick={() => onSelect(active ? "all" : key)}
               aria-pressed={active}
-              className={`group block w-full rounded-lg p-2 text-left transition ${active ? "" : "hover:bg-[var(--surface-hover)]"}`}
+              className={`group block w-full rounded-lg p-2 text-start transition ${active ? "" : "hover:bg-[var(--surface-hover)]"}`}
               style={active ? { backgroundColor: "var(--primary-soft)" } : undefined}
             >
               <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
-                <span className="font-medium app-text">{label}</span>
+                <span className="font-medium app-text">{t(label)}</span>
                 <span className="tabular-nums app-text-secondary">
-                  <span className="font-semibold app-text">{money(bucket.amount)}</span> · {bucket.count} invoice{bucket.count === 1 ? "" : "s"} ·{" "}
+                  <span className="font-semibold app-text">{money(bucket.amount)}</span> · {bucket.count === 1 ? t("1 invoice") : t("{count} invoices", { count: bucket.count })} ·{" "}
                   {share.toFixed(0)}%
                 </span>
               </div>
@@ -91,9 +92,9 @@ function AgeingChart({ buckets, outstanding, selected, onSelect }) {
 function TopDebtors({ debtors }) {
   return (
     <Card>
-      <CardHeader title="Top debtors" />
+      <CardHeader title={t("Top debtors")} />
       {debtors.length === 0 ? (
-        <EmptyState icon="checkCircle" title="Nobody owes you money" />
+        <EmptyState icon="checkCircle" title={t("Nobody owes you money")} />
       ) : (
         <ol className="divide-y" style={{ borderColor: "var(--border-color)" }}>
           {debtors.slice(0, 6).map((debtor) => (
@@ -106,15 +107,15 @@ function TopDebtors({ debtors }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold app-text">{debtor.company_name}</p>
                   <p className="text-xs app-text-muted">
-                    {debtor.invoices} open
-                    {debtor.oldest_days_overdue > 0 && ` · oldest ${debtor.oldest_days_overdue}d late`}
+                    {t("{count} open", { count: debtor.invoices })}
+                    {debtor.oldest_days_overdue > 0 && ` · ${t("oldest {days}d late", { days: debtor.oldest_days_overdue })}`}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <p className="text-sm font-bold tabular-nums app-text">{compactMoney(debtor.balance)}</p>
                   {debtor.overdue > 0 && (
                     <p className="text-xs font-medium tabular-nums" style={{ color: "var(--danger)" }}>
-                      {compactMoney(debtor.overdue)} overdue
+                      {t("{amount} overdue", { amount: compactMoney(debtor.overdue) })}
                     </p>
                   )}
                 </div>
@@ -176,49 +177,49 @@ export default function Receivables() {
     exportCsv(
       "receivables",
       [
-        ["Invoice", (i) => `INV-${new Date(i.created_at).getFullYear()}-${String(i.id).padStart(6, "0")}`],
-        ["Order", (i) => i.id],
-        ["Customer", (i) => i.company_name],
-        ["Due date", (i) => String(i.billing.due_date).slice(0, 10)],
-        ["Days overdue", (i) => i.billing.days_overdue],
-        ["Total (MAD)", (i) => i.billing.total_due],
-        ["Paid (MAD)", (i) => i.billing.amount_paid],
-        ["Balance (MAD)", (i) => i.billing.balance],
-        ["Status", (i) => i.billing.payment_status],
+        [t("Invoice"), (i) => `INV-${new Date(i.created_at).getFullYear()}-${String(i.id).padStart(6, "0")}`],
+        [t("Order"), (i) => i.id],
+        [t("Customer"), (i) => i.company_name],
+        [t("Due date"), (i) => String(i.billing.due_date).slice(0, 10)],
+        [t("Days overdue"), (i) => i.billing.days_overdue],
+        [t("Total (MAD)"), (i) => i.billing.total_due],
+        [t("Paid (MAD)"), (i) => i.billing.amount_paid],
+        [t("Balance (MAD)"), (i) => i.billing.balance],
+        [t("Status"), (i) => t(i.billing.payment_status)],
       ],
       table.sorted
     );
-    toast.info(`Exported ${table.sorted.length} open invoices to CSV.`);
+    toast.info(t("Exported {count} open invoices to CSV.", { count: table.sorted.length }));
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Receivables"
+        title={t("Receivables")}
         actions={
           <>
             <Button icon="download" onClick={handleExport} disabled={filtered.length === 0}>
-              Export
+              {t("Export")}
             </Button>
-            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={loading ? "[&_svg]:animate-spin" : ""} />
+            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label={t("Refresh")} title={t("Refresh")} className={loading ? "[&_svg]:animate-spin" : ""} />
           </>
         }
       />
 
-      {error && <ErrorState message={`${error} Showing the last loaded data.`} onRetry={reload} />}
+      {error && <ErrorState message={`${error} ${t("Showing the last loaded data.")}`} onRetry={reload} />}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Outstanding" value={compactMoney(report.outstanding)} hint={`${number(invoices.length)} open invoices incl. VAT`} icon="wallet" tone="primary" />
+        <StatCard label={t("Outstanding")} value={compactMoney(report.outstanding)} hint={t("{count} open invoices incl. VAT", { count: number(invoices.length) })} icon="wallet" tone="primary" />
         <StatCard
-          label="Overdue"
+          label={t("Overdue")}
           value={compactMoney(report.overdue)}
-          hint={`${report.outstanding > 0 ? ((report.overdue / report.outstanding) * 100).toFixed(0) : 0}% of outstanding`}
+          hint={t("{percent}% of outstanding", { percent: report.outstanding > 0 ? ((report.overdue / report.outstanding) * 100).toFixed(0) : 0 })}
           icon="alert"
           tone="danger"
           onClick={() => setBucket("all")}
         />
-        <StatCard label="Overdue invoices" value={number(report.overdue_count)} hint="Past their 30-day terms" icon="receipt" tone="warning" />
-        <StatCard label="Average delay" value={`${averageDaysLate} days`} hint="Across overdue invoices" icon="clock" tone="info" />
+        <StatCard label={t("Overdue invoices")} value={number(report.overdue_count)} hint={t("Past their 30-day terms")} icon="receipt" tone="warning" />
+        <StatCard label={t("Average delay")} value={t("{count} days", { count: averageDaysLate })} hint={t("Across overdue invoices")} icon="clock" tone="info" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-5">
@@ -233,14 +234,14 @@ export default function Receivables() {
       <Card>
         <div className="space-y-3 border-b p-4" style={{ borderColor: "var(--border-color)" }}>
           <SegmentedControl
-            label="Filter by age"
+            label={t("Filter by age")}
             value={bucket}
             onChange={(value) => {
               setBucket(value);
               table.setPage(1);
             }}
             options={[
-              { value: "all", label: "All open", count: invoices.length },
+              { value: "all", label: t("All open"), count: invoices.length },
               ...AGEING_BUCKETS.map(({ key, label }) => ({ value: key, label, count: report.buckets[key]?.count ?? 0 })),
             ]}
           />
@@ -250,7 +251,7 @@ export default function Receivables() {
               setSearch(value);
               table.setPage(1);
             }}
-            placeholder="Search order # or customer..."
+            placeholder={t("Search order # or customer...")}
             className="sm:w-80"
           />
         </div>
@@ -260,20 +261,20 @@ export default function Receivables() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={invoices.length ? "search" : "checkCircle"}
-            title={invoices.length ? "No invoices match" : "All invoices are paid"}
-            description={invoices.length ? "Try another age bucket or search." : "No open balances."}
+            title={invoices.length ? t("No invoices match") : t("All invoices are paid")}
+            description={invoices.length ? t("Try another age bucket or search.") : t("No open balances.")}
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-start text-sm">
               <TableHead>
-                <SortHeader label="Order" column="id" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Customer" column="customer" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Due" column="due" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Status" column="overdue" sort={table.sort} onSort={table.toggleSort} />
-                <Th align="right" className="hidden 2xl:table-cell">Invoice total</Th>
-                <SortHeader label="Balance" column="balance" sort={table.sort} onSort={table.toggleSort} align="right" />
-                <Th align="right">Actions</Th>
+                <SortHeader label={t("Order")} column="id" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Customer")} column="customer" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Due")} column="due" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Status")} column="overdue" sort={table.sort} onSort={table.toggleSort} />
+                <Th align="right" className="hidden 2xl:table-cell">{t("Invoice total")}</Th>
+                <SortHeader label={t("Balance")} column="balance" sort={table.sort} onSort={table.toggleSort} align="right" />
+                <Th align="right">{t("Actions")}</Th>
               </TableHead>
               <tbody>
                 {table.rows.map((invoice) => {
@@ -292,17 +293,17 @@ export default function Receivables() {
                         <Badge tone={badge.tone} icon={badge.icon}>
                           {badge.label}
                         </Badge>
-                        {badge.detail === "Partially paid" && <p className="mt-1 text-xs app-text-muted">Partially paid</p>}
+                        {badge.detail === "Partially paid" && <p className="mt-1 text-xs app-text-muted">{t("Partially paid")}</p>}
                       </td>
-                      <td className="hidden whitespace-nowrap px-5 py-3.5 text-right tabular-nums app-text-secondary 2xl:table-cell">{money(invoice.billing.total_due)}</td>
-                      <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold tabular-nums app-text">{money(invoice.billing.balance)}</td>
+                      <td className="hidden whitespace-nowrap px-5 py-3.5 text-end tabular-nums app-text-secondary 2xl:table-cell">{money(invoice.billing.total_due)}</td>
+                      <td className="whitespace-nowrap px-5 py-3.5 text-end font-semibold tabular-nums app-text">{money(invoice.billing.balance)}</td>
                       <td className="px-5 py-3.5">
                         <div className="flex justify-end gap-1">
-                          {canRecord && <IconAction icon="wallet" label={`Record payment for order ${invoice.id}`} onClick={() => setPaying(invoice)} />}
+                          {canRecord && <IconAction icon="wallet" label={t("Record payment for order {id}", { id: invoice.id })} onClick={() => setPaying(invoice)} />}
                           <Link
                             to={`/orders?view=${invoice.id}`}
-                            aria-label={`View order ${invoice.id}`}
-                            title="View order"
+                            aria-label={t("View order {id}", { id: invoice.id })}
+                            title={t("View order")}
                             className="flex h-8 w-8 items-center justify-center rounded-lg transition text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                           >
                             <Icon name="eye" size={17} />
@@ -311,8 +312,8 @@ export default function Receivables() {
                             href={`/orders/${invoice.id}/invoice`}
                             target="_blank"
                             rel="noopener"
-                            aria-label={`Open invoice for order ${invoice.id}`}
-                            title="Open invoice"
+                            aria-label={t("Open invoice for order {id}", { id: invoice.id })}
+                            title={t("Open invoice")}
                             className="flex h-8 w-8 items-center justify-center rounded-lg transition text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                           >
                             <Icon name="download" size={17} />
@@ -328,7 +329,7 @@ export default function Receivables() {
         )}
 
         {filtered.length > 0 && (
-          <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label="open invoices" />
+          <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label={t("open invoices")} />
         )}
       </Card>
 

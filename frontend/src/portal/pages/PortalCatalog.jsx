@@ -6,6 +6,7 @@ import { Badge, EmptyState, ErrorState, PageHeader, Pagination, SearchInput, ton
 import { money, useResource } from "../../lib/api";
 import { useCart } from "../CartContext";
 
+import { t } from "../../i18n";
 const availabilityMeta = {
   in_stock: { label: "In stock", tone: "success" },
   low_stock: { label: "Low stock", tone: "warning" },
@@ -22,11 +23,11 @@ function ProductCard({ product }) {
 
   function add() {
     if (cart.full && !inCart) {
-      toast.warning("Your cart can hold up to 50 different products.");
+      toast.warning(t("Your cart can hold up to 50 different products."));
       return;
     }
     cart.add({ ...product, price: product.your_price ?? product.price }, quantity);
-    toast.success(`${quantity} × ${product.name} added to your cart.`, { duration: 2500 });
+    toast.success(t("{quantity} × {product} added to your cart.", { quantity, product: product.name }), { duration: 2500 });
     setQuantity(1);
   }
 
@@ -37,7 +38,7 @@ function ProductCard({ product }) {
           <Icon name="box" size={19} />
         </span>
         <Badge tone={meta.tone} dot>
-          {meta.label}
+          {t(meta.label)}
         </Badge>
       </div>
       <h3 className="mt-3 line-clamp-2 min-h-10 text-sm font-semibold app-text">{product.name}</h3>
@@ -49,7 +50,7 @@ function ProductCard({ product }) {
           </p>
         )}
         <p className="text-lg font-bold tabular-nums app-text">
-          {money(product.your_price ?? product.price)} <span className="text-xs font-normal app-text-muted">HT</span>
+          {money(product.your_price ?? product.price)} <span className="text-xs font-normal app-text-muted">{t("HT")}</span>
         </p>
         {product.volume_prices?.length > 0 && (
           <p className="mt-0.5 text-xs app-text-secondary">
@@ -63,12 +64,12 @@ function ProductCard({ product }) {
           min="1"
           value={quantity}
           onChange={(event) => setQuantity(Math.max(1, Number.parseInt(event.target.value, 10) || 1))}
-          aria-label={`Quantity of ${product.name}`}
+          aria-label={t("Quantity of {product}", { product: product.name })}
           disabled={unavailable}
           className="app-input h-10 w-16 px-1 py-0 text-center tabular-nums"
         />
         <Button variant={inCart ? "secondary" : "primary"} icon={inCart ? "check" : "plus"} onClick={add} disabled={unavailable} className="flex-1">
-          {unavailable ? "Unavailable" : inCart ? `In cart (${inCart.quantity})` : "Add"}
+          {unavailable ? t("Unavailable") : inCart ? t("In cart ({count})", { count: inCart.quantity }) : t("Add")}
         </Button>
       </div>
     </article>
@@ -99,10 +100,10 @@ export default function PortalCatalog() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Order products"
+        title={t("Order products")}
         actions={
           <Button variant="primary" icon="orders" onClick={() => cart.setOpen(true)}>
-            Cart {cart.units > 0 ? `(${cart.units})` : ""}
+            {t("Cart")} {cart.units > 0 ? `(${cart.units})` : ""}
           </Button>
         }
       />
@@ -114,11 +115,11 @@ export default function PortalCatalog() {
             setSearch(value);
             setPage(1);
           }}
-          placeholder="Search products..."
+          placeholder={t("Search products...")}
           className="sm:w-96"
         />
-        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Categories">
-          {[{ id: "", name: "All products" }, ...categories].map((category) => {
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={t("Categories")}>
+          {[{ id: "", name: t("All products") }, ...categories].map((category) => {
             const active = String(category.id) === categoryId;
             return (
               <button
@@ -149,7 +150,7 @@ export default function PortalCatalog() {
           ))}
         </div>
       ) : products.length === 0 ? (
-        <EmptyState icon="search" title="No products found" description="Try another search or category." />
+        <EmptyState icon="search" title={t("No products found")} description={t("Try another search or category.")} />
       ) : (
         <>
           <div className={`grid gap-4 transition-opacity sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${loading ? "opacity-60" : ""}`}>
@@ -158,7 +159,7 @@ export default function PortalCatalog() {
             ))}
           </div>
           <div className="app-surface overflow-hidden">
-            <Pagination page={page} totalPages={Math.max(1, pagination.totalPages)} total={pagination.total} pageSize={pagination.limit ?? 24} onPageChange={setPage} label="products" />
+            <Pagination page={page} totalPages={Math.max(1, pagination.totalPages)} total={pagination.total} pageSize={pagination.limit ?? 24} onPageChange={setPage} label={t("products")} />
           </div>
         </>
       )}

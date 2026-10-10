@@ -8,6 +8,7 @@ import { Badge, Card, EmptyState, ErrorState, InlineAlert, PageHeader, TableHead
 import { api, formatDate, money, toList, useResource } from "../../lib/api";
 import { QUOTE_STATUS, validityLabel } from "../../lib/quoteStatus";
 
+import { t } from "../../i18n";
 function QuoteDrawer({ quoteId, version, open, onClose, onDecided }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -19,11 +20,11 @@ function QuoteDrawer({ quoteId, version, open, onClose, onDecided }) {
   async function decide(quote, action) {
     const accepting = action === "accept";
     const confirmed = await confirm({
-      title: accepting ? `Accept ${quote.number}?` : `Decline ${quote.number}?`,
+      title: accepting ? t("Accept {number}?", { number: quote.number }) : t("Decline {number}?", { number: quote.number }),
       message: accepting
-        ? `You agree to the prices in this quote (${money(quote.total_with_vat)} incl. VAT). We'll turn it into an order and confirm by email.`
-        : "We'll mark this quote as declined.",
-      confirmLabel: accepting ? "Accept quote" : "Decline quote",
+        ? t("You agree to the prices in this quote ({amount} incl. VAT). We'll turn it into an order and confirm by email.", { amount: money(quote.total_with_vat) })
+        : t("We'll mark this quote as declined."),
+      confirmLabel: accepting ? t("Accept quote") : t("Decline quote"),
       tone: accepting ? "primary" : "danger",
       icon: accepting ? "checkCircle" : "thumbsDown",
     });
@@ -32,10 +33,10 @@ function QuoteDrawer({ quoteId, version, open, onClose, onDecided }) {
     setBusy(action);
     try {
       const result = await api(`/portal/quotes/${quote.id}/${action}`, { method: "POST" });
-      toast.success(result.message, { title: accepting ? "Quote accepted" : "Quote declined" });
+      toast.success(result.message, { title: accepting ? t("Quote accepted") : t("Quote declined") });
       onDecided();
     } catch (err) {
-      toast.error(err.message || "Your answer could not be recorded.");
+      toast.error(err.message || t("Your answer could not be recorded."));
     } finally {
       setBusy(null);
     }
@@ -46,14 +47,14 @@ function QuoteDrawer({ quoteId, version, open, onClose, onDecided }) {
       open={open}
       onClose={onClose}
       title={quote?.number ?? ""}
-      description={quote ? `Valid until ${formatDate(`${quote.valid_until}T00:00:00`)}` : "Loading..."}
+      description={quote ? t("Valid until {date}", { date: formatDate(`${quote.valid_until}T00:00:00`) }) : t("Loading...")}
       icon="fileText"
       footer={
         quote && (
           <>
             {quote.actions.includes("reject") && (
-              <Button variant="danger-ghost" icon="thumbsDown" onClick={() => decide(quote, "reject")} loading={busy === "reject"} disabled={Boolean(busy)} className="mr-auto">
-                Decline
+              <Button variant="danger-ghost" icon="thumbsDown" onClick={() => decide(quote, "reject")} loading={busy === "reject"} disabled={Boolean(busy)} className="me-auto">
+                {t("Decline")}
               </Button>
             )}
             <a
@@ -67,7 +68,7 @@ function QuoteDrawer({ quoteId, version, open, onClose, onDecided }) {
             </a>
             {quote.actions.includes("accept") && (
               <Button variant="primary" icon="checkCircle" onClick={() => decide(quote, "accept")} loading={busy === "accept"} disabled={Boolean(busy)}>
-                Accept quote
+                {t("Accept quote")}
               </Button>
             )}
           </>
@@ -86,15 +87,15 @@ function QuoteDrawer({ quoteId, version, open, onClose, onDecided }) {
                 {quote.status === "Sent" ? "Awaiting your answer" : quote.status}
               </Badge>
               {validityLabel(quote) && <span className="text-xs font-medium app-text-secondary">{validityLabel(quote)}</span>}
-              {quote.status === "Converted" && <span className="text-xs app-text-secondary">Became order #{quote.order_id}</span>}
+              {quote.status === "Converted" && <span className="text-xs app-text-secondary">{t("Became order #{id}", { id: quote.order_id })}</span>}
             </div>
 
             <div className="overflow-hidden rounded-xl border" style={{ borderColor: "var(--border-color)" }}>
-              <table className="w-full text-left text-sm">
+              <table className="w-full text-start text-sm">
                 <TableHead>
-                  <Th className="!px-4">Product</Th>
-                  <Th className="!px-4" align="right">Qty</Th>
-                  <Th className="!px-4" align="right">Amount</Th>
+                  <Th className="!px-4">{t("Product")}</Th>
+                  <Th className="!px-4" align="right">{t("Qty")}</Th>
+                  <Th className="!px-4" align="right">{t("Amount")}</Th>
                 </TableHead>
                 <tbody>
                   {quote.items.map((item) => {
@@ -104,16 +105,16 @@ function QuoteDrawer({ quoteId, version, open, onClose, onDecided }) {
                         <td className="px-4 py-3">
                           <p className="font-medium app-text">{item.product_name}</p>
                           <p className="text-xs app-text-muted">
-                            {money(item.unit_price)} each
+                            {t("{price} each", { price: money(item.unit_price) })}
                             {discount > 0.0005 && (
-                              <span className="ml-1.5 font-semibold" style={{ color: "var(--success)" }}>
+                              <span className="ms-1.5 font-semibold" style={{ color: "var(--success)" }}>
                                 −{Math.round(discount * 100)}% off list
                               </span>
                             )}
                           </p>
                         </td>
-                        <td className="px-4 py-3 text-right tabular-nums app-text">×{item.quantity}</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums app-text">{money(item.subtotal)}</td>
+                        <td className="px-4 py-3 text-end tabular-nums app-text">×{item.quantity}</td>
+                        <td className="px-4 py-3 text-end font-semibold tabular-nums app-text">{money(item.subtotal)}</td>
                       </tr>
                     );
                   })}
@@ -121,15 +122,15 @@ function QuoteDrawer({ quoteId, version, open, onClose, onDecided }) {
               </table>
               <dl className="space-y-1 border-t px-4 py-3 text-sm" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}>
                 <div className="flex justify-between">
-                  <dt className="app-text-secondary">Subtotal (HT)</dt>
+                  <dt className="app-text-secondary">{t("Subtotal (HT)")}</dt>
                   <dd className="tabular-nums app-text">{money(quote.total_amount)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="app-text-secondary">VAT</dt>
+                  <dt className="app-text-secondary">{t("VAT")}</dt>
                   <dd className="tabular-nums app-text">{money(quote.vat)}</dd>
                 </div>
                 <div className="flex justify-between text-base">
-                  <dt className="font-semibold app-text">Total (TTC)</dt>
+                  <dt className="font-semibold app-text">{t("Total (TTC)")}</dt>
                   <dd className="font-bold tabular-nums app-text">{money(quote.total_with_vat)}</dd>
                 </div>
               </dl>
@@ -162,26 +163,26 @@ export default function PortalQuotes() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Your quotes" />
+      <PageHeader title={t("Your quotes")} />
       {error && <ErrorState message={error} onRetry={reload} />}
       {awaiting.length > 0 && (
         <InlineAlert tone="info">
-          {awaiting.length} quote{awaiting.length === 1 ? " is" : "s are"} waiting for your answer.
+          {awaiting.length === 1 ? t("1 quote is waiting for your answer.") : t("{count} quotes are waiting for your answer.", { count: awaiting.length })}
         </InlineAlert>
       )}
       <Card>
         {loading && !data ? (
           <TableSkeleton columns={4} />
         ) : quotes.length === 0 ? (
-          <EmptyState icon="fileText" title="No quotes yet" />
+          <EmptyState icon="fileText" title={t("No quotes yet")} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-sm">
+            <table className="w-full min-w-[620px] text-start text-sm">
               <TableHead>
-                <Th>Quote</Th>
-                <Th>Valid until</Th>
-                <Th>Status</Th>
-                <Th align="right">Total (TTC)</Th>
+                <Th>{t("Quote")}</Th>
+                <Th>{t("Valid until")}</Th>
+                <Th>{t("Status")}</Th>
+                <Th align="right">{t("Total (TTC)")}</Th>
               </TableHead>
               <tbody>
                 {quotes.map((quote) => (
@@ -203,7 +204,7 @@ export default function PortalQuotes() {
                         {quote.status === "Sent" ? "Awaiting your answer" : quote.status}
                       </Badge>
                     </td>
-                    <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold tabular-nums app-text">{money(quote.total_with_vat)}</td>
+                    <td className="whitespace-nowrap px-5 py-3.5 text-end font-semibold tabular-nums app-text">{money(quote.total_with_vat)}</td>
                   </tr>
                 ))}
               </tbody>

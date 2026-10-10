@@ -261,6 +261,9 @@ const paths = {
   ),
 };
 
+// Directional icons are mirrored in right-to-left languages.
+const MIRRORED = new Set(["chevronLeft", "chevronRight", "chevronsLeft", "arrowRight", "logout", "send"]);
+
 export default function Icon({ name, size = 20, strokeWidth = 1.8, className = "", ...props }) {
   return (
     <svg
@@ -273,7 +276,7 @@ export default function Icon({ name, size = 20, strokeWidth = 1.8, className = "
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className={`shrink-0 ${className}`}
+      className={`shrink-0 ${MIRRORED.has(name) ? "rtl-flip" : ""} ${className}`}
       {...props}
     >
       {paths[name] ?? paths.info}
