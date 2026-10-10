@@ -33,6 +33,7 @@ import CustomerPricingPanel from "../components/CustomerPricingPanel";
 import HistoryPanel from "../components/HistoryPanel";
 import useTable from "../lib/useTable";
 
+import { t } from "../i18n";
 const emptyForm = {
   company_name: "",
   contact_name: "",
@@ -71,28 +72,28 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, 
       open={open}
       onClose={onClose}
       title={customer?.company_name ?? ""}
-      description={customer ? `Customer #${customer.id} · since ${formatDate(customer.created_at)}` : ""}
+      description={customer ? t("Customer #{id} · since {date}", { id: customer.id, date: formatDate(customer.created_at) }) : ""}
       footer={
         customer && (
           <>
             {can(user, "customers.delete") && (
-              <Button variant="danger-ghost" icon="trash" onClick={() => onDelete(customer)} className="mr-auto">
-                Delete
+              <Button variant="danger-ghost" icon="trash" onClick={() => onDelete(customer)} className="me-auto">
+                {t("Delete")}
               </Button>
             )}
             {can(user, "customers.write") && (
               <Button icon="edit" onClick={() => onEdit(customer)}>
-                Edit
+                {t("Edit")}
               </Button>
             )}
             {can(user, "quotes.write") && (
               <Button icon="fileText" onClick={() => navigate(`/quotes?new=1&customer=${customer.id}`)}>
-                New quote
+                {t("New quote")}
               </Button>
             )}
             {can(user, "orders.write") && (
               <Button variant="primary" icon="plus" onClick={() => navigate(`/orders?new=1&customer=${customer.id}`)}>
-                New order
+                {t("New order")}
               </Button>
             )}
           </>
@@ -105,22 +106,22 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, 
             <Avatar label={initials(customer.company_name)} seed={customer.id} size={56} rounded="rounded-2xl" />
             <div className="min-w-0">
               <p className="text-lg font-bold app-text">{customer.contact_name || "No contact"}</p>
-              <p className="text-sm app-text-secondary">Primary contact</p>
+              <p className="text-sm app-text-secondary">{t("Primary contact")}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: "Orders", value: loading ? "..." : orders.length },
-              { label: "Lifetime value (HT)", value: loading ? "..." : money(lifetimeValue) },
+              { label: t("Orders"), value: loading ? "..." : orders.length },
+              { label: t("Lifetime value (HT)"), value: loading ? "..." : money(lifetimeValue) },
               {
-                label: "Outstanding",
+                label: t("Outstanding"),
                 value: loading ? "..." : money(outstanding),
                 danger: overdue > 0,
-                hint: overdue > 0 ? `${money(overdue)} overdue` : null,
+                hint: overdue > 0 ? t("{amount} overdue", { amount: money(overdue) }) : null,
               },
               {
-                label: "Last order",
+                label: t("Last order"),
                 value: loading ? "..." : orders[0] ? formatDate(orders[0].created_at) : "—",
               },
             ].map((item) => (
@@ -135,28 +136,28 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, 
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <DetailItem icon="mail" label="Email">
+            <DetailItem icon="mail" label={t("Email")}>
               {customer.email && (
                 <a href={`mailto:${customer.email}`} className="hover:underline" style={{ color: "var(--primary)" }}>
                   {customer.email}
                 </a>
               )}
             </DetailItem>
-            <DetailItem icon="phone" label="Phone">
+            <DetailItem icon="phone" label={t("Phone")}>
               {customer.phone && (
                 <a href={`tel:${customer.phone}`} className="hover:underline">
                   {customer.phone}
                 </a>
               )}
             </DetailItem>
-            <DetailItem icon="mapPin" label="City">
+            <DetailItem icon="mapPin" label={t("City")}>
               {customer.city}
             </DetailItem>
-            <DetailItem icon="globe" label="Country">
+            <DetailItem icon="globe" label={t("Country")}>
               {customer.country}
             </DetailItem>
             <div className="sm:col-span-2">
-              <DetailItem icon="building" label="Address">
+              <DetailItem icon="building" label={t("Address")}>
                 {customer.address}
               </DetailItem>
             </div>
@@ -167,7 +168,7 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, 
           <PortalAccessPanel customer={customer} canManage={can(user, "portal.manage")} />
 
           <div>
-            <h3 className="mb-3 text-sm font-bold app-text">Order history</h3>
+            <h3 className="mb-3 text-sm font-bold app-text">{t("Order history")}</h3>
             {loading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((item) => (
@@ -176,7 +177,7 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, 
               </div>
             ) : orders.length === 0 ? (
               <div className="rounded-xl border border-dashed p-6 text-center text-sm app-text-secondary" style={{ borderColor: "var(--border-strong)" }}>
-                No orders from this customer yet.
+                {t("No orders from this customer yet.")}
               </div>
             ) : (
               <ul className="divide-y overflow-hidden rounded-xl border" style={{ borderColor: "var(--border-color)" }}>
@@ -185,7 +186,7 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, 
                     <button
                       type="button"
                       onClick={() => navigate(`/orders?view=${order.id}`)}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--surface-hover)]"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-start transition hover:bg-[var(--surface-hover)]"
                     >
                       <span className="text-sm font-bold app-text">#{order.id}</span>
                       <span className="flex-1 text-xs app-text-muted">{formatDate(order.created_at)}</span>
@@ -197,7 +198,7 @@ function CustomerDrawer({ customer, open, onClose, onEdit, onDelete, onChanged, 
                           {paymentBadge(order.billing).label}
                         </Badge>
                       )}
-                      <span className="w-28 text-right text-sm font-semibold tabular-nums app-text">{money(order.total_amount)}</span>
+                      <span className="w-28 text-end text-sm font-semibold tabular-nums app-text">{money(order.total_amount)}</span>
                     </button>
                   </li>
                 ))}
@@ -333,12 +334,12 @@ export default function Customers() {
       setFormOpen(false);
       if (createRequested) updateParams({ new: null });
       toast.success(
-        isEditing ? `${payload.company_name} was updated.` : `${payload.company_name} was added to your customers.`,
-        { title: isEditing ? "Customer updated" : "Customer created" }
+        isEditing ? t("{name} was updated.", { name: payload.company_name }) : t("{name} was added to your customers.", { name: payload.company_name }),
+        { title: isEditing ? t("Customer updated") : t("Customer created") }
       );
       reload();
     } catch (err) {
-      setFormError(err.message || "Unable to save customer.");
+      setFormError(err.message || t("Unable to save customer."));
     } finally {
       setSaving(false);
     }
@@ -346,9 +347,9 @@ export default function Customers() {
 
   async function handleDelete(customer) {
     const confirmed = await confirm({
-      title: `Delete ${customer.company_name}?`,
-      message: "This permanently removes the customer. Customers with existing orders cannot be deleted.",
-      confirmLabel: "Delete customer",
+      title: t("Delete {name}?", { name: customer.company_name }),
+      message: t("This permanently removes the customer. Customers with existing orders cannot be deleted."),
+      confirmLabel: t("Delete customer"),
     });
 
     if (!confirmed) return;
@@ -356,10 +357,10 @@ export default function Customers() {
     try {
       await api(`/customers/${customer.id}`, { method: "DELETE" });
       if (viewId === String(customer.id)) updateParams({ view: null });
-      toast.success(`${customer.company_name} was deleted.`);
+      toast.success(t("{name} was deleted.", { name: customer.company_name }));
       reload();
     } catch (err) {
-      toast.error(err.message || "Unable to delete customer.", { title: "Delete failed" });
+      toast.error(err.message || t("Unable to delete customer."), { title: t("Delete failed") });
     }
   }
 
@@ -368,18 +369,18 @@ export default function Customers() {
       "customers",
       [
         ["ID", (c) => c.id],
-        ["Company", (c) => c.company_name],
-        ["Contact", (c) => c.contact_name],
-        ["Email", (c) => c.email],
-        ["Phone", (c) => c.phone],
-        ["Address", (c) => c.address],
-        ["City", (c) => c.city],
-        ["Country", (c) => c.country],
-        ["Created", (c) => c.created_at],
+        [t("Company"), (c) => c.company_name],
+        [t("Contact"), (c) => c.contact_name],
+        [t("Email"), (c) => c.email],
+        [t("Phone"), (c) => c.phone],
+        [t("Address"), (c) => c.address],
+        [t("City"), (c) => c.city],
+        [t("Country"), (c) => c.country],
+        [t("Created"), (c) => c.created_at],
       ],
       table.sorted
     );
-    toast.info(`Exported ${table.sorted.length} customers to CSV.`);
+    toast.info(t("Exported {count} customers to CSV.", { count: table.sorted.length }));
   }
 
   const isEditing = editing !== null && !createRequested;
@@ -388,15 +389,15 @@ export default function Customers() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Customers"
+        title={t("Customers")}
         actions={
           <>
             <Button icon="download" onClick={handleExport} disabled={filtered.length === 0}>
-              Export
+              {t("Export")}
             </Button>
             {canWrite && (
               <Button variant="primary" icon="plus" onClick={openCreate}>
-                Add customer
+                {t("Add customer")}
               </Button>
             )}
           </>
@@ -404,10 +405,10 @@ export default function Customers() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total customers" value={number(customers.length)} icon="customers" loading={loading && !data} />
-        <StatCard label="New this month" value={number(newThisMonth)} icon="sparkles" tone="success" loading={loading && !data} />
-        <StatCard label="Cities" value={number(cities)} icon="mapPin" tone="warning" loading={loading && !data} />
-        <StatCard label="Countries" value={number(countries.length)} icon="globe" tone="info" loading={loading && !data} />
+        <StatCard label={t("Total customers")} value={number(customers.length)} icon="customers" loading={loading && !data} />
+        <StatCard label={t("New this month")} value={number(newThisMonth)} icon="sparkles" tone="success" loading={loading && !data} />
+        <StatCard label={t("Cities")} value={number(cities)} icon="mapPin" tone="warning" loading={loading && !data} />
+        <StatCard label={t("Countries")} value={number(countries.length)} icon="globe" tone="info" loading={loading && !data} />
       </div>
 
       {error && <ErrorState message={error} onRetry={reload} />}
@@ -415,11 +416,10 @@ export default function Customers() {
       {priceListFilter && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface)" }}>
           <span className="app-text-secondary">
-            Showing customers on the{" "}
-            <span className="font-semibold app-text">{customers.find((customer) => String(customer.price_list_id) === priceListFilter)?.price_list_name ?? "selected"}</span> price list
+            {t("Showing customers on the {list} price list", { list: customers.find((customer) => String(customer.price_list_id) === priceListFilter)?.price_list_name ?? t("selected") })}
           </span>
           <Button size="sm" variant="ghost" icon="close" onClick={() => updateParams({ price_list: null })}>
-            Show all
+            {t("Show all")}
           </Button>
         </div>
       )}
@@ -432,7 +432,7 @@ export default function Customers() {
               setSearch(value);
               table.setPage(1);
             }}
-            placeholder="Search company, contact, email, city..."
+            placeholder={t("Search company, contact, email, city...")}
             className="lg:w-80"
           />
           <select
@@ -441,19 +441,19 @@ export default function Customers() {
               setCountry(event.target.value);
               table.setPage(1);
             }}
-            aria-label="Filter by country"
+            aria-label={t("Filter by country")}
             className="app-input h-10 py-0 lg:w-48"
           >
-            <option value="all">All countries</option>
+            <option value="all">{t("All countries")}</option>
             {countries.map((item) => (
               <option key={item} value={item}>
                 {item}
               </option>
             ))}
           </select>
-          <div className="flex items-center gap-2 lg:ml-auto">
+          <div className="flex items-center gap-2 lg:ms-auto">
             <SegmentedControl
-              label="Layout"
+              label={t("Layout")}
               value={view}
               onChange={setView}
               options={[
@@ -461,7 +461,7 @@ export default function Customers() {
                 { value: "grid", label: <Icon name="grid" size={16} /> },
               ]}
             />
-            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={loading ? "[&_svg]:animate-spin" : ""} />
+            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label={t("Refresh")} title={t("Refresh")} className={loading ? "[&_svg]:animate-spin" : ""} />
           </div>
         </div>
 
@@ -470,11 +470,11 @@ export default function Customers() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={searching ? "search" : "customers"}
-            title={searching ? "No matching customers" : "No customers yet"}
+            title={searching ? t("No matching customers") : t("No customers yet")}
             description={
               searching
-                ? "Try a different search term or country."
-                : "Add your first customer to start building your business directory."
+                ? t("Try a different search term or country.")
+                : t("Add your first customer to start building your business directory.")
             }
             action={
               searching ? (
@@ -484,12 +484,12 @@ export default function Customers() {
                     setCountry("all");
                   }}
                 >
-                  Clear filters
+                  {t("Clear filters")}
                 </Button>
               ) : (
                 canWrite && (
                   <Button variant="primary" icon="plus" onClick={openCreate}>
-                    Add your first customer
+                    {t("Add your first customer")}
                   </Button>
                 )
               )
@@ -502,7 +502,7 @@ export default function Customers() {
                 key={customer.id}
                 type="button"
                 onClick={() => updateParams({ view: customer.id })}
-                className="group rounded-xl border p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-md"
+                className="group rounded-xl border p-4 text-start transition hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-md"
                 style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface)" }}
               >
                 <div className="flex items-start gap-3">
@@ -525,14 +525,14 @@ export default function Customers() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
+            <table className="w-full min-w-[860px] text-start text-sm">
               <TableHead>
-                <SortHeader label="Company" column="company" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Contact" column="contact" sort={table.sort} onSort={table.toggleSort} />
-                <Th>Email & phone</Th>
-                <SortHeader label="Location" column="city" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Since" column="created" sort={table.sort} onSort={table.toggleSort} />
-                <Th align="right">Actions</Th>
+                <SortHeader label={t("Company")} column="company" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Contact")} column="contact" sort={table.sort} onSort={table.toggleSort} />
+                <Th>{t("Email & phone")}</Th>
+                <SortHeader label={t("Location")} column="city" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Since")} column="created" sort={table.sort} onSort={table.toggleSort} />
+                <Th align="right">{t("Actions")}</Th>
               </TableHead>
               <tbody>
                 {table.rows.map((customer) => (
@@ -563,9 +563,9 @@ export default function Customers() {
                     <td className="whitespace-nowrap px-5 py-3.5 app-text-secondary">{formatDate(customer.created_at)}</td>
                     <td className="px-5 py-3.5" onClick={(event) => event.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <IconAction icon="eye" label="View profile" onClick={() => updateParams({ view: customer.id })} />
-                        {canWrite && <IconAction icon="edit" label="Edit customer" onClick={() => openEdit(customer)} />}
-                        {canDelete && <IconAction icon="trash" label="Delete customer" tone="danger" onClick={() => handleDelete(customer)} />}
+                        <IconAction icon="eye" label={t("View profile")} onClick={() => updateParams({ view: customer.id })} />
+                        {canWrite && <IconAction icon="edit" label={t("Edit customer")} onClick={() => openEdit(customer)} />}
+                        {canDelete && <IconAction icon="trash" label={t("Delete customer")} tone="danger" onClick={() => handleDelete(customer)} />}
                       </div>
                     </td>
                   </tr>
@@ -582,7 +582,7 @@ export default function Customers() {
             total={table.total}
             pageSize={table.pageSize}
             onPageChange={table.setPage}
-            label="customers"
+            label={t("customers")}
           />
         )}
       </Card>
@@ -603,15 +603,15 @@ export default function Customers() {
         busy={saving}
         size="lg"
         icon={isEditing ? "edit" : "userPlus"}
-        title={isEditing ? `Edit ${editing.company_name}` : "Add a new customer"}
-        description={isEditing ? "Update this account's company and contact information." : "Create a business account to start taking orders."}
+        title={isEditing ? t("Edit {name}", { name: editing.company_name }) : t("Add a new customer")}
+        description={isEditing ? t("Update this account's company and contact information.") : t("Create a business account to start taking orders.")}
         footer={
           <>
             <Button onClick={closeForm} disabled={saving}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" form="customer-form" variant="primary" loading={saving} icon="check">
-              {isEditing ? "Save changes" : "Create customer"}
+              {isEditing ? t("Save changes") : t("Create customer")}
             </Button>
           </>
         }
@@ -624,35 +624,35 @@ export default function Customers() {
               <Icon name="building" size={16} className="app-text-muted" /> Company & contact
             </legend>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Company name" required>
-                {(id) => <input id={id} name="company_name" value={form.company_name} onChange={handleChange} required minLength={2} maxLength={150} placeholder="e.g. Atlas Solutions" className="app-input" />}
+              <Field label={t("Company name")} required>
+                {(id) => <input id={id} name="company_name" value={form.company_name} onChange={handleChange} required minLength={2} maxLength={150} placeholder={t("e.g. Atlas Solutions")} className="app-input" />}
               </Field>
-              <Field label="Contact name" required>
-                {(id) => <input id={id} name="contact_name" value={form.contact_name} onChange={handleChange} required minLength={2} maxLength={150} placeholder="Full name" className="app-input" />}
+              <Field label={t("Contact name")} required>
+                {(id) => <input id={id} name="contact_name" value={form.contact_name} onChange={handleChange} required minLength={2} maxLength={150} placeholder={t("Full name")} className="app-input" />}
               </Field>
-              <Field label="Email address">
-                {(id) => <input id={id} name="email" type="email" value={form.email} onChange={handleChange} placeholder="contact@company.com" className="app-input" />}
+              <Field label={t("Email address")}>
+                {(id) => <input id={id} name="email" type="email" value={form.email} onChange={handleChange} placeholder={t("contact@company.com")} className="app-input" />}
               </Field>
-              <Field label="Phone number">
+              <Field label={t("Phone number")}>
                 {(id) => <input id={id} name="phone" type="tel" value={form.phone} onChange={handleChange} maxLength={30} placeholder="+212 6..." className="app-input" />}
               </Field>
             </div>
           </fieldset>
 
           <fieldset className="border-t pt-5" style={{ borderColor: "var(--border-color)" }}>
-            <legend className="sr-only">Location</legend>
+            <legend className="sr-only">{t("Location")}</legend>
             <p className="mb-3 flex items-center gap-2 text-sm font-semibold app-text">
-              <Icon name="mapPin" size={16} className="app-text-muted" /> Location
+              <Icon name="mapPin" size={16} className="app-text-muted" /> {t("Location")}
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="City">
-                {(id) => <input id={id} name="city" value={form.city} onChange={handleChange} maxLength={100} placeholder="e.g. Agadir" className="app-input" />}
+              <Field label={t("City")}>
+                {(id) => <input id={id} name="city" value={form.city} onChange={handleChange} maxLength={100} placeholder={t("e.g. Agadir")} className="app-input" />}
               </Field>
-              <Field label="Country">
+              <Field label={t("Country")}>
                 {(id) => <input id={id} name="country" value={form.country} onChange={handleChange} maxLength={100} list="country-options" className="app-input" />}
               </Field>
-              <Field label="Full address" className="sm:col-span-2">
-                {(id) => <textarea id={id} name="address" value={form.address} onChange={handleChange} rows={2} maxLength={255} placeholder="Street, building, postal code..." className="app-input resize-y" />}
+              <Field label={t("Full address")} className="sm:col-span-2">
+                {(id) => <textarea id={id} name="address" value={form.address} onChange={handleChange} rows={2} maxLength={255} placeholder={t("Street, building, postal code...")} className="app-input resize-y" />}
               </Field>
             </div>
             <datalist id="country-options">

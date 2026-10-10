@@ -32,6 +32,7 @@ import { QUOTE_STATUS, QUOTE_STATUS_ORDER, validityLabel } from "../lib/quoteSta
 import company from "../config/company";
 import useTable from "../lib/useTable";
 
+import { t } from "../i18n";
 const accessors = {
   id: (quote) => quote.id,
   customer: (quote) => quote.company_name,
@@ -133,10 +134,10 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
         unit_price: line.unit_price === "" ? undefined : round2(line.unit_price),
       }));
 
-    if (!form.customer_id) return setError("Choose a customer.");
-    if (items.length === 0) return setError("Add at least one product.");
-    if (items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) return setError("Quantities must be whole numbers of 1 or more.");
-    if (items.some((item) => item.unit_price !== undefined && (!Number.isFinite(item.unit_price) || item.unit_price < 0))) return setError("Prices can't be negative.");
+    if (!form.customer_id) return setError(t("Choose a customer."));
+    if (items.length === 0) return setError(t("Add at least one product."));
+    if (items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) return setError(t("Quantities must be whole numbers of 1 or more."));
+    if (items.some((item) => item.unit_price !== undefined && (!Number.isFinite(item.unit_price) || item.unit_price < 0))) return setError(t("Prices can't be negative."));
 
     setSaving(true);
     try {
@@ -146,7 +147,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
         : await api("/quotes", { method: "POST", body });
       onSaved(editing?.id ?? result.data?.quoteId, Boolean(editing));
     } catch (err) {
-      setError(err.message || "Could not save the quote.");
+      setError(err.message || t("Could not save the quote."));
     } finally {
       setSaving(false);
     }
@@ -161,16 +162,16 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
       busy={saving}
       size="xl"
       icon="fileText"
-      eyebrow={editing ? editing.number : "New quote"}
-      title={editing ? "Edit draft quote" : "Create a quote"}
-      description="Leave a price empty to use the customer's price."
+      eyebrow={editing ? editing.number : t("New quote")}
+      title={editing ? t("Edit draft quote") : t("Create a quote")}
+      description={t("Leave a price empty to use the customer's price.")}
       footer={
         <>
           <Button onClick={onClose} disabled={saving}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button type="submit" form="quote-form" variant="primary" icon="check" loading={saving} disabled={chosen.size === 0 || !form.customer_id}>
-            {editing ? "Save draft" : "Create draft"} · {money(subtotal)} HT
+            {editing ? t("Save draft") : t("Create draft")} · {money(subtotal)} {t("HT")}
           </Button>
         </>
       }
@@ -190,10 +191,10 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
             <InlineAlert>{error}</InlineAlert>
 
             <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
-              <Field label="Customer" required>
+              <Field label={t("Customer")} required>
                 {(id) => (
                   <select id={id} value={form.customer_id} onChange={(event) => setForm((f) => ({ ...f, customer_id: event.target.value }))} required className="app-input">
-                    <option value="">Select a customer...</option>
+                    <option value="">{t("Select a customer...")}</option>
                     {customers.map((customer) => (
                       <option key={customer.id} value={customer.id}>
                         {customer.company_name}
@@ -203,7 +204,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                   </select>
                 )}
               </Field>
-              <Field label="Valid until" required>
+              <Field label={t("Valid until")} required>
                 {(id) => (
                   <input
                     id={id}
@@ -222,10 +223,10 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-medium app-text">
-                  Lines <span style={{ color: "var(--danger)" }}>*</span>
+                  {t("Lines")} <span style={{ color: "var(--danger)" }}>*</span>
                 </p>
                 <Button size="sm" variant="ghost" icon="plus" onClick={() => setLines((current) => [...current, newLine()])} disabled={chosen.size >= products.length}>
-                  Add line
+                  {t("Add line")}
                 </Button>
               </div>
 
@@ -249,10 +250,10 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                           onChange={(event) => {
                             updateLine(line.key, { product_id: event.target.value, unit_price: "" });
                           }}
-                          aria-label={`Product for line ${index + 1}`}
+                          aria-label={t("Product for line {number}", { number: index + 1 })}
                           className="app-input"
                         >
-                          <option value="">Select a product...</option>
+                          <option value="">{t("Select a product...")}</option>
                           {products.map((option) => (
                             <option key={option.id} value={option.id} disabled={chosen.has(String(option.id)) && String(option.id) !== line.product_id}>
                               {option.name} · {money(option.price)}
@@ -261,16 +262,16 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                         </select>
                         {product && (
                           <p className="mt-1.5 text-xs app-text-muted">
-                            List {money(listPrice)} · {product.stock} in stock
+                            {t("List {price}", { price: money(listPrice) })} · {t("{count} in stock", { count: product.stock })}
                             {discount > 0.0005 && (
-                              <span className="ml-1.5 font-semibold" style={{ color: "var(--success)" }}>
+                              <span className="ms-1.5 font-semibold" style={{ color: "var(--success)" }}>
                                 −{Math.round(discount * 1000) / 10}% discount
                               </span>
                             )}
-                            {line.unit_price === "" && rule?.label && <span className="ml-1.5">({rule.label})</span>}
+                            {line.unit_price === "" && rule?.label && <span className="ms-1.5">({rule.label})</span>}
                             {discount < -0.0005 && (
-                              <span className="ml-1.5 font-semibold" style={{ color: "var(--warning)" }}>
-                                above list price
+                              <span className="ms-1.5 font-semibold" style={{ color: "var(--warning)" }}>
+                                {t("above list price")}
                               </span>
                             )}
                           </p>
@@ -283,7 +284,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                         step="1"
                         value={line.quantity}
                         onChange={(event) => updateLine(line.key, { quantity: event.target.value })}
-                        aria-label={`Quantity for line ${index + 1}`}
+                        aria-label={t("Quantity for line {number}", { number: index + 1 })}
                         className="app-input text-center tabular-nums"
                       />
 
@@ -294,17 +295,17 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                           step="0.01"
                           value={line.unit_price}
                           onChange={(event) => updateLine(line.key, { unit_price: event.target.value })}
-                          placeholder={product ? String(customerPrice(product)) : "Price"}
-                          aria-label={`Unit price for line ${index + 1}`}
+                          placeholder={product ? String(customerPrice(product)) : t("Price")}
+                          aria-label={t("Unit price for line {number}", { number: index + 1 })}
                           disabled={!product}
-                          className="app-input pr-11 text-right tabular-nums"
+                          className="app-input pe-11 text-end tabular-nums"
                         />
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold app-text-muted">MAD</span>
+                        <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold app-text-muted">{t("MAD")}</span>
                       </div>
 
                       <IconAction
                         icon="trash"
-                        label={`Remove line ${index + 1}`}
+                        label={t("Remove line {number}", { number: index + 1 })}
                         tone="danger"
                         disabled={lines.length === 1}
                         onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
@@ -315,7 +316,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
               </div>
             </div>
 
-            <Field label="Notes for the customer" hint={`${form.notes.length}/1000 · printed on the quote`}>
+            <Field label={t("Notes for the customer")} hint={`${form.notes.length}/1000 · ${t("printed on the quote")}`}>
               {(id) => (
                 <textarea
                   id={id}
@@ -323,7 +324,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                   onChange={(event) => setForm((f) => ({ ...f, notes: event.target.value }))}
                   rows={2}
                   maxLength={1000}
-                  placeholder="Delivery terms, installation, conditions..."
+                  placeholder={t("Delivery terms, installation, conditions...")}
                   className="app-input resize-y"
                 />
               )}
@@ -331,7 +332,7 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
           </div>
 
           <aside className="h-fit rounded-xl border p-5 lg:sticky lg:top-0" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}>
-            <p className="text-xs font-semibold uppercase tracking-wider app-text-muted">Quote summary</p>
+            <p className="text-xs font-semibold uppercase tracking-wider app-text-muted">{t("Quote summary")}</p>
             <div className="mt-4 flex items-center gap-3">
               {selectedCustomer ? (
                 <>
@@ -342,35 +343,35 @@ function QuoteBuilder({ open, onClose, editing, initialCustomerId, onSaved }) {
                   </div>
                 </>
               ) : (
-                <p className="text-sm app-text-muted">No customer selected</p>
+                <p className="text-sm app-text-muted">{t("No customer selected")}</p>
               )}
             </div>
             <dl className="mt-5 space-y-2 border-t pt-4 text-sm" style={{ borderColor: "var(--border-color)" }}>
               <div className="flex justify-between">
-                <dt className="app-text-secondary">List price total</dt>
+                <dt className="app-text-secondary">{t("List price total")}</dt>
                 <dd className="tabular-nums app-text">{money(summary.list)}</dd>
               </div>
               {savings > 0 && (
                 <div className="flex justify-between">
-                  <dt className="app-text-secondary">Discount</dt>
+                  <dt className="app-text-secondary">{t("Discount")}</dt>
                   <dd className="font-semibold tabular-nums" style={{ color: "var(--success)" }}>
                     −{money(savings)}
                   </dd>
                 </div>
               )}
               <div className="flex justify-between">
-                <dt className="app-text-secondary">Subtotal (HT)</dt>
+                <dt className="app-text-secondary">{t("Subtotal (HT)")}</dt>
                 <dd className="font-semibold tabular-nums app-text">{money(subtotal)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="app-text-secondary">VAT {Math.round(company.vatRate * 100)}%</dt>
+                <dt className="app-text-secondary">{t("VAT {percent}%", { percent: Math.round(company.vatRate * 100) })}</dt>
                 <dd className="tabular-nums app-text">{money(vat)}</dd>
               </div>
             </dl>
             <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--border-color)" }}>
-              <p className="text-xs app-text-secondary">Total (TTC)</p>
+              <p className="text-xs app-text-secondary">{t("Total (TTC)")}</p>
               <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums app-text">{money(round2(subtotal + vat))}</p>
-              <p className="mt-2 text-xs app-text-muted">Saved as a draft. You can still edit it until it's sent.</p>
+              <p className="mt-2 text-xs app-text-muted">{t("Saved as a draft. You can still edit it until it's sent.")}</p>
             </div>
           </aside>
         </form>
@@ -398,7 +399,7 @@ function Timeline({ quote }) {
       {steps.map((step, index) => (
         <li key={step.label} className="relative flex flex-1 flex-col items-center text-center">
           {index < steps.length - 1 && (
-            <span className="absolute left-1/2 top-4 h-0.5 w-full" style={{ backgroundColor: steps[index + 1].done && !steps[index + 1].bad ? "var(--success)" : "var(--border-color)" }} />
+            <span className="absolute start-1/2 top-4 h-0.5 w-full" style={{ backgroundColor: steps[index + 1].done && !steps[index + 1].bad ? "var(--success)" : "var(--border-color)" }} />
           )}
           <span
             className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2"
@@ -410,7 +411,7 @@ function Timeline({ quote }) {
           >
             <Icon name={step.bad ? "close" : step.done ? "check" : "clock"} size={15} strokeWidth={2.2} />
           </span>
-          <span className={`mt-2 text-xs font-semibold ${step.done ? "app-text" : "app-text-muted"}`}>{step.label}</span>
+          <span className={`mt-2 text-xs font-semibold ${step.done ? "app-text" : "app-text-muted"}`}>{t(step.label)}</span>
           {step.done && step.at && <span className="text-[11px] app-text-muted">{formatDate(step.at)}</span>}
         </li>
       ))}
@@ -444,20 +445,20 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
     <Drawer
       open={open}
       onClose={onClose}
-      title={quote?.number ?? (quoteId ? `Quote #${quoteId}` : "")}
-      description={quote ? `${quote.company_name} · created ${timeAgo(quote.created_at)}` : "Loading..."}
+      title={quote?.number ?? (quoteId ? t("Quote #{id}", { id: quoteId }) : "")}
+      description={quote ? `${quote.company_name} · ${t("created {when}", { when: timeAgo(quote.created_at) })}` : t("Loading...")}
       icon="fileText"
       footer={
         quote && (
           <>
             {actions.includes("delete") && (
-              <Button variant="danger-ghost" icon="trash" onClick={() => onAction("delete", quote)} disabled={busy} className="mr-auto">
-                Delete
+              <Button variant="danger-ghost" icon="trash" onClick={() => onAction("delete", quote)} disabled={busy} className="me-auto">
+                {t("Delete")}
               </Button>
             )}
             {actions.includes("reject") && (
-              <Button variant="danger-ghost" icon="thumbsDown" onClick={() => onAction("reject", quote)} disabled={busy} className="mr-auto">
-                Reject
+              <Button variant="danger-ghost" icon="thumbsDown" onClick={() => onAction("reject", quote)} disabled={busy} className="me-auto">
+                {t("Reject")}
               </Button>
             )}
             <a
@@ -467,7 +468,7 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
               className="inline-flex h-10 items-center gap-2 rounded-[var(--control-radius)] border px-4 text-sm font-semibold transition hover:bg-[var(--surface-hover)] app-text"
               style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface)" }}
             >
-              <Icon name="download" size={17} /> Print
+              <Icon name="download" size={17} /> {t("Print")}
             </a>
             {["duplicate", "edit", "send", "accept", "convert"]
               .filter((action) => actions.includes(action))
@@ -480,7 +481,7 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
                   loading={busy === action}
                   disabled={Boolean(busy) || (action === "convert" && stockProblems.length > 0)}
                 >
-                  {actionButtons[action].label}
+                  {t(actionButtons[action].label)}
                 </Button>
               ))}
           </>
@@ -501,7 +502,7 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
             <div className="rounded-xl border p-5" style={{ borderColor: "var(--border-color)" }}>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <StatusBadge status={quote.status} />
-                <span className="text-xs app-text-secondary">{QUOTE_STATUS[quote.status]?.description}</span>
+                <span className="text-xs app-text-secondary">{t(QUOTE_STATUS[quote.status]?.description)}</span>
               </div>
               <Timeline quote={quote} />
             </div>
@@ -513,16 +514,16 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
                 style={{ borderColor: "var(--border-color)", ...toneStyle("info") }}
               >
                 <Icon name="orders" size={20} />
-                <span className="flex-1 text-sm font-semibold">Converted into order #{quote.order_id}</span>
+                <span className="flex-1 text-sm font-semibold">{t("Converted into order #{id}", { id: quote.order_id })}</span>
                 <Icon name="chevronRight" size={18} />
               </Link>
             )}
 
             {stockProblems.length > 0 && (
               <InlineAlert>
-                Can't convert yet:{" "}
+                {t("Can't convert yet:")}{" "}
                 {stockProblems
-                  .map((item) => (item.product_active ? `${item.product_name} (${item.current_stock} in stock, ${item.quantity} quoted)` : `${item.product_name} is inactive`))
+                  .map((item) => (item.product_active ? t("{product} ({stock} in stock, {quantity} quoted)", { product: item.product_name, stock: item.current_stock, quantity: item.quantity }) : t("{product} is inactive", { product: item.product_name })))
                   .join("; ")}
                 .
               </InlineAlert>
@@ -536,12 +537,12 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
               >
                 <Avatar label={initials(quote.company_name)} seed={quote.customer_id} size={36} />
                 <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wide app-text-muted">Customer</p>
+                  <p className="text-xs font-medium uppercase tracking-wide app-text-muted">{t("Customer")}</p>
                   <p className="truncate text-sm font-semibold app-text">{quote.company_name}</p>
                 </div>
               </Link>
               <div className="col-span-2 rounded-xl border p-4 sm:col-span-1" style={{ borderColor: "var(--border-color)" }}>
-                <p className="text-xs font-medium uppercase tracking-wide app-text-muted">Valid until</p>
+                <p className="text-xs font-medium uppercase tracking-wide app-text-muted">{t("Valid until")}</p>
                 <p className="text-sm font-semibold app-text">{formatDate(`${quote.valid_until}T00:00:00`)}</p>
                 {validityLabel(quote) && (
                   <p className="text-xs font-medium" style={{ color: quote.days_left < 0 ? "var(--warning)" : quote.days_left <= 3 ? "var(--danger)" : "var(--text-muted)" }}>
@@ -553,14 +554,14 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
 
             <div>
               <h3 className="mb-3 text-sm font-bold app-text">
-                Lines <span className="font-normal app-text-muted">({items.length})</span>
+                {t("Lines")} <span className="font-normal app-text-muted">({items.length})</span>
               </h3>
               <div className="overflow-hidden rounded-xl border" style={{ borderColor: "var(--border-color)" }}>
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-start text-sm">
                   <TableHead>
-                    <Th className="!px-4">Product</Th>
-                    <Th className="!px-4" align="right">Qty</Th>
-                    <Th className="!px-4" align="right">Amount</Th>
+                    <Th className="!px-4">{t("Product")}</Th>
+                    <Th className="!px-4" align="right">{t("Qty")}</Th>
+                    <Th className="!px-4" align="right">{t("Amount")}</Th>
                   </TableHead>
                   <tbody>
                     {items.map((item) => {
@@ -570,16 +571,16 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
                           <td className="px-4 py-3">
                             <p className="font-medium app-text">{item.product_name}</p>
                             <p className="text-xs app-text-muted">
-                              {money(item.unit_price)} each
+                              {t("{price} each", { price: money(item.unit_price) })}
                               {discount > 0.0005 && (
-                                <span className="ml-1.5 font-semibold" style={{ color: "var(--success)" }}>
+                                <span className="ms-1.5 font-semibold" style={{ color: "var(--success)" }}>
                                   −{Math.round(discount * 1000) / 10}% off {money(item.list_price)}
                                 </span>
                               )}
                             </p>
                           </td>
-                          <td className="px-4 py-3 text-right tabular-nums app-text">×{item.quantity}</td>
-                          <td className="px-4 py-3 text-right font-semibold tabular-nums app-text">{money(item.subtotal)}</td>
+                          <td className="px-4 py-3 text-end tabular-nums app-text">×{item.quantity}</td>
+                          <td className="px-4 py-3 text-end font-semibold tabular-nums app-text">{money(item.subtotal)}</td>
                         </tr>
                       );
                     })}
@@ -588,22 +589,22 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
                 <dl className="space-y-1.5 border-t px-4 py-3.5 text-sm" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}>
                   {savings > 0.004 && (
                     <div className="flex justify-between">
-                      <dt className="app-text-secondary">Discount vs list price</dt>
+                      <dt className="app-text-secondary">{t("Discount vs list price")}</dt>
                       <dd className="font-semibold tabular-nums" style={{ color: "var(--success)" }}>
                         −{money(savings)}
                       </dd>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <dt className="app-text-secondary">Subtotal (HT)</dt>
+                    <dt className="app-text-secondary">{t("Subtotal (HT)")}</dt>
                     <dd className="tabular-nums app-text">{money(quote.total_amount)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="app-text-secondary">VAT</dt>
+                    <dt className="app-text-secondary">{t("VAT")}</dt>
                     <dd className="tabular-nums app-text">{money(quote.vat)}</dd>
                   </div>
                   <div className="flex justify-between pt-1 text-base">
-                    <dt className="font-semibold app-text">Total (TTC)</dt>
+                    <dt className="font-semibold app-text">{t("Total (TTC)")}</dt>
                     <dd className="font-bold tabular-nums app-text">{money(quote.total_with_vat)}</dd>
                   </div>
                 </dl>
@@ -612,7 +613,7 @@ function QuoteDrawer({ quoteId, version, open, onClose, onAction, busy, canWrite
 
             {quote.notes && (
               <div>
-                <h3 className="mb-2 text-sm font-bold app-text">Notes</h3>
+                <h3 className="mb-2 text-sm font-bold app-text">{t("Notes")}</h3>
                 <p className="rounded-xl p-4 text-sm app-muted app-text-secondary">{quote.notes}</p>
               </div>
             )}
@@ -686,11 +687,11 @@ export default function Quotes() {
     }
 
     const confirmations = {
-      send: { title: `Mark ${quote.number} as sent?`, message: "The quote will be locked for editing while the customer decides.", confirmLabel: "Mark as sent", tone: "primary", icon: "send" },
-      accept: { title: `Accept ${quote.number}?`, message: `${quote.company_name} accepted the offer of ${money(quote.total_with_vat)} (TTC). You can then convert it into an order.`, confirmLabel: "Mark accepted", tone: "primary", icon: "checkCircle" },
-      reject: { title: `Reject ${quote.number}?`, message: "Record that the customer declined this offer. You can duplicate it later to make a new one.", confirmLabel: "Mark rejected" },
-      convert: { title: `Convert ${quote.number} into an order?`, message: `This creates a Pending order for ${quote.company_name} at the quoted prices and reserves the stock.`, confirmLabel: "Create order", tone: "primary", icon: "orders" },
-      delete: { title: `Delete ${quote.number}?`, message: "This draft will be permanently removed.", confirmLabel: "Delete draft" },
+      send: { title: t("Mark {number} as sent?", { number: quote.number }), message: t("The quote will be locked for editing while the customer decides."), confirmLabel: t("Mark as sent"), tone: "primary", icon: "send" },
+      accept: { title: t("Accept {number}?", { number: quote.number }), message: t("{customer} accepted the offer of {amount} (TTC). You can then convert it into an order.", { customer: quote.company_name, amount: money(quote.total_with_vat) }), confirmLabel: t("Mark accepted"), tone: "primary", icon: "checkCircle" },
+      reject: { title: t("Reject {number}?", { number: quote.number }), message: t("Record that the customer declined this offer. You can duplicate it later to make a new one."), confirmLabel: t("Mark rejected") },
+      convert: { title: t("Convert {number} into an order?", { number: quote.number }), message: t("This creates a Pending order for {customer} at the quoted prices and reserves the stock.", { customer: quote.company_name }), confirmLabel: t("Create order"), tone: "primary", icon: "orders" },
+      delete: { title: t("Delete {number}?", { number: quote.number }), message: t("This draft will be permanently removed."), confirmLabel: t("Delete draft") },
     };
 
     if (confirmations[action] && !(await confirm(confirmations[action]))) return;
@@ -704,19 +705,19 @@ export default function Quotes() {
       setDrawerVersion((value) => value + 1);
 
       if (action === "convert") {
-        toast.success(`Order #${result.data.orderId} created from ${quote.number}.`, { title: "Quote converted" });
+        toast.success(t("Order #{id} created from {number}.", { id: result.data.orderId, number: quote.number }), { title: t("Quote converted") });
         navigate(`/orders?view=${result.data.orderId}`);
       } else if (action === "duplicate") {
-        toast.success("A new draft was created with the same lines.", { title: "Quote duplicated" });
+        toast.success(t("A new draft was created with the same lines."), { title: t("Quote duplicated") });
         updateParams({ view: result.data.quoteId });
       } else if (action === "delete") {
-        toast.success(`${quote.number} was deleted.`);
+        toast.success(t("{name} was deleted.", { name: quote.number }));
         updateParams({ view: null });
       } else {
         toast.success(result.message);
       }
     } catch (err) {
-      toast.error(err.message || "The action failed.", { title: "Quote not updated" });
+      toast.error(err.message || t("The action failed."), { title: t("Quote not updated") });
     } finally {
       setBusy(null);
     }
@@ -731,33 +732,33 @@ export default function Quotes() {
     exportCsv(
       "quotes",
       [
-        ["Quote", (q) => q.number],
-        ["Customer", (q) => q.company_name],
-        ["Status", (q) => q.status],
-        ["Created", (q) => q.created_at],
-        ["Valid until", (q) => q.valid_until],
-        ["Lines", (q) => q.item_count],
-        ["Subtotal HT (MAD)", (q) => q.total_amount],
-        ["Total TTC (MAD)", (q) => q.total_with_vat],
-        ["Order", (q) => q.order_id ?? ""],
+        [t("Quote"), (q) => q.number],
+        [t("Customer"), (q) => q.company_name],
+        [t("Status"), (q) => t(q.status)],
+        [t("Created"), (q) => q.created_at],
+        [t("Valid until"), (q) => q.valid_until],
+        [t("Lines"), (q) => q.item_count],
+        [t("Subtotal HT (MAD)"), (q) => q.total_amount],
+        [t("Total TTC (MAD)"), (q) => q.total_with_vat],
+        [t("Order"), (q) => q.order_id ?? ""],
       ],
       table.sorted
     );
-    toast.info(`Exported ${table.sorted.length} quotes to CSV.`);
+    toast.info(t("Exported {count} quotes to CSV.", { count: table.sorted.length }));
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Quotes"
+        title={t("Quotes")}
         actions={
           <>
             <Button icon="download" onClick={handleExport} disabled={filtered.length === 0}>
-              Export
+              {t("Export")}
             </Button>
             {canWrite && (
               <Button variant="primary" icon="plus" onClick={() => setBuilder({ open: true, editing: null })}>
-                New quote
+                {t("New quote")}
               </Button>
             )}
           </>
@@ -765,18 +766,18 @@ export default function Quotes() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Open pipeline" value={compactMoney(pipeline)} hint={`${open.length} sent or accepted quotes (TTC)`} icon="fileText" tone="primary" loading={loading && !data} />
+        <StatCard label={t("Open pipeline")} value={compactMoney(pipeline)} hint={t("{count} sent or accepted quotes (TTC)", { count: open.length })} icon="fileText" tone="primary" loading={loading && !data} />
         <StatCard
-          label="Win rate"
+          label={t("Win rate")}
           value={decided.length ? `${Math.round((won / decided.length) * 100)}%` : "—"}
-          hint={`${won} of ${decided.length} decided quotes, last 12 months`}
+          hint={t("{won} of {total} decided quotes, last 12 months", { won, total: decided.length })}
           icon="revenue"
           tone="success"
           loading={loading && !data}
           onClick={() => setStatus("Converted")}
         />
-        <StatCard label="Awaiting answer" value={number(counts.Sent ?? 0)} hint={`${expiringSoon} expire within 7 days`} icon="send" tone="warning" loading={loading && !data} onClick={() => setStatus("Sent")} />
-        <StatCard label="Ready to convert" value={number(counts.Accepted ?? 0)} hint="Accepted, no order yet" icon="checkCircle" tone="info" loading={loading && !data} onClick={() => setStatus("Accepted")} />
+        <StatCard label={t("Awaiting answer")} value={number(counts.Sent ?? 0)} hint={t("{count} expire within 7 days", { count: expiringSoon })} icon="send" tone="warning" loading={loading && !data} onClick={() => setStatus("Sent")} />
+        <StatCard label={t("Ready to convert")} value={number(counts.Accepted ?? 0)} hint={t("Accepted, no order yet")} icon="checkCircle" tone="info" loading={loading && !data} onClick={() => setStatus("Accepted")} />
       </div>
 
       {error && <ErrorState message={error} onRetry={reload} />}
@@ -784,7 +785,7 @@ export default function Quotes() {
       <Card>
         <div className="space-y-3 border-b p-4" style={{ borderColor: "var(--border-color)" }}>
           <SegmentedControl
-            label="Filter by status"
+            label={t("Filter by status")}
             value={status}
             onChange={(value) => {
               setStatus(value);
@@ -799,10 +800,10 @@ export default function Quotes() {
                 setSearch(value);
                 table.setPage(1);
               }}
-              placeholder="Search quote number or customer..."
+              placeholder={t("Search quote number or customer...")}
               className="sm:w-80"
             />
-            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={`ml-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
+            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label={t("Refresh")} title={t("Refresh")} className={`ms-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
           </div>
         </div>
 
@@ -811,27 +812,27 @@ export default function Quotes() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={quotes.length ? "search" : "fileText"}
-            title={quotes.length ? "No quotes match" : "No quotes yet"}
-            description={quotes.length ? "Try another status or search." : "Create your first quote to start building a pipeline."}
+            title={quotes.length ? t("No quotes match") : t("No quotes yet")}
+            description={quotes.length ? t("Try another status or search.") : t("Create your first quote to start building a pipeline.")}
             action={
               !quotes.length &&
               canWrite && (
                 <Button variant="primary" icon="plus" onClick={() => setBuilder({ open: true, editing: null })}>
-                  New quote
+                  {t("New quote")}
                 </Button>
               )
             }
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[780px] text-left text-sm">
+            <table className="w-full min-w-[780px] text-start text-sm">
               <TableHead>
-                <SortHeader label="Quote" column="id" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Customer" column="customer" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Valid until" column="valid" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Status" column="status" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Total (TTC)" column="total" sort={table.sort} onSort={table.toggleSort} align="right" />
-                <Th align="right">Actions</Th>
+                <SortHeader label={t("Quote")} column="id" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Customer")} column="customer" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Valid until")} column="valid" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Status")} column="status" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Total (TTC)")} column="total" sort={table.sort} onSort={table.toggleSort} align="right" />
+                <Th align="right">{t("Actions")}</Th>
               </TableHead>
               <tbody>
                 {table.rows.map((quote) => {
@@ -866,22 +867,22 @@ export default function Quotes() {
                       <td className="px-5 py-3.5">
                         <StatusBadge status={quote.status} />
                       </td>
-                      <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold tabular-nums app-text">{money(quote.total_with_vat)}</td>
+                      <td className="whitespace-nowrap px-5 py-3.5 text-end font-semibold tabular-nums app-text">{money(quote.total_with_vat)}</td>
                       <td className="px-5 py-3.5" onClick={(event) => event.stopPropagation()}>
                         <div className="flex justify-end gap-1">
                           {canWrite && quote.actions.includes("convert") && (
-                            <IconAction icon="orders" label={`Convert ${quote.number} to an order`} onClick={() => handleAction("convert", quote)} disabled={Boolean(busy)} />
+                            <IconAction icon="orders" label={t("Convert {number} to an order", { number: quote.number })} onClick={() => handleAction("convert", quote)} disabled={Boolean(busy)} />
                           )}
                           {canWrite && quote.actions.includes("send") && (
-                            <IconAction icon="send" label={`Mark ${quote.number} as sent`} onClick={() => handleAction("send", quote)} disabled={Boolean(busy)} />
+                            <IconAction icon="send" label={t("Mark {number} as sent", { number: quote.number })} onClick={() => handleAction("send", quote)} disabled={Boolean(busy)} />
                           )}
-                          <IconAction icon="eye" label={`View ${quote.number}`} onClick={() => updateParams({ view: quote.id })} />
+                          <IconAction icon="eye" label={t("View {number}", { number: quote.number })} onClick={() => updateParams({ view: quote.id })} />
                           <a
                             href={`/quotes/${quote.id}/print`}
                             target="_blank"
                             rel="noopener"
-                            aria-label={`Print ${quote.number}`}
-                            title="Print quote"
+                            aria-label={t("Print {number}", { number: quote.number })}
+                            title={t("Print quote")}
                             className="flex h-8 w-8 items-center justify-center rounded-lg transition text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                           >
                             <Icon name="download" size={17} />
@@ -897,7 +898,7 @@ export default function Quotes() {
         )}
 
         {filtered.length > 0 && (
-          <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label="quotes" />
+          <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label={t("quotes")} />
         )}
       </Card>
 
@@ -918,7 +919,7 @@ export default function Quotes() {
           editing={builder.editing}
           initialCustomerId={params.get("customer") ?? undefined}
           onSaved={(quoteId, wasEditing) => {
-            toast.success(wasEditing ? "Draft updated." : "Draft quote created.", { title: wasEditing ? "Quote saved" : "Quote created" });
+            toast.success(wasEditing ? t("Draft updated.") : t("Draft quote created."), { title: wasEditing ? t("Quote saved") : t("Quote created") });
             closeBuilder();
             reload();
             setDrawerVersion((value) => value + 1);

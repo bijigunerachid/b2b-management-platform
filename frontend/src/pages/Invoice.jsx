@@ -16,6 +16,7 @@ import {
   paper,
 } from "../components/document/Document";
 
+import { t } from "../i18n";
 const stamps = {
   paid: { label: "PAID", color: paper.success },
   partial: { label: "PARTIALLY PAID", color: paper.info },
@@ -29,12 +30,12 @@ export function InvoiceSheet({ order, customer, payments }) {
   const invoice = buildInvoice(order);
 
   return (
-    <Sheet label={`Invoice ${invoice.number}`} watermark={invoice.state === "void" ? "VOID" : null}>
-      <DocumentHeader title="INVOICE" number={invoice.number} stamp={stamps[invoice.state]} />
+    <Sheet label={t("Invoice {number}", { number: invoice.number })} watermark={invoice.state === "void" ? t("VOID") : null}>
+      <DocumentHeader title={t("INVOICE")} number={invoice.number} stamp={stamps[invoice.state]} />
 
       <section className="grid gap-8 py-7 sm:grid-cols-3">
         <SellerBlock />
-        <CustomerBlock title="Bill to" customer={customer} fallbackName={order.company_name} />
+        <CustomerBlock title={t("Bill to")} customer={customer} fallbackName={order.company_name} />
         <DetailsBlock
           rows={[
             ["Issued", formatDate(invoice.issued)],
@@ -49,31 +50,33 @@ export function InvoiceSheet({ order, customer, payments }) {
 
       <section className="mt-6 flex flex-wrap items-start justify-between gap-8" style={{ breakInside: "avoid" }}>
         <div className="max-w-xs text-[12px] leading-5" style={{ color: paper.muted }}>
-          <Label className="mb-1">Payment</Label>
+          <Label className="mb-1">{t("Payment")}</Label>
           {["due", "partial", "overdue"].includes(invoice.state) && (
             <>
               <p>
-                Bank transfer to {company.bank.name}
+                {t("Bank transfer to {bank}", { bank: company.bank.name })}
                 <br />
-                RIB: <span style={{ color: paper.ink }}>{company.bank.rib}</span>
+                {t("RIB")}: <span style={{ color: paper.ink }}>{company.bank.rib}</span>
               </p>
               <p className="mt-2">
-                Please reference <span className="font-semibold" style={{ color: paper.ink }}>{invoice.number}</span>
+                {t("Please reference {number}", { number: invoice.number })}
                 {invoice.state === "overdue" ? (
                   <span className="font-semibold" style={{ color: paper.danger }}>
-                    . Payment is {invoice.daysOverdue} days overdue.
+                    {". "}
+                    {t("Payment is {count} days overdue.", { count: invoice.daysOverdue })}
                   </span>
                 ) : (
                   <>
-                    {" "}and pay by <span className="font-semibold" style={{ color: paper.ink }}>{formatDate(invoice.due)}</span>.
+                    {" "}
+                    {t("and pay by {date}.", { date: formatDate(invoice.due) })}
                   </>
                 )}
               </p>
             </>
           )}
-          {invoice.state === "paid" && <p>Paid in full. Thank you for your business.</p>}
-          {invoice.state === "credited" && <p>All goods on this invoice were returned. Nothing is due.</p>}
-          {invoice.state === "void" && <p>No payment is due for this document.</p>}
+          {invoice.state === "paid" && <p>{t("Paid in full. Thank you for your business.")}</p>}
+          {invoice.state === "credited" && <p>{t("All goods on this invoice were returned. Nothing is due.")}</p>}
+          {invoice.state === "void" && <p>{t("No payment is due for this document.")}</p>}
         </div>
 
         <TotalsBlock
@@ -87,7 +90,7 @@ export function InvoiceSheet({ order, customer, payments }) {
               <>
                 {invoice.credited > 0 && (
                   <div className="flex justify-between px-3 pt-3 text-[13px]">
-                    <dt style={{ color: paper.muted }}>Credit notes</dt>
+                    <dt style={{ color: paper.muted }}>{t("Credit notes")}</dt>
                     <dd className="tabular-nums" style={{ color: paper.success }}>
                       − {money(invoice.credited)}
                     </dd>
@@ -95,14 +98,14 @@ export function InvoiceSheet({ order, customer, payments }) {
                 )}
                 {invoice.amountPaid > 0 && (
                 <div className={`flex justify-between px-3 text-[13px] ${invoice.credited > 0 ? "pt-1.5" : "pt-3"}`}>
-                  <dt style={{ color: paper.muted }}>Amount paid</dt>
+                  <dt style={{ color: paper.muted }}>{t("Amount paid")}</dt>
                   <dd className="tabular-nums" style={{ color: paper.success }}>
                     − {money(invoice.amountPaid)}
                   </dd>
                 </div>
                 )}
                 <div className="flex justify-between px-3 pt-1.5 text-[14px] font-bold">
-                  <dt>Balance due</dt>
+                  <dt>{t("Balance due")}</dt>
                   <dd className="tabular-nums">{money(invoice.balance)}</dd>
                 </div>
               </>
@@ -113,25 +116,25 @@ export function InvoiceSheet({ order, customer, payments }) {
 
       {invoice.state !== "void" && payments.length > 0 && (
         <section className="mt-8" style={{ breakInside: "avoid" }}>
-          <Label className="mb-2">Payments received</Label>
+          <Label className="mb-2">{t("Payments received")}</Label>
           <table className="w-full text-[12px]">
             <tbody>
               {payments.map((payment) => (
                 <tr key={payment.id} className="border-b" style={{ borderColor: paper.rule }}>
-                  <td className="py-1.5 pr-3">{formatDate(`${payment.paid_at}T00:00:00`)}</td>
-                  <td className="py-1.5 pr-3">{payment.method}</td>
-                  <td className="py-1.5 pr-3" style={{ color: paper.muted }}>
+                  <td className="py-1.5 pe-3">{formatDate(`${payment.paid_at}T00:00:00`)}</td>
+                  <td className="py-1.5 pe-3">{payment.method}</td>
+                  <td className="py-1.5 pe-3" style={{ color: paper.muted }}>
                     {payment.reference || "—"}
                   </td>
-                  <td className="py-1.5 text-right font-semibold tabular-nums">{money(payment.amount)}</td>
+                  <td className="py-1.5 text-end font-semibold tabular-nums">{money(payment.amount)}</td>
                 </tr>
               ))}
               {invoice.refunded > 0 && (
                 <tr className="border-b" style={{ borderColor: paper.rule }}>
-                  <td className="py-1.5 pr-3" colSpan={3} style={{ color: paper.muted }}>
-                    Refunded on credit notes
+                  <td className="py-1.5 pe-3" colSpan={3} style={{ color: paper.muted }}>
+                    {t("Refunded on credit notes")}
                   </td>
-                  <td className="py-1.5 text-right font-semibold tabular-nums">− {money(invoice.refunded)}</td>
+                  <td className="py-1.5 text-end font-semibold tabular-nums">− {money(invoice.refunded)}</td>
                 </tr>
               )}
             </tbody>
@@ -141,7 +144,7 @@ export function InvoiceSheet({ order, customer, payments }) {
 
       {invoice.state === "void" && (
         <p className="mt-6 mb-10 rounded-lg border px-4 py-3 text-[12px]" style={{ borderColor: "#fecaca", backgroundColor: "#fef2f2", color: "#991b1b" }}>
-          This order was cancelled. This document is void and no payment is due.
+          {t("This order was cancelled. This document is void and no payment is due.")}
         </p>
       )}
 
@@ -164,7 +167,7 @@ export default function Invoice() {
   return (
     <DocumentPage
       backTo={order ? `/orders?view=${order.id}` : "/orders"}
-      backLabel="Back to order"
+      backLabel={t("Back to order")}
       number={number}
       title={number ? `${number} · ${order.company_name}` : null}
       invalid={!validId}

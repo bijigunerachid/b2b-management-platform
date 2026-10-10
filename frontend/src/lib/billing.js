@@ -1,4 +1,5 @@
 
+import { t } from "../i18n";
 export const PAYMENT_STATUS = {
   Paid: { tone: "success", icon: "checkCircle" },
   "Partially paid": { tone: "info", icon: "wallet" },
@@ -24,12 +25,12 @@ export function paymentBadge(billing) {
   if (billing.overdue) {
     return {
       ...PAYMENT_STATUS.Overdue,
-      label: `Overdue ${billing.days_overdue}d`,
+      label: t("Overdue {days}d", { days: billing.days_overdue }),
       detail: billing.payment_status,
     };
   }
 
-  return { ...PAYMENT_STATUS[billing.payment_status], label: billing.payment_status };
+  return { ...PAYMENT_STATUS[billing.payment_status], label: t(billing.payment_status) };
 }
 
 export function localDateInput(date = new Date()) {

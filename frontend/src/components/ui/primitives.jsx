@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Icon from "./Icon";
 import Button from "./Button";
 
+import { t } from "../../i18n";
 export function PageHeader({ title, description, actions }) {
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -60,7 +61,7 @@ export function StatCard({ label, value, hint, icon, tone = "primary", loading =
     <Component
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      className={`app-surface w-full p-5 text-left transition-colors ${onClick ? "hover:border-[var(--border-strong)]" : ""}`}
+      className={`app-surface w-full p-5 text-start transition-colors ${onClick ? "hover:border-[var(--border-strong)]" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -88,7 +89,7 @@ export function Badge({ tone = "neutral", dot = false, icon, children, className
     >
       {dot && <span className="h-1.5 w-1.5 rounded-full bg-current" />}
       {icon && <Icon name={icon} size={13} strokeWidth={2.2} />}
-      {children}
+      {typeof children === "string" ? t(children) : children}
     </span>
   );
 }
@@ -148,13 +149,13 @@ export function ErrorState({ message, onRetry }) {
       <div className="flex items-start gap-3">
         <Icon name="alertCircle" size={20} className="mt-0.5" />
         <div>
-          <p className="text-sm font-semibold">Something went wrong</p>
+          <p className="text-sm font-semibold">{t("Something went wrong")}</p>
           <p className="mt-0.5 text-sm opacity-90">{message}</p>
         </div>
       </div>
       {onRetry && (
         <Button size="sm" variant="secondary" icon="refresh" onClick={onRetry}>
-          Try again
+          {t("Try again")}
         </Button>
       )}
     </div>
@@ -178,7 +179,7 @@ export function InlineAlert({ tone = "danger", children }) {
 
 export function TableSkeleton({ rows = 5, columns = 5 }) {
   return (
-    <div className="divide-y" style={{ borderColor: "var(--border-color)" }} aria-label="Loading" aria-busy="true">
+    <div className="divide-y" style={{ borderColor: "var(--border-color)" }} aria-label={t("Loading")} aria-busy="true">
       {Array.from({ length: rows }, (_, row) => (
         <div key={row} className="flex items-center gap-4 px-5 py-4" style={{ borderColor: "var(--border-color)" }}>
           <div className="skeleton h-10 w-10 rounded-xl" />
@@ -210,25 +211,25 @@ export function Field({ label, required, hint, error, children, className = "" }
   );
 }
 
-export function SearchInput({ value, onChange, placeholder = "Search...", className = "", ...props }) {
+export function SearchInput({ value, onChange, placeholder, className = "", ...props }) {
   return (
     <div className={`relative min-w-0 ${className}`}>
-      <Icon name="search" size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 app-text-muted" />
+      <Icon name="search" size={17} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 app-text-muted" />
       <input
         type="search"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        aria-label={placeholder}
-        className="app-input h-10 py-0 pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
+        placeholder={placeholder ?? t("Search...")}
+        aria-label={placeholder ?? t("Search...")}
+        className="app-input h-10 py-0 ps-9 pe-9 [&::-webkit-search-cancel-button]:hidden"
         {...props}
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange("")}
-          aria-label="Clear search"
-          className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition hover:bg-[var(--surface-hover)] app-text-muted"
+          aria-label={t("Clear search")}
+          className="absolute end-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition hover:bg-[var(--surface-hover)] app-text-muted"
         >
           <Icon name="close" size={14} />
         </button>
@@ -254,7 +255,7 @@ export function SegmentedControl({ options, value, onChange, label }) {
             }`}
             style={active ? { backgroundColor: "var(--surface)" } : undefined}
           >
-            {option.label}
+            {typeof option.label === "string" ? t(option.label) : option.label}
             {option.count !== undefined && (
               <span
                 className="rounded-full px-1.5 text-[11px] font-semibold"
@@ -278,7 +279,7 @@ export function SortHeader({ label, column, sort, onSort, align = "left" }) {
     <th
       scope="col"
       aria-sort={active ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
-      className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide ${align === "right" ? "text-right" : ""}`}
+      className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide ${align === "right" ? "text-end" : ""}`}
     >
       <button
         type="button"
@@ -298,7 +299,7 @@ export function Th({ children, align = "left", className = "" }) {
   return (
     <th
       scope="col"
-      className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide ${align === "right" ? "text-right" : ""} ${className}`}
+      className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide ${align === "right" ? "text-end" : ""} ${className}`}
     >
       {children}
     </th>
@@ -313,7 +314,7 @@ export function TableHead({ children }) {
   );
 }
 
-export function Pagination({ page, totalPages, total, pageSize, onPageChange, label = "items" }) {
+export function Pagination({ page, totalPages, total, pageSize, onPageChange, label }) {
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
 
@@ -332,14 +333,12 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, la
       style={{ borderColor: "var(--border-color)" }}
     >
       <p className="text-sm app-text-secondary">
-        Showing <span className="font-semibold app-text">{from}</span>–
-        <span className="font-semibold app-text">{to}</span> of{" "}
-        <span className="font-semibold app-text">{total}</span> {label}
+        {t("Showing {from}–{to} of {total} {label}", { from, to, total, label: label ?? t("items") })}
       </p>
 
       {totalPages > 1 && (
-        <nav className="flex items-center gap-1" aria-label="Pagination">
-          <Button size="icon-sm" variant="ghost" icon="chevronLeft" aria-label="Previous page" disabled={page <= 1} onClick={() => onPageChange(page - 1)} />
+        <nav className="flex items-center gap-1" aria-label={t("Pagination")}>
+          <Button size="icon-sm" variant="ghost" icon="chevronLeft" aria-label={t("Previous page")} disabled={page <= 1} onClick={() => onPageChange(page - 1)} />
           {pages.map((item, index) =>
             item === "..." ? (
               <span key={`gap-${index}`} className="px-1 text-sm app-text-muted">
@@ -360,7 +359,7 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, la
               </button>
             )
           )}
-          <Button size="icon-sm" variant="ghost" icon="chevronRight" aria-label="Next page" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} />
+          <Button size="icon-sm" variant="ghost" icon="chevronRight" aria-label={t("Next page")} disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} />
         </nav>
       )}
     </div>
@@ -430,7 +429,7 @@ export function Popover({ trigger, children, align = "right", width = 320, label
           role="dialog"
           aria-label={label}
           className={`absolute top-full z-50 mt-2 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border animate-pop-in ${
-            align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left"
+            align === "right" ? "end-0 origin-top-right" : "start-0 origin-top-left"
           }`}
           style={{
             width,
@@ -467,7 +466,7 @@ export function Switch({ checked, onChange, label, disabled, size = "md" }) {
         className={`inline-block rounded-full bg-white shadow-sm transition-transform duration-200 ${
           small ? "h-4 w-4" : "h-5 w-5"
         }`}
-        style={{ transform: `translateX(${checked ? (small ? 18 : 22) : 2}px)` }}
+        style={{ transform: `translateX(calc(var(--dir, 1) * ${checked ? (small ? 18 : 22) : 2}px))` }}
       />
     </button>
   );

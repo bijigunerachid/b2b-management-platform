@@ -16,6 +16,7 @@ import {
   paper,
 } from "../components/document/Document";
 
+import { t } from "../i18n";
 export function CreditNoteSheet({ note }) {
   const invoice = invoiceNumber({ id: note.order_id, created_at: note.order_created_at });
   const lines = note.items.map((item) => ({
@@ -28,18 +29,18 @@ export function CreditNoteSheet({ note }) {
   const applied = Math.round((note.total - note.refund_amount) * 100) / 100;
 
   return (
-    <Sheet label={`Credit note ${note.number}`}>
-      <DocumentHeader title="CREDIT NOTE" number={note.number} />
+    <Sheet label={t("Credit note {number}", { number: note.number })}>
+      <DocumentHeader title={t("CREDIT NOTE")} number={note.number} />
 
       <section className="grid gap-8 py-7 sm:grid-cols-3">
         <SellerBlock />
-        <CustomerBlock title="Credit to" customer={note.customer} fallbackName={note.customer?.company_name} />
+        <CustomerBlock title={t("Credit to")} customer={note.customer} fallbackName={note.customer?.company_name} />
         <DetailsBlock
           rows={[
             ["Date", formatDate(note.created_at)],
             ["Invoice", invoice],
             ["Order", `#${note.order_id}`],
-            ["Reason", note.reason],
+            ["Reason", t(note.reason)],
           ]}
         />
       </section>
@@ -50,20 +51,20 @@ export function CreditNoteSheet({ note }) {
         <div className="max-w-xs space-y-3 text-[12px] leading-5" style={{ color: paper.muted }}>
           {note.note && (
             <div>
-              <Label className="mb-1">Note</Label>
+              <Label className="mb-1">{t("Note")}</Label>
               <p style={{ color: paper.ink }}>{note.note}</p>
             </div>
           )}
           <div>
-            <Label className="mb-1">Settlement</Label>
+            <Label className="mb-1">{t("Settlement")}</Label>
             {applied > 0 && (
               <p>
-                {money(applied)} is deducted from invoice <span style={{ color: paper.ink }}>{invoice}</span>.
+                {t("{amount} is deducted from invoice {invoice}.", { amount: money(applied), invoice })}
               </p>
             )}
             {note.refund_amount > 0 && (
               <p>
-                {money(note.refund_amount)} refunded by {note.refund_method.toLowerCase()}.
+                {t("{amount} refunded by {method}.", { amount: money(note.refund_amount), method: t(note.refund_method).toLowerCase() })}
               </p>
             )}
           </div>
@@ -86,7 +87,7 @@ export default function CreditNoteDocument() {
   return (
     <DocumentPage
       backTo={note ? `/orders?view=${note.order_id}` : "/credit-notes"}
-      backLabel="Back to order"
+      backLabel={t("Back to order")}
       number={note?.number}
       title={note ? `${note.number} · ${note.customer?.company_name}` : null}
       invalid={!validId}

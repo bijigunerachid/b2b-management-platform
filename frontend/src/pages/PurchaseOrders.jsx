@@ -30,6 +30,7 @@ import { localDateInput } from "../lib/billing";
 import { PO_STATUS, PO_STATUS_ORDER, estimatedCost } from "../lib/purchasing";
 import useTable from "../lib/useTable";
 
+import { t } from "../i18n";
 const accessors = {
   id: (po) => po.id,
   supplier: (po) => po.supplier_name,
@@ -50,7 +51,7 @@ function StatusBadge({ po }) {
   if (po.late) {
     return (
       <Badge tone="danger" icon="alert">
-        Overdue
+        {t("Overdue")}
       </Badge>
     );
   }
@@ -112,10 +113,10 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
       .filter((line) => line.product_id)
       .map((line) => ({ product_id: Number(line.product_id), quantity: Number(line.quantity), unit_cost: round2(line.unit_cost) }));
 
-    if (!form.supplier_id) return setError("Choose a supplier.");
-    if (items.length === 0) return setError("Add at least one product.");
-    if (items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) return setError("Quantities must be whole numbers of 1 or more.");
-    if (items.some((item) => !Number.isFinite(item.unit_cost) || item.unit_cost < 0)) return setError("Enter a unit cost for every line.");
+    if (!form.supplier_id) return setError(t("Choose a supplier."));
+    if (items.length === 0) return setError(t("Add at least one product."));
+    if (items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) return setError(t("Quantities must be whole numbers of 1 or more."));
+    if (items.some((item) => !Number.isFinite(item.unit_cost) || item.unit_cost < 0)) return setError(t("Enter a unit cost for every line."));
 
     setSaving(true);
     try {
@@ -125,7 +126,7 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
         : await api("/purchase-orders", { method: "POST", body });
       onSaved(editing?.id ?? result.data?.purchaseOrderId, Boolean(editing));
     } catch (err) {
-      setError(err.message || "Could not save the purchase order.");
+      setError(err.message || t("Could not save the purchase order."));
     } finally {
       setSaving(false);
     }
@@ -140,16 +141,16 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
       busy={saving}
       size="xl"
       icon="truck"
-      eyebrow={editing ? editing.number : "New purchase order"}
-      title={editing ? "Edit draft purchase order" : "Create a purchase order"}
-      description="Stock is only added when the order is received."
+      eyebrow={editing ? editing.number : t("New purchase order")}
+      title={editing ? t("Edit draft purchase order") : t("Create a purchase order")}
+      description={t("Stock is only added when the order is received.")}
       footer={
         <>
           <Button onClick={onClose} disabled={saving}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button type="submit" form="po-form" variant="primary" icon="check" loading={saving} disabled={chosen.size === 0 || !form.supplier_id}>
-            {editing ? "Save draft" : "Create draft"} · {money(total)}
+            {editing ? t("Save draft") : t("Create draft")} · {money(total)}
           </Button>
         </>
       }
@@ -166,18 +167,18 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
             <InlineAlert>{error}</InlineAlert>
             {suppliers.length === 0 && (
               <InlineAlert tone="warning">
-                Add a supplier first.{" "}
+                {t("Add a supplier first.")}{" "}
                 <Link to="/suppliers?new=1" className="font-semibold underline">
-                  Create a supplier
+                  {t("Create a supplier")}
                 </Link>
               </InlineAlert>
             )}
 
             <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
-              <Field label="Supplier" required>
+              <Field label={t("Supplier")} required>
                 {(id) => (
                   <select id={id} value={form.supplier_id} onChange={(event) => setForm((f) => ({ ...f, supplier_id: event.target.value }))} required className="app-input">
-                    <option value="">Select a supplier...</option>
+                    <option value="">{t("Select a supplier...")}</option>
                     {suppliers.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.name} · {item.lead_time_days} days
@@ -186,7 +187,7 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
                   </select>
                 )}
               </Field>
-              <Field label="Expected delivery" hint={supplier && !form.expected_at ? `Defaults to +${supplier.lead_time_days} days when ordered` : undefined}>
+              <Field label={t("Expected delivery")} hint={supplier && !form.expected_at ? t("Defaults to +{count} days when ordered", { count: supplier.lead_time_days }) : undefined}>
                 {(id) => (
                   <input
                     id={id}
@@ -203,17 +204,17 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
             <div>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium app-text">
-                  Lines <span style={{ color: "var(--danger)" }}>*</span>
+                  {t("Lines")} <span style={{ color: "var(--danger)" }}>*</span>
                 </p>
                 <div className="flex items-center gap-3">
                   {supplierProducts.length > 0 && (
                     <label className="flex items-center gap-2 text-xs app-text-secondary">
                       <input type="checkbox" checked={onlySupplier} onChange={(event) => setOnlySupplier(event.target.checked)} />
-                      Only {supplier?.name}&apos;s products ({supplierProducts.length})
+                      {t("Only {supplier}'s products ({count})", { supplier: supplier?.name, count: supplierProducts.length })}
                     </label>
                   )}
                   <Button size="sm" variant="ghost" icon="plus" onClick={() => setLines((current) => [...current, newLine()])}>
-                    Add line
+                    {t("Add line")}
                   </Button>
                 </div>
               </div>
@@ -240,20 +241,20 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
                               quantity: next ? String(Math.max(1, (Number(next.reorder_point) || 5) * 3 - Number(next.stock))) : "1",
                             });
                           }}
-                          aria-label={`Product for line ${index + 1}`}
+                          aria-label={t("Product for line {number}", { number: index + 1 })}
                           className="app-input"
                         >
-                          <option value="">Select a product...</option>
+                          <option value="">{t("Select a product...")}</option>
                           {options.map((option) => (
                             <option key={option.id} value={option.id} disabled={chosen.has(String(option.id)) && String(option.id) !== line.product_id}>
-                              {option.name} · {option.stock} in stock
+                              {option.name} · {t("{count} in stock", { count: option.stock })}
                             </option>
                           ))}
                         </select>
                         {product && (
                           <p className="mt-1.5 text-xs app-text-muted">
-                            {product.stock} in stock · reorder at {product.reorder_point}
-                            {Number(product.on_order) > 0 && ` · ${product.on_order} already on order`} · sells at {money(product.price)}
+                            {t("{count} in stock", { count: product.stock })} · {t("reorder at {count}", { count: product.reorder_point })}
+                            {Number(product.on_order) > 0 && ` · ${t("{count} already on order", { count: product.on_order })}`} · {t("sells at {price}", { price: money(product.price) })}
                           </p>
                         )}
                       </div>
@@ -263,7 +264,7 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
                         step="1"
                         value={line.quantity}
                         onChange={(event) => updateLine(line.key, { quantity: event.target.value })}
-                        aria-label={`Quantity for line ${index + 1}`}
+                        aria-label={t("Quantity for line {number}", { number: index + 1 })}
                         className="app-input text-center tabular-nums"
                       />
                       <div className="relative">
@@ -273,20 +274,20 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
                           step="0.01"
                           value={line.unit_cost}
                           onChange={(event) => updateLine(line.key, { unit_cost: event.target.value })}
-                          placeholder="Unit cost"
-                          aria-label={`Unit cost for line ${index + 1}`}
-                          className="app-input pr-11 text-right tabular-nums"
+                          placeholder={t("Unit cost")}
+                          aria-label={t("Unit cost for line {number}", { number: index + 1 })}
+                          className="app-input pe-11 text-end tabular-nums"
                         />
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold app-text-muted">MAD</span>
+                        <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold app-text-muted">{t("MAD")}</span>
                       </div>
-                      <IconAction icon="trash" label={`Remove line ${index + 1}`} tone="danger" disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))} />
+                      <IconAction icon="trash" label={t("Remove line {number}", { number: index + 1 })} tone="danger" disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))} />
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            <Field label="Notes for the supplier" hint={`${form.notes.length}/1000`}>
+            <Field label={t("Notes for the supplier")} hint={`${form.notes.length}/1000`}>
               {(id) => (
                 <textarea id={id} value={form.notes} onChange={(event) => setForm((f) => ({ ...f, notes: event.target.value }))} rows={2} maxLength={1000} className="app-input resize-y" />
               )}
@@ -294,23 +295,23 @@ function PurchaseOrderBuilder({ open, onClose, editing, onSaved }) {
           </div>
 
           <aside className="h-fit rounded-xl border p-5 lg:sticky lg:top-0" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}>
-            <p className="text-xs font-semibold uppercase tracking-wider app-text-muted">Order summary</p>
+            <p className="text-xs font-semibold uppercase tracking-wider app-text-muted">{t("Order summary")}</p>
             <p className="mt-4 text-sm font-semibold app-text">{supplier?.name ?? "No supplier selected"}</p>
-            {supplier && <p className="text-xs app-text-muted">{[supplier.city, supplier.country].filter(Boolean).join(", ")} · {supplier.lead_time_days} days lead time</p>}
+            {supplier && <p className="text-xs app-text-muted">{[supplier.city, supplier.country].filter(Boolean).join(", ")} · {t("{count} days lead time", { count: supplier.lead_time_days })}</p>}
             <dl className="mt-5 space-y-2 border-t pt-4 text-sm" style={{ borderColor: "var(--border-color)" }}>
               <div className="flex justify-between">
-                <dt className="app-text-secondary">Products</dt>
+                <dt className="app-text-secondary">{t("Products")}</dt>
                 <dd className="font-semibold app-text">{chosen.size}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="app-text-secondary">Units</dt>
+                <dt className="app-text-secondary">{t("Units")}</dt>
                 <dd className="font-semibold app-text">{number(units)}</dd>
               </div>
             </dl>
             <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--border-color)" }}>
-              <p className="text-xs app-text-secondary">Total cost (HT)</p>
+              <p className="text-xs app-text-secondary">{t("Total cost (HT)")}</p>
               <p className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums app-text">{money(total)}</p>
-              <p className="mt-2 text-xs app-text-muted">Unit costs start at an estimate; replace them with the supplier&apos;s quote.</p>
+              <p className="mt-2 text-xs app-text-muted">{t("Unit costs start at an estimate; replace them with the supplier's quote.")}</p>
             </div>
           </aside>
         </form>
@@ -334,7 +335,7 @@ function Timeline({ po }) {
       {steps.map((step, index) => (
         <li key={step.label} className="relative flex flex-1 flex-col items-center text-center">
           {index < steps.length - 1 && (
-            <span className="absolute left-1/2 top-4 h-0.5 w-full" style={{ backgroundColor: steps[index + 1].done && !steps[index + 1].bad ? "var(--success)" : "var(--border-color)" }} />
+            <span className="absolute start-1/2 top-4 h-0.5 w-full" style={{ backgroundColor: steps[index + 1].done && !steps[index + 1].bad ? "var(--success)" : "var(--border-color)" }} />
           )}
           <span
             className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2"
@@ -348,7 +349,7 @@ function Timeline({ po }) {
           >
             <Icon name={step.bad ? "close" : step.done ? "check" : step.warn ? "alert" : "clock"} size={15} strokeWidth={2.2} />
           </span>
-          <span className={`mt-2 text-xs font-semibold ${step.done || step.warn ? "app-text" : "app-text-muted"}`}>{step.label}</span>
+          <span className={`mt-2 text-xs font-semibold ${step.done || step.warn ? "app-text" : "app-text-muted"}`}>{t(step.label)}</span>
           {step.at && <span className="text-[11px] app-text-muted">{step.done ? formatDate(step.at) : `due ${formatDate(step.at)}`}</span>}
         </li>
       ))}
@@ -366,35 +367,35 @@ function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, all
     <Drawer
       open={open}
       onClose={onClose}
-      title={po?.number ?? (poId ? `Purchase order #${poId}` : "")}
-      description={po ? `${po.supplier_name} · created ${timeAgo(po.created_at)}${po.created_by_name ? ` by ${po.created_by_name}` : ""}` : "Loading..."}
+      title={po?.number ?? (poId ? t("Purchase order #{id}", { id: poId }) : "")}
+      description={po ? `${po.supplier_name} · ${t("created {when}", { when: timeAgo(po.created_at) })}${po.created_by_name ? ` ${t("by {name}", { name: po.created_by_name })}` : ""}` : t("Loading...")}
       icon="truck"
       footer={
         po && (
           <>
             {actions.includes("delete") && (
-              <Button variant="danger-ghost" icon="trash" onClick={() => onAction("delete", po)} disabled={Boolean(busy)} className="mr-auto">
-                Delete
+              <Button variant="danger-ghost" icon="trash" onClick={() => onAction("delete", po)} disabled={Boolean(busy)} className="me-auto">
+                {t("Delete")}
               </Button>
             )}
             {actions.includes("cancel") && !actions.includes("delete") && (
-              <Button variant="danger-ghost" icon="ban" onClick={() => onAction("cancel", po)} disabled={Boolean(busy)} className="mr-auto">
-                Cancel order
+              <Button variant="danger-ghost" icon="ban" onClick={() => onAction("cancel", po)} disabled={Boolean(busy)} className="me-auto">
+                {t("Cancel order")}
               </Button>
             )}
             {actions.includes("edit") && (
               <Button icon="edit" onClick={() => onAction("edit", po)} disabled={Boolean(busy)}>
-                Edit
+                {t("Edit")}
               </Button>
             )}
             {actions.includes("order") && (
               <Button variant="primary" icon="send" onClick={() => onAction("order", po)} loading={busy === "order"} disabled={Boolean(busy)}>
-                Place order
+                {t("Place order")}
               </Button>
             )}
             {actions.includes("receive") && (
               <Button variant="primary" icon="checkCircle" onClick={() => onAction("receive", po)} loading={busy === "receive"} disabled={Boolean(busy)}>
-                Receive into stock
+                {t("Receive into stock")}
               </Button>
             )}
           </>
@@ -414,7 +415,7 @@ function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, all
             <div className="rounded-xl border p-5" style={{ borderColor: "var(--border-color)" }}>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <StatusBadge po={po} />
-                <span className="text-xs app-text-secondary">{po.late ? `Expected ${formatDate(`${po.expected_at}T00:00:00`)}. Follow up with the supplier.` : PO_STATUS[po.status]?.description}</span>
+                <span className="text-xs app-text-secondary">{po.late ? t("Expected {date}. Follow up with the supplier.", { date: formatDate(`${po.expected_at}T00:00:00`) }) : t(PO_STATUS[po.status]?.description)}</span>
               </div>
               <Timeline po={po} />
             </div>
@@ -422,7 +423,7 @@ function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, all
             <div className="flex items-center gap-3 rounded-xl border p-4" style={{ borderColor: "var(--border-color)" }}>
               <Avatar label={initials(po.supplier_name)} seed={po.supplier_id} size={36} />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium uppercase tracking-wide app-text-muted">Supplier</p>
+                <p className="text-xs font-medium uppercase tracking-wide app-text-muted">{t("Supplier")}</p>
                 <p className="truncate text-sm font-semibold app-text">{po.supplier_name}</p>
                 <p className="truncate text-xs app-text-muted">{[po.supplier_email, po.supplier_phone].filter(Boolean).join(" · ")}</p>
               </div>
@@ -430,14 +431,14 @@ function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, all
 
             <div>
               <h3 className="mb-3 text-sm font-bold app-text">
-                Lines <span className="font-normal app-text-muted">({items.length})</span>
+                {t("Lines")} <span className="font-normal app-text-muted">({items.length})</span>
               </h3>
               <div className="overflow-hidden rounded-xl border" style={{ borderColor: "var(--border-color)" }}>
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-start text-sm">
                   <TableHead>
-                    <Th className="!px-4">Product</Th>
-                    <Th className="!px-4" align="right">Qty</Th>
-                    <Th className="!px-4" align="right">Cost</Th>
+                    <Th className="!px-4">{t("Product")}</Th>
+                    <Th className="!px-4" align="right">{t("Qty")}</Th>
+                    <Th className="!px-4" align="right">{t("Cost")}</Th>
                   </TableHead>
                   <tbody>
                     {items.map((item) => (
@@ -445,7 +446,7 @@ function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, all
                         <td className="px-4 py-3">
                           <p className="font-medium app-text">{item.product_name}</p>
                           <p className="text-xs app-text-muted">
-                            {money(item.unit_cost)} each
+                            {t("{price} each", { price: money(item.unit_cost) })}
                             {po.status === "Ordered" && (
                               <>
                                 {" · stock "}
@@ -454,14 +455,14 @@ function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, all
                             )}
                           </p>
                         </td>
-                        <td className="px-4 py-3 text-right tabular-nums app-text">×{item.quantity}</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums app-text">{money(item.subtotal)}</td>
+                        <td className="px-4 py-3 text-end tabular-nums app-text">×{item.quantity}</td>
+                        <td className="px-4 py-3 text-end font-semibold tabular-nums app-text">{money(item.subtotal)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 <div className="flex items-center justify-between border-t px-4 py-3.5" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-muted)" }}>
-                  <span className="text-sm font-semibold app-text-secondary">Total cost (HT)</span>
+                  <span className="text-sm font-semibold app-text-secondary">{t("Total cost (HT)")}</span>
                   <span className="text-lg font-bold tabular-nums app-text">{money(po.total_amount)}</span>
                 </div>
               </div>
@@ -469,7 +470,7 @@ function PurchaseOrderDrawer({ poId, version, open, onClose, onAction, busy, all
 
             {po.notes && (
               <div>
-                <h3 className="mb-2 text-sm font-bold app-text">Notes</h3>
+                <h3 className="mb-2 text-sm font-bold app-text">{t("Notes")}</h3>
                 <p className="rounded-xl p-4 text-sm app-muted app-text-secondary">{po.notes}</p>
               </div>
             )}
@@ -550,10 +551,10 @@ export default function PurchaseOrders() {
 
     const units = (po.items ?? []).reduce((sum, item) => sum + item.quantity, 0) || po.unit_count;
     const confirmations = {
-      order: { title: `Place ${po.number}?`, message: `Mark this order as sent to ${po.supplier_name}. It will be locked for editing and counted as stock on order.`, confirmLabel: "Place order", tone: "primary", icon: "send" },
-      receive: { title: `Receive ${po.number}?`, message: `Add ${number(units)} units from ${po.supplier_name} to stock. Each line is recorded in the stock ledger.`, confirmLabel: "Receive into stock", tone: "primary", icon: "checkCircle" },
-      cancel: { title: `Cancel ${po.number}?`, message: "The order will not be received and stops counting as stock on order.", confirmLabel: "Cancel order" },
-      delete: { title: `Delete ${po.number}?`, message: "This draft will be permanently removed.", confirmLabel: "Delete draft" },
+      order: { title: t("Place {number}?", { number: po.number }), message: t("Mark this order as sent to {supplier}. It will be locked for editing and counted as stock on order.", { supplier: po.supplier_name }), confirmLabel: t("Place order"), tone: "primary", icon: "send" },
+      receive: { title: t("Receive {number}?", { number: po.number }), message: t("Add {count} units from {supplier} to stock. Each line is recorded in the stock ledger.", { count: number(units), supplier: po.supplier_name }), confirmLabel: t("Receive into stock"), tone: "primary", icon: "checkCircle" },
+      cancel: { title: t("Cancel {number}?", { number: po.number }), message: t("The order will not be received and stops counting as stock on order."), confirmLabel: t("Cancel order") },
+      delete: { title: t("Delete {number}?", { number: po.number }), message: t("This draft will be permanently removed."), confirmLabel: t("Delete draft") },
     };
 
     if (confirmations[action] && !(await confirm(confirmations[action]))) return;
@@ -564,10 +565,10 @@ export default function PurchaseOrders() {
       const result = await api(path, { method: action === "delete" ? "DELETE" : "POST" });
       reload();
       setVersion((value) => value + 1);
-      toast.success(result.message, { title: action === "receive" ? "Stock updated" : undefined });
+      toast.success(result.message, { title: action === "receive" ? t("Stock updated") : undefined });
       if (action === "delete") updateParams({ view: null });
     } catch (err) {
-      toast.error(err.message || "The action failed.", { title: "Purchase order not updated" });
+      toast.error(err.message || t("The action failed."), { title: t("Purchase order not updated") });
     } finally {
       setBusy(null);
     }
@@ -581,7 +582,7 @@ export default function PurchaseOrders() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Purchase orders"
+        title={t("Purchase orders")}
         actions={
           <>
             <Button
@@ -592,23 +593,23 @@ export default function PurchaseOrders() {
                   "purchase-orders",
                   [
                     ["PO", (po) => po.number],
-                    ["Supplier", (po) => po.supplier_name],
-                    ["Status", (po) => (po.late ? "Overdue" : po.status)],
-                    ["Expected", (po) => po.expected_at ?? ""],
-                    ["Lines", (po) => po.item_count],
-                    ["Units", (po) => po.unit_count],
-                    ["Total (MAD)", (po) => po.total_amount],
+                    [t("Supplier"), (po) => po.supplier_name],
+                    [t("Status"), (po) => (po.late ? t("Overdue") : t(po.status))],
+                    [t("Expected"), (po) => po.expected_at ?? ""],
+                    [t("Lines"), (po) => po.item_count],
+                    [t("Units"), (po) => po.unit_count],
+                    [t("Total (MAD)"), (po) => po.total_amount],
                   ],
                   table.sorted
                 );
-                toast.info(`Exported ${table.sorted.length} purchase orders to CSV.`);
+                toast.info(t("Exported {count} purchase orders to CSV.", { count: table.sorted.length }));
               }}
             >
-              Export
+              {t("Export")}
             </Button>
             {canWrite && (
               <Button variant="primary" icon="plus" onClick={() => setBuilder({ open: true, editing: null })}>
-                New purchase order
+                {t("New purchase order")}
               </Button>
             )}
           </>
@@ -616,10 +617,10 @@ export default function PurchaseOrders() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="On order" value={compactMoney(openValue)} hint={`${open.length} open orders`} icon="truck" tone="primary" loading={loading && !data} onClick={() => setStatus("Ordered")} />
-        <StatCard label="Overdue deliveries" value={number(counts.Late)} hint="Past their expected date" icon="alert" tone="danger" loading={loading && !data} onClick={() => setStatus("Late")} />
-        <StatCard label="Drafts" value={number(counts.Draft ?? 0)} hint="Not yet sent to suppliers" icon="edit" tone="warning" loading={loading && !data} onClick={() => setStatus("Draft")} />
-        <StatCard label="Received this month" value={number(receivedThisMonth.length)} hint={compactMoney(receivedThisMonth.reduce((sum, po) => sum + po.total_amount, 0))} icon="checkCircle" tone="success" loading={loading && !data} />
+        <StatCard label={t("On order")} value={compactMoney(openValue)} hint={t("{count} open orders", { count: open.length })} icon="truck" tone="primary" loading={loading && !data} onClick={() => setStatus("Ordered")} />
+        <StatCard label={t("Overdue deliveries")} value={number(counts.Late)} hint={t("Past their expected date")} icon="alert" tone="danger" loading={loading && !data} onClick={() => setStatus("Late")} />
+        <StatCard label={t("Drafts")} value={number(counts.Draft ?? 0)} hint={t("Not yet sent to suppliers")} icon="edit" tone="warning" loading={loading && !data} onClick={() => setStatus("Draft")} />
+        <StatCard label={t("Received this month")} value={number(receivedThisMonth.length)} hint={compactMoney(receivedThisMonth.reduce((sum, po) => sum + po.total_amount, 0))} icon="checkCircle" tone="success" loading={loading && !data} />
       </div>
 
       {error && <ErrorState message={error} onRetry={reload} />}
@@ -627,7 +628,7 @@ export default function PurchaseOrders() {
       <Card>
         <div className="space-y-3 border-b p-4" style={{ borderColor: "var(--border-color)" }}>
           <SegmentedControl
-            label="Filter by status"
+            label={t("Filter by status")}
             value={status}
             onChange={(value) => {
               setStatus(value);
@@ -643,8 +644,8 @@ export default function PurchaseOrders() {
             ]}
           />
           <div className="flex items-center gap-3">
-            <SearchInput value={search} onChange={(value) => { setSearch(value); table.setPage(1); }} placeholder="Search PO number or supplier..." className="sm:w-80" />
-            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={`ml-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
+            <SearchInput value={search} onChange={(value) => { setSearch(value); table.setPage(1); }} placeholder={t("Search PO number or supplier...")} className="sm:w-80" />
+            <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label={t("Refresh")} title={t("Refresh")} className={`ms-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
           </div>
         </div>
 
@@ -653,19 +654,19 @@ export default function PurchaseOrders() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={orders.length ? "search" : "truck"}
-            title={orders.length ? "No purchase orders match" : "No purchase orders yet"}
-            description={orders.length ? "Try another status or search." : "Create one, or generate drafts from reorder suggestions on the Stock page."}
+            title={orders.length ? t("No purchase orders match") : t("No purchase orders yet")}
+            description={orders.length ? t("Try another status or search.") : t("Create one, or generate drafts from reorder suggestions on the Stock page.")}
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-start text-sm">
               <TableHead>
-                <SortHeader label="Purchase order" column="id" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Supplier" column="supplier" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Expected" column="expected" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Status" column="status" sort={table.sort} onSort={table.toggleSort} />
-                <SortHeader label="Total" column="total" sort={table.sort} onSort={table.toggleSort} align="right" />
-                <Th align="right">Actions</Th>
+                <SortHeader label={t("Purchase order")} column="id" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Supplier")} column="supplier" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Expected")} column="expected" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Status")} column="status" sort={table.sort} onSort={table.toggleSort} />
+                <SortHeader label={t("Total")} column="total" sort={table.sort} onSort={table.toggleSort} align="right" />
+                <Th align="right">{t("Actions")}</Th>
               </TableHead>
               <tbody>
                 {table.rows.map((po) => (
@@ -689,7 +690,7 @@ export default function PurchaseOrders() {
                     </td>
                     <td className="whitespace-nowrap px-5 py-3.5">
                       {po.status === "Received" ? (
-                        <span className="app-text-secondary">Received {formatDate(po.received_at)}</span>
+                        <span className="app-text-secondary">{t("Received {date}", { date: formatDate(po.received_at) })}</span>
                       ) : po.expected_at ? (
                         <span style={po.late ? { color: "var(--danger)", fontWeight: 600 } : undefined} className={po.late ? "" : "app-text"}>
                           {formatDate(`${po.expected_at}T00:00:00`)}
@@ -701,12 +702,12 @@ export default function PurchaseOrders() {
                     <td className="px-5 py-3.5">
                       <StatusBadge po={po} />
                     </td>
-                    <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold tabular-nums app-text">{money(po.total_amount)}</td>
+                    <td className="whitespace-nowrap px-5 py-3.5 text-end font-semibold tabular-nums app-text">{money(po.total_amount)}</td>
                     <td className="px-5 py-3.5" onClick={(event) => event.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        {canReceive && po.actions.includes("receive") && <IconAction icon="checkCircle" label={`Receive ${po.number}`} onClick={() => handleAction("receive", po)} disabled={Boolean(busy)} />}
-                        {canWrite && po.actions.includes("order") && <IconAction icon="send" label={`Place ${po.number}`} onClick={() => handleAction("order", po)} disabled={Boolean(busy)} />}
-                        <IconAction icon="eye" label={`View ${po.number}`} onClick={() => updateParams({ view: po.id })} />
+                        {canReceive && po.actions.includes("receive") && <IconAction icon="checkCircle" label={t("Receive {number}", { number: po.number })} onClick={() => handleAction("receive", po)} disabled={Boolean(busy)} />}
+                        {canWrite && po.actions.includes("order") && <IconAction icon="send" label={t("Place {number}", { number: po.number })} onClick={() => handleAction("order", po)} disabled={Boolean(busy)} />}
+                        <IconAction icon="eye" label={t("View {number}", { number: po.number })} onClick={() => updateParams({ view: po.id })} />
                       </div>
                     </td>
                   </tr>
@@ -717,7 +718,7 @@ export default function PurchaseOrders() {
         )}
 
         {filtered.length > 0 && (
-          <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label="purchase orders" />
+          <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label={t("purchase orders")} />
         )}
       </Card>
 
@@ -737,7 +738,7 @@ export default function PurchaseOrders() {
           onClose={closeBuilder}
           editing={builder.editing}
           onSaved={(id, wasEditing) => {
-            toast.success(wasEditing ? "Draft updated." : "Draft purchase order created.", { title: wasEditing ? "Saved" : "Created" });
+            toast.success(wasEditing ? t("Draft updated.") : t("Draft purchase order created."), { title: wasEditing ? t("Saved") : t("Created") });
             closeBuilder();
             reload();
             setVersion((value) => value + 1);

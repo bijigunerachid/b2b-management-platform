@@ -27,6 +27,7 @@ import {
 import { api, formatDate, initials, isActiveFlag, number, toList, useResource } from "../lib/api";
 import useTable from "../lib/useTable";
 
+import { t } from "../i18n";
 // Roles and what they may do come from the API (backend/src/config/permissions.js).
 const ROLE_STYLE = {
     Admin: { tone: "danger", icon: "lock" },
@@ -46,13 +47,13 @@ function PermissionMatrix({ roles, permissions }) {
                 What each role can do. The server checks these on every request; changing them is a code change, reviewed like any other.
             </div>
             <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-left text-sm">
+                <table className="w-full min-w-[720px] text-start text-sm">
                     <thead>
                         <tr style={{ backgroundColor: "var(--surface-muted)" }}>
-                            <th scope="col" className="px-5 py-3 text-xs font-semibold uppercase tracking-wide app-text-muted">Permission</th>
+                            <th scope="col" className="px-5 py-3 text-xs font-semibold uppercase tracking-wide app-text-muted">{t("Permission")}</th>
                             {roles.map((role) => (
                                 <th key={role.id} scope="col" className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide app-text-muted">
-                                    {role.name}
+                                    {t(role.name)}
                                 </th>
                             ))}
                         </tr>
@@ -61,7 +62,7 @@ function PermissionMatrix({ roles, permissions }) {
                         <tbody key={group}>
                             <tr className="border-t" style={{ borderColor: "var(--border-color)" }}>
                                 <th scope="rowgroup" colSpan={roles.length + 1} className="px-5 pb-1.5 pt-4 text-xs font-bold app-text">
-                                    {group}
+                                    {t(group)}
                                 </th>
                             </tr>
                             {permissions
@@ -69,16 +70,16 @@ function PermissionMatrix({ roles, permissions }) {
                                 .map((permission) => (
                                     <tr key={permission.key} className="border-t" style={{ borderColor: "var(--border-color)" }}>
                                         <th scope="row" className="px-5 py-2.5 font-normal app-text-secondary">
-                                            {permission.label}
+                                            {t(permission.label)}
                                         </th>
                                         {roles.map((role) => {
                                             const allowed = role.permissions.includes(permission.key);
                                             return (
                                                 <td key={role.id} className="px-3 py-2.5 text-center">
                                                     {allowed ? (
-                                                        <Icon name="check" size={16} strokeWidth={2.4} className="mx-auto" style={{ color: "var(--success)" }} aria-label="Allowed" />
+                                                        <Icon name="check" size={16} strokeWidth={2.4} className="mx-auto" style={{ color: "var(--success)" }} aria-label={t("Allowed")} />
                                                     ) : (
-                                                        <span className="app-text-muted" aria-label="Not allowed">–</span>
+                                                        <span className="app-text-muted" aria-label={t("Not allowed")}>–</span>
                                                     )}
                                                 </td>
                                             );
@@ -102,9 +103,9 @@ const accessors = {
 
 // Mirrors checkPasswordPolicy in backend/src/config/security.js.
 function passwordProblem(password) {
-    if (password.length < 10) return "Password must contain at least 10 characters.";
-    if (new TextEncoder().encode(password).length > 72) return "Password must be at most 72 bytes long.";
-    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return "Password must contain at least one letter and one number.";
+    if (password.length < 10) return t("Password must contain at least 10 characters.");
+    if (new TextEncoder().encode(password).length > 72) return t("Password must be at most 72 bytes long.");
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return t("Password must contain at least one letter and one number.");
     return null;
 }
 
@@ -215,9 +216,9 @@ export default function Users() {
 
         if (isEditing && editing.id === currentUser?.id && payload.role_id !== roleByName.Admin?.id) {
             const confirmed = await confirm({
-                title: "Remove your own admin access?",
-                message: "You will lose access to user management as soon as you save. Another admin would need to restore it.",
-                confirmLabel: "Change my role",
+                title: t("Remove your own admin access?"),
+                message: t("You will lose access to user management as soon as you save. Another admin would need to restore it."),
+                confirmLabel: t("Change my role"),
                 tone: "warning",
             });
             if (!confirmed) return;
@@ -231,12 +232,12 @@ export default function Users() {
             });
             setFormOpen(false);
             toast.success(
-                `${payload.first_name} ${payload.last_name} ${isEditing ? "was updated" : "can now sign in"}.`,
-                { title: isEditing ? "User updated" : "User created" }
+                isEditing ? t("{name} was updated.", { name: `${payload.first_name} ${payload.last_name}` }) : t("{name} can now sign in.", { name: `${payload.first_name} ${payload.last_name}` }),
+                { title: isEditing ? t("User updated") : t("User created") }
             );
             reload();
         } catch (err) {
-            setFormError(err.message || "Unable to save the user.");
+            setFormError(err.message || t("Unable to save the user."));
         } finally {
             setSaving(false);
         }
@@ -246,11 +247,11 @@ export default function Users() {
         const name = `${user.first_name} ${user.last_name}`;
 
         const confirmed = await confirm({
-            title: nextActive ? `Reactivate ${name}?` : `Deactivate ${name}?`,
+            title: nextActive ? t("Reactivate {name}?", { name }) : t("Deactivate {name}?", { name }),
             message: nextActive
-                ? "They will be able to sign in again with their existing password."
-                : "They will be signed out of new requests and won't be able to sign in until reactivated.",
-            confirmLabel: nextActive ? "Activate account" : "Deactivate account",
+                ? t("They will be able to sign in again with their existing password.")
+                : t("They will be signed out of new requests and won't be able to sign in until reactivated."),
+            confirmLabel: nextActive ? t("Activate account") : t("Deactivate account"),
             tone: nextActive ? "primary" : "danger",
             icon: nextActive ? "checkCircle" : "ban",
         });
@@ -259,10 +260,10 @@ export default function Users() {
         setTogglingId(user.id);
         try {
             const result = await api(`/users/${user.id}/status`, { method: "PATCH", body: { is_active: nextActive } });
-            toast.success(result.message || `${name} is now ${nextActive ? "active" : "inactive"}.`);
+            toast.success(result.message || (nextActive ? t("{name} is now active.", { name }) : t("{name} is now inactive.", { name })));
             reload();
         } catch (err) {
-            toast.error(err.message || "Unable to update account status.");
+            toast.error(err.message || t("Unable to update account status."));
         } finally {
             setTogglingId(null);
         }
@@ -275,27 +276,27 @@ export default function Users() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Users & access"
+                title={t("Users & access")}
                 actions={
                     <Button variant="primary" icon="userPlus" onClick={openCreate}>
-                        Invite user
+                        {t("Invite user")}
                     </Button>
                 }
             />
 
             <div className="grid gap-4 sm:grid-cols-3">
-                <StatCard label="Team members" value={number(users.length)} icon="customers" loading={loading && !data} />
-                <StatCard label="Active" value={number(activeCount)} icon="checkCircle" tone="success" loading={loading && !data} />
-                <StatCard label="Roles" value={number(ROLES.length)} hint={ROLES.map((role) => role.name).join(", ")} icon="lock" tone="info" loading={rolesResource.loading && !rolesResource.data} onClick={() => setTab("roles")} />
+                <StatCard label={t("Team members")} value={number(users.length)} icon="customers" loading={loading && !data} />
+                <StatCard label={t("Active")} value={number(activeCount)} icon="checkCircle" tone="success" loading={loading && !data} />
+                <StatCard label={t("Roles")} value={number(ROLES.length)} hint={ROLES.map((role) => t(role.name)).join(", ")} icon="lock" tone="info" loading={rolesResource.loading && !rolesResource.data} onClick={() => setTab("roles")} />
             </div>
 
             <SegmentedControl
-                label="Users or roles"
+                label={t("Users or roles")}
                 value={tab}
                 onChange={setTab}
                 options={[
-                    { value: "people", label: "People", count: users.length },
-                    { value: "roles", label: "Roles & permissions" },
+                    { value: "people", label: t("People"), count: users.length },
+                    { value: "roles", label: t("Roles & permissions") },
                 ]}
             />
 
@@ -320,22 +321,22 @@ export default function Users() {
                                 setSearch(value);
                                 table.setPage(1);
                             }}
-                            placeholder="Search name or email..."
+                            placeholder={t("Search name or email...")}
                             className="lg:w-80"
                         />
                         <SegmentedControl
-                            label="Filter by role"
+                            label={t("Filter by role")}
                             value={roleFilter}
                             onChange={(value) => {
                                 setRoleFilter(value);
                                 table.setPage(1);
                             }}
                             options={[
-                                { value: "All", label: "All", count: users.length },
+                                { value: "All", label: t("All"), count: users.length },
                                 ...ROLES.map((role) => ({ value: role.name, label: role.name, count: roleCounts[role.name] })),
                             ]}
                         />
-                        <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={`lg:ml-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
+                        <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label={t("Refresh")} title={t("Refresh")} className={`lg:ms-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
                     </div>
 
                     {loading && !data ? (
@@ -343,8 +344,8 @@ export default function Users() {
                     ) : filtered.length === 0 ? (
                         <EmptyState
                             icon="search"
-                            title="No matching users"
-                            description="Try another name, email, or role."
+                            title={t("No matching users")}
+                            description={t("Try another name, email, or role.")}
                             action={
                                 <Button
                                     onClick={() => {
@@ -352,19 +353,19 @@ export default function Users() {
                                         setRoleFilter("All");
                                     }}
                                 >
-                                    Clear filters
+                                    {t("Clear filters")}
                                 </Button>
                             }
                         />
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[760px] text-left text-sm">
+                            <table className="w-full min-w-[760px] text-start text-sm">
                                 <TableHead>
-                                    <SortHeader label="User" column="name" sort={table.sort} onSort={table.toggleSort} />
-                                    <SortHeader label="Role" column="role" sort={table.sort} onSort={table.toggleSort} />
-                                    <SortHeader label="Joined" column="created" sort={table.sort} onSort={table.toggleSort} />
-                                    <SortHeader label="Active" column="status" sort={table.sort} onSort={table.toggleSort} />
-                                    <Th align="right">Actions</Th>
+                                    <SortHeader label={t("User")} column="name" sort={table.sort} onSort={table.toggleSort} />
+                                    <SortHeader label={t("Role")} column="role" sort={table.sort} onSort={table.toggleSort} />
+                                    <SortHeader label={t("Joined")} column="created" sort={table.sort} onSort={table.toggleSort} />
+                                    <SortHeader label={t("Active")} column="status" sort={table.sort} onSort={table.toggleSort} />
+                                    <Th align="right">{t("Actions")}</Th>
                                 </TableHead>
                                 <tbody>
                                     {table.rows.map((user) => {
@@ -379,15 +380,15 @@ export default function Users() {
                                                         <div className="relative">
                                                             <Avatar label={initials(user.first_name, user.last_name)} seed={user.id} rounded="rounded-full" />
                                                             <span
-                                                                className="absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-[var(--surface)]"
+                                                                className="absolute bottom-0 end-0 h-3 w-3 rounded-full ring-2 ring-[var(--surface)]"
                                                                 style={{ backgroundColor: active ? "var(--success)" : "var(--text-muted)" }}
-                                                                title={active ? "Active" : "Inactive"}
+                                                                title={active ? t("Active") : t("Inactive")}
                                                             />
                                                         </div>
                                                         <div className="min-w-0">
                                                             <p className={`flex items-center gap-2 font-semibold ${active ? "app-text" : "app-text-muted"}`}>
                                                                 {user.first_name} {user.last_name}
-                                                                {isSelf && <Badge tone="primary" className="!px-2 !py-0 text-[10px]">You</Badge>}
+                                                                {isSelf && <Badge tone="primary" className="!px-2 !py-0 text-[10px]">{t("You")}</Badge>}
                                                             </p>
                                                             <p className="truncate text-xs app-text-muted">{user.email}</p>
                                                         </div>
@@ -405,12 +406,12 @@ export default function Users() {
                                                         checked={active}
                                                         disabled={isSelf || togglingId === user.id}
                                                         onChange={(next) => toggleStatus(user, next)}
-                                                        label={isSelf ? "You can't deactivate your own account" : active ? `Deactivate ${user.first_name}` : `Activate ${user.first_name}`}
+                                                        label={isSelf ? t("You can't deactivate your own account") : active ? t("Deactivate {name}", { name: user.first_name }) : t("Activate {name}", { name: user.first_name })}
                                                     />
                                                 </td>
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex justify-end">
-                                                        <IconAction icon="edit" label={`Edit ${user.first_name}`} onClick={() => openEdit(user)} />
+                                                        <IconAction icon="edit" label={t("Edit {name}", { name: user.first_name })} onClick={() => openEdit(user)} />
                                                     </div>
                                                 </td>
                                             </tr>
@@ -422,7 +423,7 @@ export default function Users() {
                     )}
 
                     {filtered.length > 0 && (
-                        <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label="users" />
+                        <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label={t("users")} />
                     )}
                 </Card>
             </>
@@ -434,15 +435,15 @@ export default function Users() {
                 busy={saving}
                 size="lg"
                 icon={isEditing ? "edit" : "userPlus"}
-                title={isEditing ? `Edit ${editing.first_name} ${editing.last_name}` : "Invite a team member"}
-                description={isEditing ? "Update details, role, or reset the password." : "Create an account and choose what they can access."}
+                title={isEditing ? t("Edit {name}", { name: `${editing.first_name} ${editing.last_name}` }) : t("Invite a team member")}
+                description={isEditing ? t("Update details, role, or reset the password.") : t("Create an account and choose what they can access.")}
                 footer={
                     <>
                         <Button onClick={closeForm} disabled={saving}>
-                            Cancel
+                            {t("Cancel")}
                         </Button>
                         <Button type="submit" form="user-form" variant="primary" loading={saving} icon="check">
-                            {isEditing ? "Save changes" : "Create account"}
+                            {isEditing ? t("Save changes") : t("Create account")}
                         </Button>
                     </>
                 }
@@ -451,20 +452,20 @@ export default function Users() {
                     <InlineAlert>{formError}</InlineAlert>
 
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="First name" required>
+                        <Field label={t("First name")} required>
                             {(id) => <input id={id} name="first_name" value={form.first_name} onChange={handleChange} required maxLength={100} autoComplete="off" className="app-input" />}
                         </Field>
-                        <Field label="Last name" required>
+                        <Field label={t("Last name")} required>
                             {(id) => <input id={id} name="last_name" value={form.last_name} onChange={handleChange} required maxLength={100} autoComplete="off" className="app-input" />}
                         </Field>
-                        <Field label="Email address" required className="sm:col-span-2">
-                            {(id) => <input id={id} name="email" type="email" value={form.email} onChange={handleChange} required autoComplete="off" placeholder="name@company.com" className="app-input" />}
+                        <Field label={t("Email address")} required className="sm:col-span-2">
+                            {(id) => <input id={id} name="email" type="email" value={form.email} onChange={handleChange} required autoComplete="off" placeholder={t("name@company.com")} className="app-input" />}
                         </Field>
                     </div>
 
                     <fieldset>
                         <legend className="mb-2 text-sm font-medium app-text">
-                            Role <span style={{ color: "var(--danger)" }}>*</span>
+                            {t("Role")} <span style={{ color: "var(--danger)" }}>*</span>
                         </legend>
                         <div className="grid gap-2 sm:grid-cols-2">
                             {ROLES.map((role) => {
@@ -489,25 +490,25 @@ export default function Users() {
                                         />
                                         <span className="flex items-center gap-2 text-sm font-semibold app-text">
                                             <Icon name={role.icon} size={16} />
-                                            {role.name}
-                                            {selected && <Icon name="checkCircle" size={16} className="ml-auto" style={{ color: "var(--primary)" }} />}
+                                            {t(role.name)}
+                                            {selected && <Icon name="checkCircle" size={16} className="ms-auto" style={{ color: "var(--primary)" }} />}
                                         </span>
-                                        <span className="text-xs app-text-secondary">{role.description}</span>
+                                        <span className="text-xs app-text-secondary">{t(role.description)}</span>
                                     </label>
                                 );
                             })}
                         </div>
                         {selectedRole && isEditing && editing.role !== selectedRole.name && (
                             <p className="mt-2 text-xs font-medium" style={{ color: "var(--warning)" }}>
-                                Role will change from {editing.role} to {selectedRole.name}.
+                                {t("Role will change from {from} to {to}.", { from: t(editing.role), to: t(selectedRole.name) })}
                             </p>
                         )}
                     </fieldset>
 
                     <Field
-                        label={isEditing ? "New password" : "Password"}
+                        label={isEditing ? t("New password") : t("Password")}
                         required={!isEditing}
-                        hint={isEditing ? "Leave blank to keep the current password. A new password signs this user out everywhere." : "At least 10 characters with a letter and a number. Changing a password signs the user out everywhere."}
+                        hint={isEditing ? t("Leave blank to keep the current password. A new password signs this user out everywhere.") : t("At least 10 characters with a letter and a number. Changing a password signs the user out everywhere.")}
                     >
                         {(id) => (
                             <>
@@ -522,14 +523,14 @@ export default function Users() {
                                         minLength={10}
                                         maxLength={72}
                                         autoComplete="new-password"
-                                        placeholder={isEditing ? "••••••••" : "Create a password"}
-                                        className="app-input pr-11"
+                                        placeholder={isEditing ? "••••••••" : t("Create a password")}
+                                        className="app-input pe-11"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword((value) => !value)}
-                                        aria-label={showPassword ? "Hide password" : "Show password"}
-                                        className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md transition hover:bg-[var(--surface-hover)] app-text-muted"
+                                        aria-label={showPassword ? t("Hide password") : t("Show password")}
+                                        className="absolute end-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md transition hover:bg-[var(--surface-hover)] app-text-muted"
                                     >
                                         <Icon name={showPassword ? "eyeOff" : "eye"} size={16} />
                                     </button>
@@ -545,8 +546,8 @@ export default function Users() {
                                                 />
                                             ))}
                                         </div>
-                                        <span className="w-16 text-right text-xs font-semibold" style={{ color: `var(--${strength.tone})` }}>
-                                            {strength.label}
+                                        <span className="w-16 text-end text-xs font-semibold" style={{ color: `var(--${strength.tone})` }}>
+                                            {t(strength.label)}
                                         </span>
                                     </div>
                                 )}

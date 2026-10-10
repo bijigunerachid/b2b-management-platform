@@ -15,6 +15,7 @@ import {
 import { can, compactMoney, money, number, timeAgo, useResource } from "../lib/api";
 import { ORDER_STATUS } from "../lib/orderStatus";
 
+import { language, t } from "../i18n";
 // Round the axis max up to 1, 2, 2.5 or 5 x 10^n so the ticks are readable.
 function niceMax(value) {
   if (value <= 0) return 1;
@@ -32,7 +33,7 @@ function axisTicks(max) {
 
 function monthLabel(key, style = "short") {
   const [year, month] = key.split("-").map(Number);
-  return new Date(year, month - 1, 1).toLocaleString("en", { month: style });
+  return new Date(year, month - 1, 1).toLocaleString(language().intl, { month: style });
 }
 
 function MonthlyChart({ months }) {
@@ -57,16 +58,16 @@ function MonthlyChart({ months }) {
   return (
     <Card className="flex flex-col">
       <CardHeader
-        title={measure === "revenue" ? "Completed revenue" : "Orders placed"}
-        description="Last six months"
+        title={measure === "revenue" ? t("Completed revenue") : t("Orders placed")}
+        description={t("Last six months")}
         actions={
           <SegmentedControl
-            label="Chart measure"
+            label={t("Chart measure")}
             value={measure}
             onChange={setMeasure}
             options={[
-              { value: "revenue", label: "Revenue" },
-              { value: "orders", label: "Orders" },
+              { value: "revenue", label: t("Revenue") },
+              { value: "orders", label: t("Orders") },
             ]}
           />
         }
@@ -74,32 +75,32 @@ function MonthlyChart({ months }) {
 
       <div className="flex flex-wrap items-end gap-x-6 gap-y-2 px-5 pt-5">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide app-text-muted">Six-month total</p>
+          <p className="text-xs font-medium uppercase tracking-wide app-text-muted">{t("Six-month total")}</p>
           <p className="mt-1 text-2xl font-bold tracking-tight app-text">
             {measure === "revenue" ? money(total) : number(total)}
           </p>
         </div>
         {change !== null && (
           <Badge tone={change >= 0 ? "success" : "danger"} icon={change >= 0 ? "sortUp" : "sortDown"} className="mb-1">
-            {Math.abs(change).toFixed(0)}% {monthLabel(lastFull.month)} vs {monthLabel(priorFull.month)}
+            {t("{percent}% {month} vs {previous}", { percent: Math.abs(change).toFixed(0), month: monthLabel(lastFull.month), previous: monthLabel(priorFull.month) })}
           </Badge>
         )}
       </div>
 
       <div className="relative flex-1 px-5 pb-5 pt-6">
-        <div className="relative h-[240px] pl-14">
+        <div className="relative h-[240px] ps-14">
           {/* Gridlines + y-axis labels */}
           {ticks.map((tick) => (
             <div
               key={tick}
-              className="absolute left-14 right-0 border-t"
+              className="absolute start-14 end-0 border-t"
               style={{
                 bottom: `${(tick / max) * 100}%`,
                 borderColor: tick === 0 ? "var(--border-strong)" : "var(--chart-grid)",
                 borderStyle: tick === 0 ? "solid" : "dashed",
               }}
             >
-              <span className="absolute -left-14 -translate-y-1/2 pr-2 text-right text-[11px] tabular-nums app-text-muted" style={{ width: 52 }}>
+              <span className="absolute -start-14 -translate-y-1/2 pe-2 text-end text-[11px] tabular-nums app-text-muted" style={{ width: 52 }}>
                 {format(tick)}
               </span>
             </div>
@@ -121,7 +122,7 @@ function MonthlyChart({ months }) {
                   onFocus={() => setHovered(index)}
                   onBlur={() => setHovered(null)}
                   tabIndex={0}
-                  aria-label={`${monthLabel(month.month, "long")}: ${money(month.revenue)} revenue, ${month.orders} orders`}
+                  aria-label={t("{month}: {revenue} revenue, {orders} orders", { month: monthLabel(month.month, "long"), revenue: money(month.revenue), orders: month.orders })}
                 >
                   {isHovered && (
                     <div className="absolute inset-x-0 bottom-0 top-0 rounded-lg" style={{ backgroundColor: "var(--surface-hover)", opacity: 0.6 }} />
@@ -150,11 +151,11 @@ function MonthlyChart({ months }) {
                         {monthLabel(month.month, "long")} {month.month.slice(0, 4)}
                       </p>
                       <div className="mt-1.5 flex items-center justify-between gap-4">
-                        <span className="app-text-secondary">Revenue</span>
+                        <span className="app-text-secondary">{t("Revenue")}</span>
                         <span className="font-semibold tabular-nums app-text">{money(month.revenue)}</span>
                       </div>
                       <div className="mt-0.5 flex items-center justify-between gap-4">
-                        <span className="app-text-secondary">Orders</span>
+                        <span className="app-text-secondary">{t("Orders")}</span>
                         <span className="font-semibold tabular-nums app-text">{month.orders}</span>
                       </div>
                     </div>
@@ -166,7 +167,7 @@ function MonthlyChart({ months }) {
         </div>
 
         {/* X-axis labels */}
-        <div className="mt-2 flex gap-2 pl-14 sm:gap-4">
+        <div className="mt-2 flex gap-2 ps-14 sm:gap-4">
           {months.map((month, index) => (
             <span
               key={month.month}
@@ -179,12 +180,12 @@ function MonthlyChart({ months }) {
 
         {/* Accessible data table */}
         <table className="sr-only">
-          <caption>Monthly completed revenue and orders</caption>
+          <caption>{t("Monthly completed revenue and orders")}</caption>
           <thead>
             <tr>
-              <th>Month</th>
-              <th>Revenue</th>
-              <th>Orders</th>
+              <th>{t("Month")}</th>
+              <th>{t("Revenue")}</th>
+              <th>{t("Orders")}</th>
             </tr>
           </thead>
           <tbody>
@@ -207,10 +208,10 @@ function StatusBreakdown({ counts }) {
 
   return (
     <Card>
-      <CardHeader title="Orders by status" description={`${number(total)} orders in total`} />
+      <CardHeader title={t("Orders by status")} description={t("{count} orders in total", { count: number(total) })} />
       <div className="space-y-4 p-5">
         {total === 0 ? (
-          <p className="py-8 text-center text-sm app-text-secondary">No orders yet.</p>
+          <p className="py-8 text-center text-sm app-text-secondary">{t("No orders yet.")}</p>
         ) : (
           Object.entries(ORDER_STATUS).map(([status, meta]) => {
             const count = counts[status] ?? 0;
@@ -227,7 +228,7 @@ function StatusBreakdown({ counts }) {
                     <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ backgroundColor: meta.soft, color: meta.color }}>
                       <Icon name={meta.icon} size={14} strokeWidth={2} />
                     </span>
-                    <span className="group-hover:underline">{status}</span>
+                    <span className="group-hover:underline">{t(status)}</span>
                   </span>
                   <span className="tabular-nums app-text-secondary">
                     <span className="font-semibold app-text">{count}</span> · {share.toFixed(0)}%
@@ -253,9 +254,9 @@ function TopProducts({ products }) {
 
   return (
     <Card>
-      <CardHeader title="Top products" description="By units sold" />
+      <CardHeader title={t("Top products")} description={t("By units sold")} />
       {products.length === 0 ? (
-        <EmptyState icon="products" title="No sales yet" />
+        <EmptyState icon="products" title={t("No sales yet")} />
       ) : (
         <ol className="space-y-4 p-5">
           {products.map((product, index) => (
@@ -265,7 +266,7 @@ function TopProducts({ products }) {
                 <div className="mb-1.5 flex items-baseline justify-between gap-3">
                   <span className="truncate text-sm font-medium app-text">{product.name}</span>
                   <span className="shrink-0 text-xs tabular-nums app-text-secondary">
-                    <span className="font-semibold app-text">{number(product.quantity)}</span> units · {compactMoney(product.revenue)}
+                    {t("{count} units", { count: number(product.quantity) })} · {compactMoney(product.revenue)}
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }}>
@@ -285,7 +286,7 @@ function TopProducts({ products }) {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Loading dashboard">
+    <div className="space-y-6" aria-busy="true" aria-label={t("Loading dashboard")}>
       <div className="skeleton h-40 rounded-2xl" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[1, 2, 3, 4].map((item) => (
@@ -317,7 +318,7 @@ export default function Dashboard() {
   const lowStock = stats.lowStockProducts ?? [];
   const recentOrders = stats.recentOrders ?? [];
 
-  const today = new Intl.DateTimeFormat("en", {
+  const today = new Intl.DateTimeFormat(language().intl, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -328,54 +329,54 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight app-text">Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight app-text">{t("Dashboard")}</h1>
           <p className="mt-1 text-sm app-text-secondary">{today}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button size="icon" variant="ghost" icon="refresh" onClick={reload} disabled={loading} aria-label="Refresh" title="Refresh" className={loading ? "[&_svg]:animate-spin" : ""} />
+          <Button size="icon" variant="ghost" icon="refresh" onClick={reload} disabled={loading} aria-label={t("Refresh")} title={t("Refresh")} className={loading ? "[&_svg]:animate-spin" : ""} />
           {can(user, "customers.write") && (
             <Button icon="userPlus" onClick={() => navigate("/customers?new=1")}>
-              Add customer
+              {t("Add customer")}
             </Button>
           )}
           {can(user, "orders.write") && (
             <Button variant="primary" icon="plus" onClick={() => navigate("/orders?new=1")}>
-              New order
+              {t("New order")}
             </Button>
           )}
         </div>
       </div>
 
-      {error && <ErrorState message={`${error} Showing the last loaded data.`} onRetry={reload} />}
+      {error && <ErrorState message={`${error} ${t("Showing the last loaded data.")}`} onRetry={reload} />}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Revenue"
+          label={t("Revenue")}
           value={compactMoney(stats.totalRevenue)}
-          hint={`${money(averageOrder)} average per completed order`}
+          hint={t("{amount} average per completed order", { amount: money(averageOrder) })}
           icon="revenue"
           tone="success"
           onClick={() => navigate("/orders?status=Completed")}
         />
         <StatCard
-          label="Orders"
+          label={t("Orders")}
           value={number(stats.totalOrders)}
-          hint={`${pending} pending · ${counts.Processing ?? 0} processing`}
+          hint={t("{pending} pending · {processing} processing", { pending, processing: counts.Processing ?? 0 })}
           icon="orders"
           tone="primary"
           onClick={() => navigate("/orders")}
         />
         <StatCard
-          label="Customers"
+          label={t("Customers")}
           value={number(stats.totalCustomers)}
           icon="customers"
           tone="info"
           onClick={() => navigate("/customers")}
         />
         <StatCard
-          label="Products"
+          label={t("Products")}
           value={number(stats.totalProducts)}
-          hint={lowStock.length ? `${lowStock.length} running low on stock` : "All stock levels healthy"}
+          hint={lowStock.length ? t("{count} running low on stock", { count: lowStock.length }) : t("All stock levels healthy")}
           icon="products"
           tone={lowStock.length ? "warning" : "primary"}
           onClick={() => navigate("/products")}
@@ -392,15 +393,15 @@ export default function Dashboard() {
       <div className="grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader
-            title="Recent orders"
+            title={t("Recent orders")}
             actions={
               <Button size="sm" variant="ghost" iconRight="arrowRight" onClick={() => navigate("/orders")}>
-                View all
+                {t("View all")}
               </Button>
             }
           />
           {recentOrders.length === 0 ? (
-            <EmptyState icon="orders" title="No orders yet" />
+            <EmptyState icon="orders" title={t("No orders yet")} />
           ) : (
             <ul>
               {recentOrders.map((order) => {
@@ -417,10 +418,10 @@ export default function Dashboard() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold app-text">{order.company_name || "Unknown customer"}</p>
                         <p className="text-xs app-text-muted">
-                          Order #{order.id} · {timeAgo(order.created_at)}
+                          {t("Order #{id}", { id: order.id })} · {timeAgo(order.created_at)}
                         </p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-end">
                         <p className="text-sm font-semibold tabular-nums app-text">{money(order.total_amount)}</p>
                         <Badge tone={meta?.tone} className="mt-1 !px-2 !py-0.5 text-[11px]">
                           {order.status}
@@ -438,14 +439,14 @@ export default function Dashboard() {
           <CardHeader
             title={
               <>
-                Low-stock alerts
+                {t("Low-stock alerts")}
                 {lowStock.length > 0 && <Badge tone="warning">{lowStock.length}</Badge>}
               </>
             }
-            description="Active products at or below their reorder point"
+            description={t("Active products at or below their reorder point")}
           />
           {lowStock.length === 0 ? (
-            <EmptyState icon="checkCircle" title="Stock looks healthy" />
+            <EmptyState icon="checkCircle" title={t("Stock looks healthy")} />
           ) : (
             <ul className="space-y-3 p-5">
               {lowStock.map((product) => {
@@ -457,7 +458,7 @@ export default function Dashboard() {
                       <div className="mb-1.5 flex items-center justify-between gap-3">
                         <span className="truncate text-sm font-medium app-text group-hover:underline">{product.name}</span>
                         <Badge tone={tone} icon={stock === 0 ? "ban" : "alert"}>
-                          {stock === 0 ? "Out of stock" : `${stock} left`}
+                          {stock === 0 ? t("Out of stock") : t("{count} left", { count: stock })}
                         </Badge>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }}>

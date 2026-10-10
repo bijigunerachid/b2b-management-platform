@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { language, t } from "../i18n";
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
 
@@ -28,7 +29,7 @@ export async function api(path, { body, ...options } = {}) {
     }
 
     const error = new Error(
-      fieldMessage || result.message || `Request failed (${response.status}).`
+      fieldMessage || result.message || t("Request failed ({status}).", { status: response.status })
     );
     error.status = response.status;
     throw error;
@@ -69,7 +70,7 @@ export function useResource(path) {
           setState((previous) => ({
             key,
             data: previous.data,
-            error: error.message || "Unable to load data.",
+            error: error.message || t("Unable to load data."),
           }));
         }
       }
@@ -90,26 +91,27 @@ export function useResource(path) {
   };
 }
 
-const moneyFormatter = new Intl.NumberFormat("fr-MA", {
-  style: "currency",
-  currency: "MAD",
-});
-
-const compactMoneyFormatter = new Intl.NumberFormat("en", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
+// Formatters follow the interface language (see i18n/index.jsx) and are cached per language.
+const formatters = new Map();
+function formatter(kind, locale, options) {
+  const key = `${kind}:${locale}:${JSON.stringify(options)}`;
+  if (!formatters.has(key)) {
+    formatters.set(key, kind === "relative" ? new Intl.RelativeTimeFormat(locale, options) : new Intl.NumberFormat(locale, options));
+  }
+  return formatters.get(key);
+}
 
 export function money(value) {
-  return moneyFormatter.format(Number(value) || 0);
+  return formatter("number", language().money, { style: "currency", currency: "MAD" }).format(Number(value) || 0);
 }
 
 export function compactMoney(value) {
-  return `${compactMoneyFormatter.format(Number(value) || 0)} MAD`;
+  const amount = formatter("number", language().numbers, { notation: "compact", maximumFractionDigits: 1 }).format(Number(value) || 0);
+  return `${amount} ${t("MAD")}`;
 }
 
 export function number(value) {
-  return new Intl.NumberFormat("en").format(Number(value) || 0);
+  return formatter("number", language().numbers, {}).format(Number(value) || 0);
 }
 
 export function formatDate(value, withTime = false) {
@@ -119,7 +121,7 @@ export function formatDate(value, withTime = false) {
 
   if (Number.isNaN(date.getTime())) return String(value);
 
-  return date.toLocaleString("en-GB", {
+  return date.toLocaleString(language().intl, {
     dateStyle: "medium",
     ...(withTime ? { timeStyle: "short" } : {}),
   });
@@ -140,15 +142,15 @@ export function timeAgo(value) {
     ["minute", 60],
   ];
 
-  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  const relative = formatter("relative", language().intl, { numeric: "auto" });
 
   for (const [unit, size] of units) {
     if (Math.abs(seconds) >= size) {
-      return formatter.format(-Math.round(seconds / size), unit);
+      return relative.format(-Math.round(seconds / size), unit);
     }
   }
 
-  return "just now";
+  return t("just now");
 }
 
 export function initials(...parts) {
@@ -224,7 +226,7 @@ export function useActiveProducts(enabled = true) {
         if (!cancelled) setState({ key, products, error: "" });
       },
       (error) => {
-        if (!cancelled) setState((previous) => ({ ...previous, key, error: error.message || "Unable to load products." }));
+        if (!cancelled) setState((previous) => ({ ...previous, key, error: error.message || t("Unable to load products.") }));
       }
     );
 

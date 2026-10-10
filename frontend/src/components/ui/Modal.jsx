@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "./Icon";
 
+import { t } from "../../i18n";
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -129,7 +130,7 @@ function Overlay({ open, onClose, dismissible = true, variant, labelledBy, descr
       <div
         className={
           isDrawer
-            ? "pointer-events-none absolute inset-y-0 right-0 flex w-full justify-end"
+            ? "pointer-events-none absolute inset-y-0 end-0 flex w-full justify-end"
             : "pointer-events-none absolute inset-0 flex items-end justify-center p-0 sm:items-center sm:p-6"
         }
       >
@@ -146,7 +147,7 @@ function Overlay({ open, onClose, dismissible = true, variant, labelledBy, descr
           }}
           className={`pointer-events-auto flex flex-col outline-none ${
             isDrawer
-              ? `h-full w-full max-w-xl border-l ${open ? "animate-drawer-in" : "animate-drawer-out"}`
+              ? `h-full w-full max-w-xl border-s ${open ? "animate-drawer-in" : "animate-drawer-out"}`
               : `max-h-[92dvh] w-full rounded-t-2xl border sm:rounded-2xl ${open ? "animate-pop-in" : "animate-pop-out"}`
           } ${panelClassName}`}
           style={{
@@ -201,8 +202,8 @@ function OverlayHeader({ id, icon, iconTone = "primary", eyebrow, title, descrip
         type="button"
         onClick={onClose}
         disabled={closeDisabled}
-        aria-label="Close"
-        className="-mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition hover:bg-[var(--surface-hover)] disabled:opacity-40 app-text-secondary"
+        aria-label={t("Close")}
+        className="-me-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition hover:bg-[var(--surface-hover)] disabled:opacity-40 app-text-secondary"
       >
         <Icon name="close" size={18} />
       </button>
