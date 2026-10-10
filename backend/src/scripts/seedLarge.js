@@ -283,7 +283,7 @@ async function seed() {
 
         if (seededPassword) {
             const sample = data.users.find((user) => user.is_active && user.role === "Manager");
-            console.log(`  Team:        ${data.users.length} users (Managers and Employees)`);
+            console.log(`  Team:        ${data.users.length} staff accounts (Manager, Accountant, Warehouse, Employee)`);
             console.log("");
             console.log("Seeded accounts use the @seed.b2b.local domain.");
             if (sample) console.log(`  Example Manager: ${sample.email}`);
