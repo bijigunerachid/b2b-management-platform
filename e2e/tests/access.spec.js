@@ -29,6 +29,7 @@ test.describe("warehouse role", () => {
         await expect(nav.getByRole("link", { name: "Orders", exact: true })).toBeVisible();
         await expect(nav.getByRole("link", { name: "Receivables" })).toHaveCount(0);
         await expect(nav.getByRole("link", { name: "Reports" })).toHaveCount(0);
+        await expect(nav.getByRole("link", { name: "Demand forecast" })).toHaveCount(0);
     });
 
     test("is stopped at the door of a money page", async ({ page }) => {
@@ -47,6 +48,17 @@ test.describe("accountant role", () => {
         await expect(nav.getByRole("link", { name: "Audit log" })).toBeVisible();
         await expect(page.getByRole("heading", { name: "Orders" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Create order" })).toHaveCount(0);
+    });
+});
+
+test.describe("manager role", () => {
+    test.use(as("manager"));
+
+    test("opens the demand forecast, which explains how to train it on a fresh database", async ({ page }) => {
+        await page.goto("/");
+        await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Demand forecast" }).click();
+        await expect(page.getByRole("heading", { name: "Demand forecast" })).toBeVisible();
+        await expect(page.getByText("No model trained yet")).toBeVisible();
     });
 });
 

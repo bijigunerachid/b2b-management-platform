@@ -86,6 +86,9 @@
   --chart-grid: #e8ecf3;
   --series-margin: #2a78d6;
   --series-cost: #eb6834;
+  --series-actual: var(--series-margin);
+  --series-forecast: var(--series-cost);
+  --series-baseline: #1baf7a;
   --overlay: rgb(10 15 30 / 55%);
 
   --card-shadow: 0 1px 2px rgb(15 23 42 / 4%), 0 1px 3px rgb(15 23 42 / 4%);
@@ -140,6 +143,7 @@ html.dark {
   --chart-grid: #1f2a3f;
   --series-margin: #3987e5;
   --series-cost: #d95926;
+  --series-baseline: #199e70;
   --overlay: rgb(0 0 0 / 65%);
 
   --card-shadow: 0 1px 2px rgb(0 0 0 / 30%);

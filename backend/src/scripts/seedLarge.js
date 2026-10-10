@@ -31,7 +31,7 @@ const DEFAULTS = {
     products: 350,
     orders: 5000,
     users: 24,
-    months: 18,
+    months: 24,
     seed: 2026
 };
 

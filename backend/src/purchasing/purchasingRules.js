@@ -11,6 +11,7 @@ const { dateOnly } = require("../quotes/quoteRules");
 
 const MAX_ITEMS = 200;
 const COVER_MULTIPLIER = 3; // reorder up to 3× the reorder point
+const DEFAULT_LEAD_TIME_DAYS = 7; // same default as suppliers.lead_time_days
 const ESTIMATED_COST_RATIO = 0.6; // cost estimate when no purchase history exists
 
 const ACTIONS = {
@@ -108,23 +109,56 @@ function proposedCost(product, lastCosts) {
 }
 
 /**
- * Products to reorder: active, with a reorder point, whose stock plus
- * quantity already on order is at or below that point. Suggests enough to
- * reach COVER_MULTIPLIER × reorder point. Grouped by preferred supplier.
+ * Stock level that should trigger a reorder, from the demand forecast:
+ * expected sales during the supplier's lead time plus safety stock. The
+ * forecast covers `horizon_weeks` with an 80% interval; the gap to its upper
+ * bound is the safety margin, scaled by sqrt(lead time / horizon) because
+ * uncertainty grows with the square root of time, not linearly.
+ * Returns null when there is no forecast for the product.
  */
-function reorderSuggestions(products, lastCosts = new Map()) {
+function forecastLevels(product, forecast) {
+    if (!forecast) return null;
+    const horizon = Number(forecast.horizon_weeks) || 4;
+    const leadWeeks = Math.max(Number(product.lead_time_days ?? DEFAULT_LEAD_TIME_DAYS), 1) / 7;
+    const expected = Number(forecast.units);
+    const margin = Math.max(Number(forecast.upper_units) - expected, 0);
+
+    const leadDemand = (expected * leadWeeks) / horizon;
+    const safetyStock = margin * Math.sqrt(leadWeeks / horizon);
+    const reorderLevel = Math.ceil(leadDemand + safetyStock);
+    // After ordering, hold enough for the lead time plus the forecast period.
+    const target = Math.ceil(leadDemand + safetyStock + expected);
+    return { reorderLevel, target, expected: Math.round(expected * 10) / 10 };
+}
+
+/**
+ * Products to reorder: active products whose stock plus quantity already on
+ * order is at or below their reorder level. Suggests enough to reach the
+ * target level. Grouped by preferred supplier.
+ *
+ * With a demand forecast, the level comes from forecast sales over the
+ * supplier's lead time (see forecastLevels); the manual reorder point is kept
+ * as a minimum. Without one: the reorder point, topped up to
+ * COVER_MULTIPLIER × reorder point.
+ */
+function reorderSuggestions(products, lastCosts = new Map(), forecasts = new Map()) {
     const groups = new Map();
 
     for (const product of products) {
+        if (!product.is_active) continue;
         const reorderPoint = Number(product.reorder_point);
-        if (!product.is_active || reorderPoint <= 0) continue;
+        const levels = forecastLevels(product, forecasts.get(product.id));
+
+        const level = Math.max(reorderPoint, levels?.reorderLevel ?? 0);
+        if (level <= 0) continue;
 
         const stock = Number(product.stock);
         const onOrder = Number(product.on_order ?? 0);
         const available = stock + onOrder;
-        if (available > reorderPoint) continue;
+        if (available > level) continue;
 
-        const quantity = Math.max(1, reorderPoint * COVER_MULTIPLIER - available);
+        const target = Math.max(reorderPoint * COVER_MULTIPLIER, levels?.target ?? 0);
+        const quantity = Math.max(1, target - available);
         const unitCost = proposedCost(product, lastCosts);
         const key = product.supplier_id ?? "none";
 
@@ -144,6 +178,9 @@ function reorderSuggestions(products, lastCosts = new Map()) {
             stock,
             on_order: onOrder,
             reorder_point: reorderPoint,
+            reorder_level: level,
+            forecast_units: levels?.expected ?? null,
+            basis: levels && levels.reorderLevel >= reorderPoint ? "forecast" : "reorder_point",
             quantity,
             unit_cost: unitCost,
             urgency: stock === 0 ? "out" : "low"
@@ -171,6 +208,7 @@ module.exports = {
     COVER_MULTIPLIER,
     allowedActions,
     canPerform,
+    forecastLevels,
     isLate,
     parsePurchaseOrderPayload,
     poNumber,

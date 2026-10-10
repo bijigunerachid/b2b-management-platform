@@ -1,16 +1,7 @@
 const pool = require("../config/database");
+const { parseJson } = require("../services/json");
 
 const ENTITY_TYPES = ["customer", "product", "category", "order", "payment", "quote", "supplier", "purchase_order", "price_list", "volume_discount", "contract_price", "user", "portal_user"];
-
-function parseJson(value) {
-    if (value === null || value === undefined) return null;
-    if (typeof value === "object") return value;
-    try {
-        return JSON.parse(value);
-    } catch {
-        return null;
-    }
-}
 
 // GET /api/audit?entity_type=&entity_id=&user_id=&action=&q=&from=&to=&page=&limit=
 const listAuditLog = async (req, res) => {

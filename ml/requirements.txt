@@ -1,0 +1,9 @@
+# Runtime: training and batch scoring
+numpy==2.2.6
+pandas==2.3.3
+scikit-learn==1.7.2
+joblib==1.5.2
+PyMySQL==1.1.2
+python-dotenv==1.1.1
+# Tests
+pytest==8.4.2

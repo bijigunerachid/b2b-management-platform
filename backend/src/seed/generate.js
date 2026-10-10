@@ -135,6 +135,30 @@ function createRandom(seed) {
 }
 
 /** Builds a sampler that returns indexes with Pareto-like popularity. */
+// Demand patterns for the forecasting model to learn. Monthly multipliers
+// (January first) per category; categories not listed sell evenly all year.
+const SEASONALITY = {
+    "Office Supplies": [1.0, 0.95, 0.9, 0.9, 0.85, 0.8, 0.55, 0.65, 1.9, 1.3, 1.0, 0.9], // back to school
+    Electronics: [0.8, 0.75, 0.85, 0.9, 0.9, 0.85, 0.8, 0.75, 1.0, 1.1, 1.5, 1.8], // year-end budgets
+    "Software & Licenses": [1.9, 0.85, 0.8, 0.8, 0.8, 0.8, 0.7, 0.6, 0.9, 0.9, 1.0, 1.4], // annual renewals
+    Furniture: [1.2, 1.0, 0.9, 0.9, 0.8, 0.8, 0.6, 1.3, 1.5, 1.0, 0.9, 0.8], // office moves before September
+    Packaging: [0.9, 0.9, 1.0, 1.0, 1.0, 1.0, 0.9, 0.9, 1.0, 1.1, 1.5, 1.6], // year-end shipping
+    Cleaning: [1.1, 1.0, 1.3, 1.4, 1.0, 0.9, 0.8, 0.7, 1.2, 1.0, 1.0, 1.0], // spring cleaning
+    "Safety Equipment": [0.9, 0.9, 1.1, 1.2, 1.3, 1.3, 1.1, 1.0, 1.0, 1.0, 0.9, 0.8], // construction season
+    "Kitchen & Breakroom": [1.0, 1.0, 1.2, 1.3, 1.0, 0.9, 0.8, 0.8, 1.0, 1.0, 1.0, 1.4]
+};
+
+// Fewer orders overall in the summer holidays.
+const MONTH_VOLUME = [1.0, 1.0, 1.05, 1.0, 1.0, 0.95, 0.85, 0.7, 1.1, 1.05, 1.05, 1.0];
+const MAX_DEMAND_FACTOR = 1.9 * 1.9;
+
+/** How much a product sells at a point in time, relative to its usual level. */
+function demandFactor(product, date, position) {
+    const season = SEASONALITY[CATALOG[product.categoryIndex % CATALOG.length][0]]?.[date.getMonth()] ?? 1;
+    const trend = Math.max(0.15, 1 + product.trend * (position - 0.5) * 2);
+    return season * trend;
+}
+
 function popularitySampler(random, count, skew = 1.1) {
     const weights = Array.from({ length: count }, (_, index) => 1 / (index + 1) ** skew);
     const cumulative = [];
@@ -253,7 +277,9 @@ function generateProducts(random, count, categoryCount) {
             description: `${name} — ${CATALOG[categoryIndex % CATALOG.length][1].toLowerCase()}.`,
             price,
             stock,
-            is_active: random.chance(0.94) ? 1 : 0
+            is_active: random.chance(0.94) ? 1 : 0,
+            // Growing, declining or steady over the generated period.
+            trend: random.weighted([[0, 50], [1, 25], [-1, 25]]) * (0.3 + 0.6 * random.next())
         });
     }
 
@@ -269,7 +295,7 @@ function orderDate(random, start, now) {
         const growth = 0.45 + 0.55 * position;
         const day = date.getDay();
         const weekday = day === 0 ? 0.25 : day === 6 ? 0.55 : 1;
-        if (random.next() < growth * weekday) {
+        if (random.next() < (growth * weekday * MONTH_VOLUME[date.getMonth()]) / 1.1) {
             date.setHours(random.int(8, 18), random.int(0, 59), random.int(0, 59), 0);
             return date > now ? now : date;
         }
@@ -285,12 +311,21 @@ function generateOrders(random, count, { customers, products, now, months }) {
     for (let index = 0; index < count; index += 1) {
         const created = orderDate(random, start, now);
         const ageDays = (now.getTime() - created.getTime()) / 86400000;
+        const position = (created.getTime() - start.getTime()) / (now.getTime() - start.getTime());
+        // Popular products are proposed more often; seasonality and trend decide whether they're bought.
+        const pickForDate = () => {
+            for (let tries = 0; tries < 40; tries += 1) {
+                const candidate = pickProduct();
+                if (random.next() * MAX_DEMAND_FACTOR < demandFactor(products[candidate], created, position)) return candidate;
+            }
+            return pickProduct();
+        };
         const lineCount = random.weighted([[1, 30], [2, 30], [3, 20], [4, 12], [5, 8]]);
 
         const productIndexes = new Set();
         let guard = 0;
         while (productIndexes.size < lineCount && guard < 50) {
-            productIndexes.add(pickProduct());
+            productIndexes.add(pickForDate());
             guard += 1;
         }
 
@@ -421,7 +456,7 @@ function generatePayments(random, orders, now = new Date()) {
     return payments;
 }
 
-function generateDataset({ seed = 2026, customers = 400, products = 350, orders = 5000, users = 24, months = 18, now = new Date() } = {}) {
+function generateDataset({ seed = 2026, customers = 400, products = 350, orders = 5000, users = 24, months = 24, now = new Date() } = {}) {
     const random = createRandom(seed);
     const earliest = new Date(now.getFullYear(), now.getMonth() - months - 6, 1);
 

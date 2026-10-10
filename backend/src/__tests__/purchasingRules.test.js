@@ -1,5 +1,6 @@
 const {
     allowedActions,
+    forecastLevels,
     isLate,
     parsePurchaseOrderPayload,
     poNumber,
@@ -89,5 +90,41 @@ describe("reorder suggestions", () => {
         ]);
         expect(groups.map((g) => g.supplier_name)).toEqual(["Out", "Low", null]);
         expect(groups[0].items.map((item) => item.product_id)).toEqual([3, 4]);
+    });
+});
+
+describe("forecast-based reorder levels", () => {
+    // 8 units expected over 4 weeks, 80% interval up to 16.
+    const forecast = { units: 8, lower_units: 2, upper_units: 16, horizon_weeks: 4 };
+    const product = (overrides) => ({
+        id: 1, name: "Item", price: 100, stock: 6, on_order: 0, reorder_point: 2, lead_time_days: 14,
+        is_active: 1, supplier_id: 9, supplier_name: "Atlas", ...overrides
+    });
+
+    test("covers lead-time demand plus safety stock that grows with the square root of time", () => {
+        // 2 weeks of lead time: 8 × 2/4 = 4 expected, plus (16 − 8) × √(2/4) ≈ 5.66 safety stock.
+        expect(forecastLevels(product(), forecast)).toEqual({ reorderLevel: 10, target: 18, expected: 8 });
+        // No supplier lead time: one week.
+        expect(forecastLevels(product({ lead_time_days: null }), forecast).reorderLevel).toBe(6);
+        expect(forecastLevels(product(), undefined)).toBeNull();
+    });
+
+    test("reorders up to the forecast target when stock falls to the forecast level", () => {
+        const forecasts = new Map([[1, forecast]]);
+        const [group] = reorderSuggestions([product({ stock: 6 })], new Map(), forecasts);
+        expect(group.items[0]).toMatchObject({ reorder_level: 10, quantity: 12, forecast_units: 8, basis: "forecast" });
+        expect(reorderSuggestions([product({ stock: 11 })], new Map(), forecasts)).toEqual([]);
+    });
+
+    test("includes products without a reorder point once they have a forecast", () => {
+        const forecasts = new Map([[1, forecast]]);
+        expect(reorderSuggestions([product({ reorder_point: 0, stock: 0 })])).toEqual([]);
+        expect(reorderSuggestions([product({ reorder_point: 0, stock: 0 })], new Map(), forecasts)).toHaveLength(1);
+    });
+
+    test("keeps the manual reorder point as a minimum", () => {
+        const forecasts = new Map([[1, forecast]]);
+        const [group] = reorderSuggestions([product({ reorder_point: 20, stock: 15 })], new Map(), forecasts);
+        expect(group.items[0]).toMatchObject({ reorder_level: 20, quantity: 45, basis: "reorder_point" });
     });
 });
