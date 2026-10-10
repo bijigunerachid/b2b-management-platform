@@ -88,24 +88,24 @@ function Logo({ compact }) {
   );
 }
 
-function SidebarContent({ visibleSections, collapsed, onNavigate, user, onLogout }) {
+function SidebarContent({ visibleSections, collapsed, onNavigate, user, onLogout, showAccount = false }) {
   return (
     <div className="flex h-full flex-col">
-      <div className={`flex h-[72px] shrink-0 items-center ${collapsed ? "justify-center" : "px-5"}`}>
+      <div className={`flex h-[68px] shrink-0 items-center ${collapsed ? "justify-center" : "px-5"}`}>
         <Logo compact={collapsed} />
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label={t("Main navigation")}>
+      <nav className="flex-1 overflow-y-auto px-3 pb-3" aria-label={t("Main navigation")}>
         {visibleSections.map((section) => (
-          <div key={section.title} className="mt-4 first:mt-1">
+          <div key={section.title} className="mt-2.5 first:mt-1">
             {collapsed ? (
-              <div className="mx-auto mb-2 h-px w-6" style={{ backgroundColor: "var(--border-color)" }} />
+              <div className="mx-auto mb-1.5 h-px w-6" style={{ backgroundColor: "var(--border-color)" }} />
             ) : (
-              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider app-text-muted">
+              <p className="mb-1 px-3 text-[11px] font-semibold uppercase leading-4 tracking-wider app-text-muted">
                 {t(section.title)}
               </p>
             )}
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col">
               {section.links.map((link) => (
                 <NavLink
                   key={link.path}
@@ -115,7 +115,7 @@ function SidebarContent({ visibleSections, collapsed, onNavigate, user, onLogout
                   title={collapsed ? t(link.label) : undefined}
                   className={({ isActive }) =>
                     `group relative flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 ${
-                      collapsed ? "mx-auto h-11 w-11 justify-center" : "px-3 py-2.5"
+                      collapsed ? "mx-auto h-[34px] w-11 justify-center" : "px-3 py-[5px]"
                     } ${
                       isActive
                         ? "text-[var(--primary)]"
@@ -143,28 +143,31 @@ function SidebarContent({ visibleSections, collapsed, onNavigate, user, onLogout
         ))}
       </nav>
 
-      <div className="shrink-0 border-t p-3" style={{ borderColor: "var(--border-color)" }}>
-        <div className={`flex items-center gap-3 rounded-xl p-2 ${collapsed ? "flex-col" : ""}`}>
-          <Avatar label={initials(user?.first_name, user?.last_name)} seed={user?.id} size={36} rounded="rounded-full" />
-          {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold app-text">
-                {user?.first_name} {user?.last_name}
-              </p>
-              <p className="truncate text-xs app-text-muted">{t(user?.role)}</p>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={onLogout}
-            aria-label={t("Sign out")}
-            title={t("Sign out")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] app-text-secondary"
-          >
-            <Icon name="logout" size={17} />
-          </button>
+      {/* On desktop the header's account menu already shows who is signed in. */}
+      {showAccount && (
+        <div className="shrink-0 border-t p-3" style={{ borderColor: "var(--border-color)" }}>
+          <div className={`flex items-center gap-3 rounded-xl p-2 ${collapsed ? "flex-col" : ""}`}>
+            <Avatar label={initials(user?.first_name, user?.last_name)} seed={user?.id} size={36} rounded="rounded-full" />
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold app-text">
+                  {user?.first_name} {user?.last_name}
+                </p>
+                <p className="truncate text-xs app-text-muted">{t(user?.role)}</p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onLogout}
+              aria-label={t("Sign out")}
+              title={t("Sign out")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] app-text-secondary"
+            >
+              <Icon name="logout" size={17} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -263,7 +266,7 @@ export default function Layout() {
           onClick={() => setCollapsed((value) => !value)}
           aria-label={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
           title={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
-          className="absolute -end-3 top-[26px] flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition hover:scale-110 app-text-secondary"
+          className="absolute -end-3 top-[22px] flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition hover:scale-110 app-text-secondary"
           style={{ backgroundColor: "var(--surface)", borderColor: "var(--border-color)" }}
         >
           <Icon name="chevronsLeft" size={13} strokeWidth={2.2} className={`transition-transform ${collapsed ? "rotate-180" : ""}`} />
@@ -296,6 +299,7 @@ export default function Layout() {
               user={user}
               onNavigate={() => setMobileOpen(false)}
               onLogout={handleLogout}
+              showAccount
             />
           </aside>
         </div>

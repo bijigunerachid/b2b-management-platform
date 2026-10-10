@@ -679,13 +679,14 @@ export default function PurchaseOrders() {
                     <td className="px-5 py-3.5">
                       <p className="whitespace-nowrap font-bold app-text">{po.number}</p>
                       <p className="whitespace-nowrap text-xs app-text-muted">
-                        {po.item_count} line{po.item_count === 1 ? "" : "s"} · {number(po.unit_count)} units
+                        {po.item_count === 1 ? t("1 line") : t("{count} lines", { count: po.item_count })} ·{" "}
+                        {po.unit_count === 1 ? t("1 unit") : t("{count} units", { count: number(po.unit_count) })}
                       </p>
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <Avatar label={initials(po.supplier_name)} seed={po.supplier_id} size={34} rounded="rounded-lg" />
-                        <span className="max-w-[180px] truncate font-medium app-text">{po.supplier_name}</span>
+                        <span className="max-w-[110px] truncate font-medium app-text" title={po.supplier_name} dir="auto">{po.supplier_name}</span>
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-5 py-3.5">

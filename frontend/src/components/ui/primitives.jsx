@@ -68,7 +68,7 @@ export function StatCard({ label, value, hint, icon, tone = "primary", loading =
     <Component
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      className={`app-surface w-full p-5 text-start transition-colors ${onClick ? "hover:border-[var(--border-strong)]" : ""}`}
+      className={`app-surface flex w-full flex-col p-5 text-start transition-colors ${onClick ? "hover:border-[var(--border-strong)]" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -245,9 +245,9 @@ export function SearchInput({ value, onChange, placeholder, className = "", ...p
   );
 }
 
-export function SegmentedControl({ options, value, onChange, label }) {
+export function SegmentedControl({ options, value, onChange, label, className = "" }) {
   return (
-    <div role="tablist" aria-label={label} className="flex max-w-full gap-1 overflow-x-auto rounded-xl p-1 app-muted">
+    <div role="tablist" aria-label={label} className={`flex max-w-full gap-1 overflow-x-auto rounded-xl p-1 app-muted ${className}`}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -278,7 +278,7 @@ export function SegmentedControl({ options, value, onChange, label }) {
   );
 }
 
-export function SortHeader({ label, column, sort, onSort, align = "left" }) {
+export function SortHeader({ label, column, sort, onSort, align = "left", className = "" }) {
   const active = sort.key === column;
   const icon = active ? (sort.direction === "asc" ? "sortUp" : "sortDown") : "sort";
 
@@ -286,7 +286,7 @@ export function SortHeader({ label, column, sort, onSort, align = "left" }) {
     <th
       scope="col"
       aria-sort={active ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
-      className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide ${align === "right" ? "text-end" : ""}`}
+      className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide ${align === "right" ? "text-end" : ""} ${className}`}
     >
       <button
         type="button"
