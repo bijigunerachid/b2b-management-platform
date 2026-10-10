@@ -22,6 +22,8 @@ On the staff side you can:
 - order from suppliers, receive deliveries into stock, and get reorder suggestions sized from a demand forecast (see [Machine learning](#machine-learning))
 - see sales and gross margin by month, product, customer and category for any date range, compared with the period before, and export each table to CSV. Every order line stores what the goods cost when they were sold (a weighted average updated on each delivery), so margins stay correct when costs change. Costs and reports are only visible to roles allowed to see them
 
+A help assistant on every page explains the app and answers questions, with or without Claude (see [Help assistant](#help-assistant)).
+
 The whole interface, staff and client side, is available in English, French and Arabic, including the printed invoices, quotes and credit notes. Arabic uses a right-to-left layout and proper Arabic plural forms, and numbers, dates and amounts follow the language (Moroccan Arabic month names, Latin digits).
 
 Clients get their own login. They can browse the catalog at their own prices, place orders, download their invoices and credit notes, and accept or decline the quotes you send them. They only ever see their own company's data.
@@ -189,6 +191,19 @@ python -m b2b_ml recommend            # same for product recommendations
 
 The jobs read the database settings from `backend/.env`. In production you'd run them weekly from cron. More detail is in [ml/README.md](ml/README.md).
 
+## Help assistant
+
+A help button on every page, for staff and portal clients, opens a small chat. "Explain this page" describes the page you're on, and you can ask questions in English, French or Arabic ("how do I record a partial payment?", "comment faire un avoir ?"). Answers come with numbered steps and a link that opens the right page.
+
+It answers from a help guide I wrote: 36 short articles in three languages about every page and task. Staff only get articles their role allows (an Employee isn't told how to manage users), and clients only get portal help.
+
+It works in two modes:
+
+- **Built-in search (default, free).** The API finds the article that answers the question with TF-IDF over whole words and 3-letter pieces of words, so typos ("paymnt", "facure") and word forms still match, in all three languages at once. Off-topic questions get "I couldn't find that" instead of a random article. On 107 test questions written separately from the guide (with typos, French and Arabic), the right article comes first 87% of the time for staff questions and 100% for client questions, and is in the top three 99% and 100% of the time. I wrote and adjusted the guide while looking at these questions, so treat those numbers as optimistic. A test keeps them from getting worse.
+- **Claude (optional).** With `ANTHROPIC_API_KEY` set, Claude (`claude-haiku-5-5` by default) writes a conversational answer using only the articles search found, in the user's language, and lists the articles it used. It never receives business data: only the question, the last few turns of the conversation and the help articles. Each user can ask 30 questions an hour, and `ASSISTANT_DAILY_LIMIT` (300 by default) caps the total per day. Past either limit, or if Claude fails, the helper falls back to search, so it always answers.
+
+Questions to the helper aren't written to the audit log.
+
 ## Running it locally
 
 You need Node.js 22, MySQL 8 and Git.
@@ -275,13 +290,13 @@ Caddy gets the certificate from Let's Encrypt and renews it automatically. Only 
 ## Tests
 
 ```bash
-cd backend && npm test      # 226 Jest tests (business rules, permissions, audit, security)
+cd backend && npm test      # 243 Jest tests (business rules, permissions, audit, security, help search)
 cd frontend && npm run lint
 cd ml && python -m pytest   # 27 tests (no data leakage, metrics, backtests on synthetic data)
 cd e2e && npm ci && npx playwright install chromium && npx playwright test
 ```
 
-The browser tests (Playwright) go through the app the way people use it: signing in as each role, creating an order, moving it to completed, recording the payment, opening the invoice, taking a return, turning a quote into an order, ordering from the client portal, and finding all of it in the audit log. They also check that each role only sees what it should.
+The browser tests (Playwright) go through the app the way people use it: signing in as each role, creating an order, moving it to completed, recording the payment, opening the invoice, taking a return, turning a quote into an order, ordering from the client portal, asking the help assistant, and finding all of it in the audit log. They also check that each role only sees what it should.
 
 They never touch your data. Each run builds a separate `b2b_e2e` database (schema, migrations, a small seed, one account per role) and starts the API and the app on their own ports (5055 and 5175). The script refuses to reset any database whose name doesn't start with `b2b_e2e`. Database settings come from `backend/.env`.
 
@@ -305,6 +320,7 @@ For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behin
 - Costs only exist from migration 008 on. Older order lines got the product's cost at that time, and products never bought from a supplier got an estimate, so margins on old data are approximate.
 - The Ctrl+K product search only looks at the first 100 products.
 - Messages that come from the server (most validation errors, the price label on an order line) are still in English, and so is the demo data.
+- The help assistant's usage limits are kept in memory, like the rate limits. The help guide is written by hand, so it has to be updated when a page changes.
 - Customers and orders are paginated in the browser, which is fine for a few thousand rows but won't scale forever.
 - The models are only as fresh as their last training run, and nothing schedules them for you. Products with no sales yet get no forecast and fall back to the reorder point. Risk scores are worked out as of the day each invoice was issued and don't update when the customer pays something else later. New customers get recommendations only after their first order.
 

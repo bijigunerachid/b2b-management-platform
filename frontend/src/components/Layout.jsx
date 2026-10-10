@@ -6,6 +6,7 @@ import Icon from "./ui/Icon";
 import { Avatar, Popover } from "./ui/primitives";
 import { useConfirm, useToast } from "./ui/feedback";
 import CommandPalette from "./CommandPalette";
+import HelpAssistant from "./HelpAssistant";
 import LanguageMenu from "./LanguageMenu";
 import NotificationsMenu from "./NotificationsMenu";
 import { PageFallback } from "./PageFallback";
@@ -426,6 +427,8 @@ export default function Layout() {
           </div>
         </main>
       </div>
+
+      <HelpAssistant />
 
       <CommandPalette
         open={paletteOpen}
