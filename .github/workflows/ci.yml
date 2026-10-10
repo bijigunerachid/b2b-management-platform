@@ -71,6 +71,17 @@ jobs:
       - run: pip install -r requirements.txt
       # Feature leakage, metrics, and a backtest on synthetic seasonal data.
       - run: python -m pytest
+      - run: pip install pip-audit && pip-audit -r requirements.txt
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The example settings are enough to validate and build every image,
+      # including the on-demand ML training image.
+      - run: docker compose --env-file .env.example --profile ml config --quiet
+      - run: docker compose --env-file .env.example --profile ml build
 
   e2e:
     name: Browser tests

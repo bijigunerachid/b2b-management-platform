@@ -6,6 +6,8 @@ A back office for a wholesale business, plus a portal where its clients can orde
 
 It started as a simple CRUD app (customers, products, orders) and I kept adding the parts a real distributor would need: quotes, invoices with VAT, payments and receivables, a stock ledger with purchase orders, and a client portal. Prices are in MAD and invoices use the Moroccan 20% VAT rate.
 
+On top of that sit three machine-learning models trained on the company's own history (a demand forecast that sizes reorders, a late-payment risk score for open invoices, and product recommendations per customer), and a help assistant that explains the app in English, French or Arabic.
+
 ![Dashboard](docs/screenshots/02-dashboard.png)
 
 ## What it does
@@ -82,6 +84,22 @@ The interface also comes in French and Arabic. Arabic switches the whole layout 
 
 ![Arabic](docs/screenshots/18-arabic.png)
 
+The demand forecast page, comparing the model with simple rules on weeks it never saw:
+
+![Demand forecast](docs/screenshots/19-demand-forecast.png)
+
+Late-payment risk on open invoices, with the reasons behind one score:
+
+![Payment risk](docs/screenshots/20-payment-risk.png)
+
+Recommendations on the client portal, each with a reason anyone can check:
+
+![Recommendations](docs/screenshots/21-recommendations.png)
+
+The help assistant answering a question, typo included:
+
+![Help assistant](docs/screenshots/22-help-assistant.png)
+
 There's also a dark mode and a Ctrl+K search that jumps to any page or record:
 
 ![Dark mode](docs/screenshots/03-dashboard-dark.png)
@@ -89,7 +107,7 @@ There's also a dark mode and a Ctrl+K search that jumps to any page or record:
 
 ## Stack
 
-React 19 with Vite and Tailwind on the frontend, Node.js 22 and Express 5 on the backend, MySQL 8 for the database. The two machine-learning models are trained in Python with pandas and scikit-learn. Tests use Jest, Supertest, pytest and Playwright, and everything runs in Docker for deployment (nginx in front, Caddy for HTTPS).
+React 19 with Vite and Tailwind on the frontend, Node.js 22 and Express 5 on the backend, MySQL 8 for the database. The three machine-learning models are trained in Python with pandas and scikit-learn. Tests use Jest, Supertest, pytest and Playwright, and everything runs in Docker for deployment (nginx in front, Caddy for HTTPS).
 
 ## How it's put together
 
@@ -109,14 +127,13 @@ A few things I spent time on:
 - Logging out, changing a password or role, or being deactivated invalidates every session that user has, not just the current cookie.
 - Permissions are one table in `backend/src/config/permissions.js`. Routes check permissions (`requirePermission("orders.fulfil")`), never role names, and the signed-in user's list is sent to the frontend, so the menus and buttons can't disagree with the server.
 - The audit log is written by one middleware after a change succeeds, so a new endpoint is logged even if I forget about it. Controllers only add the old/new values. Passwords and tokens are stripped before anything is stored, and the API has no way to edit or delete entries.
-
 - Translations use the English text as the key (`t("Create order")`), so anything untranslated falls back to readable English. `npm run i18n:check` reads the source and fails CI if any text is missing its French or Arabic version. Layout classes use start/end instead of left/right, so the right-to-left version comes from the same markup.
 
 The billing, quote and purchasing rules live in plain modules with no database code, which made them easy to unit test.
 
 ## Machine learning
 
-Three models trained on the company's own history help with stock, collections and sales. Both are trained offline in Python (`ml/`), tested against simple rules on data they never saw, and write their results to MySQL. The API only reads those tables, so the app doesn't need Python and keeps working if a job has never run. Managers can see each model's test results in the app.
+Three models trained on the company's own history help with stock, collections and sales. All three are trained offline in Python (`ml/`), tested against simple rules on data they never saw, and write their results to MySQL. The API only reads those tables, so the app doesn't need Python and keeps working if a job has never run. Managers can see each model's test results in the app.
 
 ### Demand forecast
 
@@ -172,7 +189,7 @@ The model finds 19% more of the products customers went on to buy than the best 
 
 ### What these numbers mean
 
-Both models were tested on generated data, and I built the patterns into the generator: seasons per category, slow trends and an August slowdown for sales; for payments, each customer has habits (early, on time, slow or erratic, some getting worse over time), large invoices and August/December invoices are paid later, and 7% of invoices get stuck in a dispute; for buying, each customer has a line of business (office, IT, logistics, hospitality, facilities) that decides which categories they buy from, they reorder their usual products, and equipment is followed by what it uses (printers by toner, espresso machines by coffee). The results show the pipelines find patterns that are really there. They don't predict how well the models would do on a real company's data. I also chose the model settings on the same test periods, so the margins over the simple rules are slightly optimistic.
+All three models were tested on generated data, and I built the patterns into the generator: seasons per category, slow trends and an August slowdown for sales; for payments, each customer has habits (early, on time, slow or erratic, some getting worse over time), large invoices and August/December invoices are paid later, and 7% of invoices get stuck in a dispute; for buying, each customer has a line of business (office, IT, logistics, hospitality, facilities) that decides which categories they buy from, they reorder their usual products, and equipment is followed by what it uses (printers by toner, espresso machines by coffee). The results show the pipelines find patterns that are really there. They don't predict how well the models would do on a real company's data. I also chose the model settings on the same test periods, so the margins over the simple rules are slightly optimistic. The demo data is generated relative to today's date, so the exact numbers change a little each time you seed it: over several fresh seeds the forecast beat the best simple method by 4–9% (RMSE), the risk model by 6–7% (Brier score) and the recommendations by 13–19% (recall). The tables above are from one of those runs.
 
 ### Training
 
@@ -206,7 +223,7 @@ Questions to the helper aren't written to the audit log.
 
 ## Running it locally
 
-You need Node.js 22, MySQL 8 and Git.
+You need Node.js 22, MySQL 8 and Git, and Python 3.11+ only if you want to train the models.
 
 ```bash
 git clone https://github.com/bijigunerachid/b2b-management-platform.git
@@ -287,6 +304,16 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 Caddy gets the certificate from Let's Encrypt and renews it automatically. Only the web server is exposed. MySQL has no public port, and the API connects with its own database user rather than root.
 
+The model training jobs have their own image. They aren't started by `up`; run one whenever you want fresh results:
+
+```bash
+docker compose --profile ml run --rm ml forecast
+docker compose --profile ml run --rm ml risk
+docker compose --profile ml run --rm ml recommend
+```
+
+On a server, a weekly cron entry does it, for example `0 3 * * 1 cd /srv/b2b && docker compose --profile ml run --rm ml forecast`.
+
 ## Tests
 
 ```bash
@@ -300,7 +327,7 @@ The browser tests (Playwright) go through the app the way people use it: signing
 
 They never touch your data. Each run builds a separate `b2b_e2e` database (schema, migrations, a small seed, one account per role) and starts the API and the app on their own ports (5055 and 5175). The script refuses to reset any database whose name doesn't start with `b2b_e2e`. Database settings come from `backend/.env`.
 
-GitHub Actions runs all four on every push and pull request, along with `npm audit` and a production build. The browser tests run against a MySQL 8.4 service, and the report is uploaded when they fail.
+GitHub Actions runs all four on every push and pull request, along with `npm audit`, `pip-audit`, the translation check, a production build and a build of every Docker image. The browser tests run against a MySQL 8.4 service, and the report is uploaded when they fail.
 
 ## Security notes
 

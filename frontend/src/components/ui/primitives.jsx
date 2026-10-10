@@ -54,6 +54,13 @@ export function toneStyle(tone) {
   return { backgroundColor, color };
 }
 
+// Amounts are formatted with a no-break space before the currency, so a long
+// one in a narrow card would be split mid-word ("8.031,74 M / AD"). Let it wrap
+// between the number and the currency instead.
+function wrapBeforeCurrency(value) {
+  return typeof value === "string" ? value.replace(/[\u00a0\u202f](?=[^\d]*$)/, " ") : value;
+}
+
 export function StatCard({ label, value, hint, icon, tone = "primary", loading = false, onClick }) {
   const Component = onClick ? "button" : "div";
 
@@ -69,7 +76,7 @@ export function StatCard({ label, value, hint, icon, tone = "primary", loading =
           {loading ? (
             <div className="skeleton mt-3 h-8 w-20" />
           ) : (
-            <p className="mt-2 break-words text-2xl font-bold leading-tight tracking-tight tabular-nums app-text">{value}</p>
+            <p className="mt-2 break-words text-2xl font-bold leading-tight tracking-tight tabular-nums app-text">{wrapBeforeCurrency(value)}</p>
           )}
         </div>
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={toneStyle(tone)}>
