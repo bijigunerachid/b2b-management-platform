@@ -259,7 +259,7 @@ export default function ReturnsPanel({ order, version = 0, canCreate, onChanged 
                     {note.number}
                   </Link>
                   <span className="ms-2 text-xs font-normal app-text-muted">
-                    {number(note.units)} {note.units === 1 ? "unit" : "units"} · {note.reason}
+                    {note.units === 1 ? t("1 unit") : t("{count} units", { count: number(note.units) })} · {note.reason}
                   </span>
                 </p>
                 <p className="truncate text-xs app-text-muted">

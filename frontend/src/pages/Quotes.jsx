@@ -859,13 +859,13 @@ export default function Quotes() {
                       <td className="px-5 py-3.5">
                         <p className="whitespace-nowrap font-bold app-text">{quote.number}</p>
                         <p className="whitespace-nowrap text-xs app-text-muted">
-                          {formatDate(quote.created_at)} · {quote.item_count} line{quote.item_count === 1 ? "" : "s"}
+                          {formatDate(quote.created_at)} · {quote.item_count === 1 ? t("1 line") : t("{count} lines", { count: quote.item_count })}
                         </p>
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <Avatar label={initials(quote.company_name)} seed={quote.customer_id} size={34} rounded="rounded-lg" />
-                          <span className="max-w-[170px] truncate font-medium app-text">{quote.company_name}</span>
+                          <span className="max-w-[130px] truncate font-medium app-text" title={quote.company_name} dir="auto">{quote.company_name}</span>
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-5 py-3.5">

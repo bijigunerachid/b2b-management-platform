@@ -55,7 +55,7 @@ function StockMeter({ stock, reorderPoint = 5, onOrder = 0 }) {
     <div>
       <div className="flex items-center gap-3">
         <span className="w-10 text-end font-semibold tabular-nums app-text">{stock}</span>
-        <div className="h-1.5 w-20 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }} title={`Reorder point: ${reorderPoint}`}>
+        <div className="h-1.5 w-14 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-muted)" }} title={`${t("Reorder point")}: ${reorderPoint}`}>
           <div className="h-full rounded-full" style={{ width: `${Math.max(width, stock > 0 ? 4 : 0)}%`, backgroundColor: `var(--${tone})` }} />
         </div>
         {(stock === 0 || low) && (
@@ -386,7 +386,7 @@ export default function Products() {
               setPage(1);
             }}
             placeholder={t("Search name or description...")}
-            className="xl:w-72"
+            className="xl:w-64"
           />
           <select
             value={categoryId}
@@ -421,6 +421,7 @@ export default function Products() {
             ))}
           </select>
           <SegmentedControl
+            className="xl:shrink-0"
             label={t("Status filter")}
             value={status}
             onChange={(value) => {
@@ -483,7 +484,7 @@ export default function Products() {
                 <SortHeader label={t("Category")} column="category" sort={sort} onSort={toggleSort} />
                 <SortHeader label={t("Price")} column="price" sort={sort} onSort={toggleSort} />
                 <SortHeader label={t("Stock")} column="stock" sort={sort} onSort={toggleSort} />
-                <Th>{t("Active")}</Th>
+                <Th className="hidden 2xl:table-cell">{t("Active")}</Th>
                 <Th align="right">{t("Actions")}</Th>
               </TableHead>
               <tbody>
@@ -497,10 +498,10 @@ export default function Products() {
                         <div className="flex items-center gap-3">
                           <Avatar label={initials(product.name)} seed={product.category_id} />
                           <div className="min-w-0">
-                            <p className={`max-w-[260px] truncate font-semibold ${active ? "app-text" : "app-text-muted line-through decoration-1"}`}>
+                            <p className={`max-w-[180px] truncate font-semibold ${active ? "app-text" : "app-text-muted line-through decoration-1"}`} title={product.name} dir="auto">
                               {product.name}
                             </p>
-                            <p className="max-w-[260px] truncate text-xs app-text-muted">{product.description || `#${product.id}`}</p>
+                            <p className="max-w-[180px] truncate text-xs app-text-muted">{product.description || `#${product.id}`}</p>
                           </div>
                         </div>
                       </td>
@@ -511,7 +512,8 @@ export default function Products() {
                       <td className="px-5 py-3.5">
                         <StockMeter stock={stock} reorderPoint={Number(product.reorder_point ?? LOW_STOCK)} onOrder={Number(product.on_order ?? 0)} />
                       </td>
-                      <td className="px-5 py-3.5">
+                      {/* Below 2xl the Edit form's switch and the struck-through name do this job. */}
+                      <td className="hidden px-5 py-3.5 2xl:table-cell">
                         {canWrite ? (
                           <Switch
                             size="sm"
