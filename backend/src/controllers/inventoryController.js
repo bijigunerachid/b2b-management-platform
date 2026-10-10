@@ -3,8 +3,9 @@ const { HttpError, withTransaction } = require("../services/transaction");
 const { MOVEMENT_TYPES } = require("../services/inventory");
 const { reorderSuggestions } = require("../purchasing/purchasingRules");
 const { createDraft } = require("./purchaseOrderController");
+const { loadActiveForecasts } = require("../ml/mlStore");
 
-/** Active products with what's on order, supplier, and last purchase cost. */
+/** Active products with what's on order, supplier, last purchase cost, and demand forecast. */
 async function loadReorderInputs(connection) {
     const [products] = await connection.query(`
         SELECT p.id, p.name, p.price, p.stock, p.reorder_point, p.is_active,
@@ -39,7 +40,11 @@ async function loadReorderInputs(connection) {
         ) latest ON latest.last_id = poi.id
     `);
 
-    return { products, lastCosts: new Map(costs.map((row) => [row.product_id, Number(row.unit_cost)])) };
+    return {
+        products,
+        lastCosts: new Map(costs.map((row) => [row.product_id, Number(row.unit_cost)])),
+        forecasts: await loadActiveForecasts(connection)
+    };
 }
 
 // GET /api/inventory/summary
@@ -128,8 +133,8 @@ const getMovements = async (req, res) => {
 // GET /api/inventory/reorder-suggestions
 const getReorderSuggestions = async (req, res) => {
     try {
-        const { products, lastCosts } = await loadReorderInputs(pool);
-        return res.json({ success: true, data: reorderSuggestions(products, lastCosts) });
+        const { products, lastCosts, forecasts } = await loadReorderInputs(pool);
+        return res.json({ success: true, data: reorderSuggestions(products, lastCosts, forecasts) });
     } catch (error) {
         console.error("Reorder suggestions error:", error);
         return res.status(500).json({ success: false, message: "Failed to compute reorder suggestions" });
@@ -143,10 +148,10 @@ const createDraftsFromSuggestions = withTransaction(async (connection, req) => {
         ? new Set(req.body.supplier_ids.map(Number))
         : null;
 
-    const { products, lastCosts } = await loadReorderInputs(connection);
+    const { products, lastCosts, forecasts } = await loadReorderInputs(connection);
     const leadTimes = new Map(products.map((product) => [product.supplier_id, product.lead_time_days]));
 
-    const groups = reorderSuggestions(products, lastCosts).filter(
+    const groups = reorderSuggestions(products, lastCosts, forecasts).filter(
         (group) => group.supplier_id && (!requested || requested.has(group.supplier_id))
     );
 

@@ -65,4 +65,13 @@ export default [
 
   // Audit entity types
   "order", "payment", "quote", "product", "purchase order", "price list", "volume discount", "contract price", "user", "portal user",
+
+  // Demand forecast: navigation, forecasting methods and chart series
+  "Demand forecast",
+  "Gradient-boosted model", "Learns from recent sales, last year, category seasonality and price",
+  "Last 4 weeks again", "Assumes the next 4 weeks repeat the last 4",
+  "13-week average", "Average weekly sales over the last quarter",
+  "Same weeks last year", "What sold in these weeks a year ago",
+  "Yearly average × season", "The product's yearly average, scaled by its category's season",
+  "Actual sales", "Model", "Best simple method",
 ];

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Button from "./ui/Button";
 import Icon from "./ui/Icon";
+import DemandForecast from "./DemandForecast";
 import { Drawer, Modal } from "./ui/Modal";
 import { useToast } from "./ui/feedback";
 import { Field, InlineAlert, SegmentedControl, toneStyle } from "./ui/primitives";
@@ -197,6 +198,8 @@ export function StockHistoryDrawer({ product, onClose, canAdjust, onChanged }) {
           )
         }
       >
+        {product && <DemandForecast product={product} stock={current} />}
+        <h3 className="mb-2 text-sm font-semibold app-text">{t("Stock movements")}</h3>
         {error ? (
           <InlineAlert>{error}</InlineAlert>
         ) : loading && !data ? (

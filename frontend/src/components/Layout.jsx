@@ -18,6 +18,7 @@ const sections = [
     links: [
       { label: "Dashboard", path: "/", icon: "dashboard", permission: "dashboard.view" },
       { label: "Reports", path: "/reports", icon: "revenue", permission: "reports.view" },
+      { label: "Demand forecast", path: "/forecast", icon: "sparkles", permission: "reports.view" },
     ],
   },
   {

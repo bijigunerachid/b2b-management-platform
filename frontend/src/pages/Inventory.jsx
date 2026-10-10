@@ -74,6 +74,7 @@ function ReorderSuggestions({ canWrite, onCreated }) {
   }
 
   const productCount = groups.reduce((sum, group) => sum + group.items.length, 0);
+  const usesForecast = groups.some((group) => group.items.some((item) => item.forecast_units !== null && item.forecast_units !== undefined));
 
   return (
     <Card>
@@ -84,7 +85,11 @@ function ReorderSuggestions({ canWrite, onCreated }) {
             {productCount > 0 && <Badge tone="warning">{productCount}</Badge>}
           </>
         }
-        description={t("At or below the reorder point, counting what's already on order")}
+        description={
+          usesForecast
+            ? t("Stock plus what's on order is at or below the reorder level: forecast sales over the supplier's lead time plus safety stock, or the reorder point if higher")
+            : t("At or below the reorder point, counting what's already on order")
+        }
         actions={
           canWrite &&
           orderable.length > 0 && (
@@ -140,6 +145,7 @@ function ReorderSuggestions({ canWrite, onCreated }) {
                       <Th className="!py-2">{t("Product")}</Th>
                       <Th className="!py-2" align="right">{t("Stock")}</Th>
                       <Th className="!py-2" align="right">{t("On order")}</Th>
+                      {usesForecast && <Th className="!py-2" align="right">{t("Next 4 weeks")}</Th>}
                       <Th className="!py-2" align="right">{t("Reorder at")}</Th>
                       <Th className="!py-2" align="right">{t("Suggested")}</Th>
                     </TableHead>
@@ -155,7 +161,15 @@ function ReorderSuggestions({ canWrite, onCreated }) {
                             {item.stock}
                           </td>
                           <td className="px-5 py-2.5 text-end tabular-nums app-text-secondary">{item.on_order || "—"}</td>
-                          <td className="px-5 py-2.5 text-end tabular-nums app-text-secondary">{item.reorder_point}</td>
+                          {usesForecast && (
+                            <td className="px-5 py-2.5 text-end tabular-nums app-text-secondary" title={t("Forecast sales over the next 4 weeks")}>
+                              {item.forecast_units === null ? "—" : `≈ ${number(Math.round(item.forecast_units))}`}
+                            </td>
+                          )}
+                          <td className="px-5 py-2.5 text-end tabular-nums app-text-secondary">
+                            {item.reorder_level ?? item.reorder_point}
+                            {item.basis === "forecast" && <span className="block text-[11px] app-text-muted">{t("from forecast")}</span>}
+                          </td>
                           <td className="px-5 py-2.5 text-end">
                             <span className="font-bold tabular-nums app-text">+{item.quantity}</span>
                             <span className="block text-[11px] app-text-muted">@ {money(item.unit_cost)}</span>

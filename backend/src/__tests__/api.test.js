@@ -38,4 +38,9 @@ describe("B2B Management Platform API", () => {
 
         expect(response.status).toBe(401);
     });
+
+    test("ML endpoints reject unauthenticated requests", async () => {
+        expect((await request(app).get("/api/ml/models")).status).toBe(401);
+        expect((await request(app).get("/api/ml/forecasts/products/1")).status).toBe(401);
+    });
 });

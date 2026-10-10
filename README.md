@@ -18,7 +18,7 @@ On the staff side you can:
 - record payments, including partial ones, and see who owes what in a receivables report grouped by how late it is
 - take back goods from a delivered order: the credit note lowers what the client owes (or records a refund if they already paid), and items in good condition go back into stock
 - track stock through a ledger: every sale, cancellation, delivery and correction is a separate entry with the resulting balance
-- order from suppliers, receive deliveries into stock, and get reorder suggestions based on recent sales
+- order from suppliers, receive deliveries into stock, and get reorder suggestions sized from a demand forecast (see [Demand forecast](#demand-forecast-machine-learning))
 - see sales and gross margin by month, product, customer and category for any date range, compared with the period before, and export each table to CSV. Every order line stores what the goods cost when they were sold (a weighted average updated on each delivery), so margins stay correct when costs change. Costs and reports are only visible to roles allowed to see them
 
 The whole interface, staff and client side, is available in English, French and Arabic, including the printed invoices, quotes and credit notes. Arabic uses a right-to-left layout and proper Arabic plural forms, and numbers, dates and amounts follow the language (Moroccan Arabic month names, Latin digits).
@@ -86,7 +86,7 @@ There's also a dark mode and a Ctrl+K search that jumps to any page or record:
 
 ## Stack
 
-React 19 with Vite and Tailwind on the frontend, Node.js 22 and Express 5 on the backend, MySQL 8 for the database. Tests use Jest and Supertest, and everything runs in Docker for deployment (nginx in front, Caddy for HTTPS).
+React 19 with Vite and Tailwind on the frontend, Node.js 22 and Express 5 on the backend, MySQL 8 for the database. The demand forecast is trained in Python with pandas and scikit-learn. Tests use Jest, Supertest, pytest and Playwright, and everything runs in Docker for deployment (nginx in front, Caddy for HTTPS).
 
 ## How it's put together
 
@@ -94,7 +94,7 @@ In production nginx serves the React build and forwards `/api` to the Node API, 
 
 ```text
 browser -> nginx -> React app
-                 -> /api -> Express -> MySQL
+                 -> /api -> Express -> MySQL <- Python training job (ml/)
 ```
 
 A few things I spent time on:
@@ -110,6 +110,43 @@ A few things I spent time on:
 - Translations use the English text as the key (`t("Create order")`), so anything untranslated falls back to readable English. `npm run i18n:check` reads the source and fails CI if any text is missing its French or Arabic version. Layout classes use start/end instead of left/right, so the right-to-left version comes from the same markup.
 
 The billing, quote and purchasing rules live in plain modules with no database code, which made them easy to unit test.
+
+## Demand forecast (machine learning)
+
+A model predicts how many units of each product will sell in the next 4 weeks, with an 80% range. Purchasing uses it: a product is suggested for reordering when its stock plus what's on order falls below the expected sales during the supplier's lead time plus safety stock taken from the upper end of the range. The manual reorder point stays as a minimum. Managers see the test results on a Demand forecast page, and each product's stock drawer shows its recent weekly sales and the forecast.
+
+The model is trained offline (`ml/`, Python) and writes its forecasts and test results to MySQL. The API only reads them, so the app doesn't depend on Python being installed and keeps working if the job never runs.
+
+- **Model:** gradient-boosted trees (scikit-learn `HistGradientBoostingRegressor`) with a Poisson loss for the expected units, plus two quantile models for the 10% and 90% bounds.
+- **Inputs:** each product's recent weekly sales, its 13/26/52-week averages, the same weeks last year, and its category's seasonal pattern pooled across all products in the category (single products sell too rarely to show a season on their own). Price and month are also used.
+- **Testing:** a rolling backtest. For each of the last six 4-week periods, the model is retrained only on data from before that period and compared with what actually sold. A test checks that no input ever uses data from after the forecast date.
+
+Results on the demo data (2,091 product forecasts):
+
+| Method | WAPE | RMSE | Bias |
+|---|---:|---:|---:|
+| **Model** | **73.8%** | **19.12** | −7.5% |
+| 13-week average | 76.4% | 20.10 | −1.4% |
+| Yearly average × category season | 73.7% | 20.43 | −30.1% |
+| Same weeks last year | 84.4% | 23.19 | −29.2% |
+| Last 4 weeks again | 87.3% | 23.25 | −5.3% |
+
+The model has 4.9% lower RMSE than the best simple method and ties the best one on WAPE. I rank by RMSE because the model predicts expected sales, which is what reordering needs. WAPE rewards forecasts that run low when demand is lumpy (more than half of all 4-week windows sell nothing for a given product): the seasonal average matches the model on WAPE only by forecasting 30% too little, which would leave the warehouse short. 10.5% of actual sales landed above the upper bound, against a 10% target.
+
+These numbers come from generated data, and I built yearly seasons, slow trends and an August slowdown into the generator. They show the pipeline finds patterns that are really there. They don't predict how well it would do on a real company's sales. Single-product weekly demand is noisy, so a WAPE around 74% is expected at this level of detail.
+
+To train it (Python 3.11+):
+
+```bash
+cd ml
+python -m venv .venv
+.venv/Scripts/activate        # Windows; on macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+python -m b2b_ml forecast --dry-run   # train and print the test results
+python -m b2b_ml forecast             # also publish forecasts to the app
+```
+
+It reads the database settings from `backend/.env`. In production you'd run it weekly from cron. More detail is in [ml/README.md](ml/README.md).
 
 ## Running it locally
 
@@ -164,7 +201,7 @@ cd backend
 npm run seed:large
 ```
 
-This fills the database with about 400 customers, 350 products and 5,000 orders over 18 months. It also adds the matching payments, quotes, returns, price lists, suppliers, purchase orders, 24 staff accounts and 3 client logins (`buyer@<company>.portal.example`). They all share one password, which is printed at the end. You can set it yourself with `SEED_USER_PASSWORD` in `.env`.
+This fills the database with about 400 customers, 350 products and 5,000 orders over 24 months, with seasonal patterns per category (back-to-school office supplies, year-end electronics, a quiet August) so the forecast has something to learn. It also adds the matching payments, quotes, returns, price lists, suppliers, purchase orders, 24 staff accounts and 3 client logins (`buyer@<company>.portal.example`). They all share one password, which is printed at the end. You can set it yourself with `SEED_USER_PASSWORD` in `.env`.
 
 Other options:
 
@@ -197,8 +234,9 @@ Caddy gets the certificate from Let's Encrypt and renews it automatically. Only 
 ## Tests
 
 ```bash
-cd backend && npm test      # 210 Jest tests (business rules, permissions, audit, security)
+cd backend && npm test      # 220 Jest tests (business rules, permissions, audit, security)
 cd frontend && npm run lint
+cd ml && python -m pytest   # 13 tests (no data leakage, metrics, backtest on synthetic data)
 cd e2e && npm ci && npx playwright install chromium && npx playwright test
 ```
 
@@ -206,7 +244,7 @@ The browser tests (Playwright) go through the app the way people use it: signing
 
 They never touch your data. Each run builds a separate `b2b_e2e` database (schema, migrations, a small seed, one account per role) and starts the API and the app on their own ports (5055 and 5175). The script refuses to reset any database whose name doesn't start with `b2b_e2e`. Database settings come from `backend/.env`.
 
-GitHub Actions runs all three on every push and pull request, along with `npm audit` and a production build. The browser tests run against a MySQL 8.4 service, and the report is uploaded when they fail.
+GitHub Actions runs all four on every push and pull request, along with `npm audit` and a production build. The browser tests run against a MySQL 8.4 service, and the report is uploaded when they fail.
 
 ## Security notes
 
@@ -227,6 +265,7 @@ For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behin
 - The Ctrl+K product search only looks at the first 100 products.
 - Messages that come from the server (most validation errors, the price label on an order line) are still in English, and so is the demo data.
 - Customers and orders are paginated in the browser, which is fine for a few thousand rows but won't scale forever.
+- The forecast is only as fresh as the last training run, and nothing schedules it for you. Products with no sales yet get no forecast and fall back to the reorder point.
 
 ## What I'd add next
 
