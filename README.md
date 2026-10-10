@@ -16,6 +16,7 @@ On the staff side you can:
 - set prices per customer: price lists (Gold, −6%), volume discounts from a quantity, and fixed contract prices. Orders, quotes and the client portal all get the same price from one function, and each order line keeps the catalog price and the rule that was applied, so the invoice shows the discount
 - follow orders from pending to completed and print A4 invoices
 - record payments, including partial ones, and see who owes what in a receivables report grouped by how late it is, with a model's estimate of which invoices will be paid late and why
+- see products each customer hasn't bought yet but probably needs, with the reason, in the customer drawer and on the client portal
 - take back goods from a delivered order: the credit note lowers what the client owes (or records a refund if they already paid), and items in good condition go back into stock
 - track stock through a ledger: every sale, cancellation, delivery and correction is a separate entry with the resulting balance
 - order from suppliers, receive deliveries into stock, and get reorder suggestions sized from a demand forecast (see [Machine learning](#machine-learning))
@@ -113,7 +114,7 @@ The billing, quote and purchasing rules live in plain modules with no database c
 
 ## Machine learning
 
-Two models trained on the company's own history help with stock and collections. Both are trained offline in Python (`ml/`), tested against simple rules on data they never saw, and write their results to MySQL. The API only reads those tables, so the app doesn't need Python and keeps working if a job has never run. Managers can see each model's test results in the app.
+Three models trained on the company's own history help with stock, collections and sales. Both are trained offline in Python (`ml/`), tested against simple rules on data they never saw, and write their results to MySQL. The API only reads those tables, so the app doesn't need Python and keeps working if a job has never run. Managers can see each model's test results in the app.
 
 ### Demand forecast
 
@@ -123,15 +124,15 @@ Predicts how many units of each product will sell in the next 4 weeks, with an 8
 - **Inputs:** each product's recent weekly sales, its 13/26/52-week averages, the same weeks last year, and its category's seasonal pattern pooled across all products in the category (single products sell too rarely to show a season on their own). Price and month are also used.
 - **Testing:** a rolling backtest. For each of the last six 4-week periods, the model is retrained only on data from before that period and compared with what actually sold.
 
-| Method (2,090 product forecasts) | WAPE | RMSE | Bias |
+| Method (1,911 product forecasts) | WAPE | RMSE | Bias |
 |---|---:|---:|---:|
-| **Model** | **73.4%** | **18.82** | −3.0% |
-| 13-week average | 75.5% | 19.83 | −1.2% |
-| Yearly average × category season | 73.9% | 20.68 | −23.8% |
-| Same weeks last year | 86.1% | 23.84 | −24.1% |
-| Last 4 weeks again | 86.3% | 23.93 | −3.2% |
+| **Model** | **67.8%** | **22.52** | +0.3% |
+| Yearly average × category season | 69.5% | 23.86 | −25.2% |
+| 13-week average | 71.9% | 25.05 | +3.7% |
+| Last 4 weeks again | 76.6% | 27.42 | −2.8% |
+| Same weeks last year | 80.7% | 28.61 | −23.5% |
 
-The model has 5.1% lower RMSE than the best simple method. I rank by RMSE because the model predicts expected sales, which is what reordering needs. WAPE rewards forecasts that run low when demand is lumpy (more than half of all 4-week windows sell nothing for a given product): the seasonal average comes close on WAPE only by forecasting 24% too little, which would leave the warehouse short. 10.6% of actual sales landed above the upper bound, against a 10% target.
+The model has 5.6% lower RMSE than the best simple method and is almost unbiased. I rank by RMSE because the model predicts expected sales, which is what reordering needs. WAPE rewards forecasts that run low when demand is lumpy (more than half of all 4-week windows sell nothing for a given product): the seasonal average comes close on WAPE only by forecasting 25% too little, which would leave the warehouse short. 10.1% of actual sales landed above the upper bound, against a 10% target.
 
 ### Late-payment risk
 
@@ -141,18 +142,35 @@ For every open invoice that isn't late yet, estimates the probability it will be
 - **No leakage:** every input is computed as of the day the invoice was issued. An earlier invoice only counts as late or on time once its own deadline had passed, and a test rewrites later payments to check that nothing earlier changes.
 - **Testing:** for each of the last six complete months, the model is trained only on invoices whose outcome was known at the start of that month, then scores the invoices issued during it.
 
-| Method (1,366 invoices, 37.5% paid late) | Brier score | AUC | Log loss |
+| Method (1,386 invoices, 36.8% paid late) | Brier score | AUC | Log loss |
 |---|---:|---:|---:|
-| **Logistic regression** | **0.1205** | **0.892** | 0.384 |
-| Gradient-boosted trees | 0.1218 | 0.889 | 0.385 |
-| The customer's past late rate | 0.1277 | 0.872 | 0.404 |
-| Same rate for every invoice | 0.2346 | 0.485 | 0.662 |
+| **Logistic regression** | **0.1129** | **0.903** | **0.361** |
+| Gradient-boosted trees | 0.1176 | 0.896 | 0.378 |
+| The customer's past late rate | 0.1207 | 0.883 | 0.384 |
+| Same rate for every invoice | 0.2327 | 0.491 | 0.658 |
 
-The main score is the Brier score, because the app shows probabilities and they should mean what they say: the model's is 5.6% lower than the "how often did this customer pay late before" rule a credit controller would use. Split into five groups by predicted risk, the predicted and actual late rates match within 3 points (for example 24% predicted, 23% late).
+The main score is the Brier score, because the app shows probabilities and they should mean what they say: the model's is 6.5% lower than the "how often did this customer pay late before" rule a credit controller would use. Split into five groups by predicted risk, the predicted and actual late rates match within 5 points (for example 21% predicted, 23% late).
+
+### Product recommendations
+
+For each customer, up to 10 products they haven't bought yet but are likely to need. Staff see them in the customer drawer, and clients see them on the portal home page at their own prices, ready to add to the cart. Each suggestion says why, as a fact anyone can check: "bought by 49% of customers who buy Hand Sanitizer Industrial", shown only when enough customers bought both and the pair is clearly more common than chance, or "popular in the categories you buy".
+
+- **Model:** EASE (Steck, 2019), a closed-form linear model that learns how much buying one product says about buying another, blended with the popularity of products in the categories the customer buys from. That part helps customers with a short history.
+- **Testing:** four 60-day periods. For each one, only purchases from before it are used to make 10 suggestions per customer, then the suggestions are compared with what each customer bought for the first time during the period. Products they already reorder don't count, because suggesting those is easy and useless.
+
+| Method (457 customer checks) | Found (recall@10) | At least one hit | NDCG@10 |
+|---|---:|---:|---:|
+| **EASE + category popularity** | **30.9%** | **45.3%** | **0.205** |
+| EASE alone | 29.2% | 43.3% | 0.199 |
+| Popular in the customer's categories | 26.0% | 38.3% | 0.170 |
+| Best sellers for everyone | 25.7% | 39.2% | 0.166 |
+| Similar products (item-to-item cosine) | 22.4% | 34.1% | 0.151 |
+
+The model finds 19% more of the products customers went on to buy than the best simple rule, and 45% of customers bought at least one of their 10 suggestions within 60 days. Best sellers are a hard rule to beat here because a few products account for much of the demand.
 
 ### What these numbers mean
 
-Both models were tested on generated data, and I built the patterns into the generator: seasons per category, slow trends and an August slowdown for sales; for payments, each customer has habits (early, on time, slow or erratic, some getting worse over time), large invoices and August/December invoices are paid later, and 7% of invoices get stuck in a dispute. The results show the pipelines find patterns that are really there. They don't predict how well the models would do on a real company's data. I also chose the model settings on the same test periods, so the margins over the simple rules are slightly optimistic.
+Both models were tested on generated data, and I built the patterns into the generator: seasons per category, slow trends and an August slowdown for sales; for payments, each customer has habits (early, on time, slow or erratic, some getting worse over time), large invoices and August/December invoices are paid later, and 7% of invoices get stuck in a dispute; for buying, each customer has a line of business (office, IT, logistics, hospitality, facilities) that decides which categories they buy from, they reorder their usual products, and equipment is followed by what it uses (printers by toner, espresso machines by coffee). The results show the pipelines find patterns that are really there. They don't predict how well the models would do on a real company's data. I also chose the model settings on the same test periods, so the margins over the simple rules are slightly optimistic.
 
 ### Training
 
@@ -166,6 +184,7 @@ pip install -r requirements.txt
 python -m b2b_ml forecast --dry-run   # train and print the test results only
 python -m b2b_ml forecast             # also publish the forecasts to the app
 python -m b2b_ml risk                 # same for the late-payment model
+python -m b2b_ml recommend            # same for product recommendations
 ```
 
 The jobs read the database settings from `backend/.env`. In production you'd run them weekly from cron. More detail is in [ml/README.md](ml/README.md).
@@ -223,7 +242,7 @@ cd backend
 npm run seed:large
 ```
 
-This fills the database with about 400 customers, 350 products and 5,000 orders over 24 months, with seasonal patterns per category (back-to-school office supplies, year-end electronics, a quiet August) and customers with their own payment habits, so the models have something to learn. It also adds the matching payments, quotes, returns, price lists, suppliers, purchase orders, 24 staff accounts and 3 client logins (`buyer@<company>.portal.example`). They all share one password, which is printed at the end. You can set it yourself with `SEED_USER_PASSWORD` in `.env`.
+This fills the database with about 400 customers, 350 products and 5,000 orders over 24 months, with seasonal patterns per category (back-to-school office supplies, year-end electronics, a quiet August) and customers with their own line of business, buying habits and payment habits, so the models have something to learn. It also adds the matching payments, quotes, returns, price lists, suppliers, purchase orders, 24 staff accounts and 3 client logins (`buyer@<company>.portal.example`). They all share one password, which is printed at the end. You can set it yourself with `SEED_USER_PASSWORD` in `.env`.
 
 Other options:
 
@@ -256,9 +275,9 @@ Caddy gets the certificate from Let's Encrypt and renews it automatically. Only 
 ## Tests
 
 ```bash
-cd backend && npm test      # 222 Jest tests (business rules, permissions, audit, security)
+cd backend && npm test      # 226 Jest tests (business rules, permissions, audit, security)
 cd frontend && npm run lint
-cd ml && python -m pytest   # 21 tests (no data leakage, metrics, backtests on synthetic data)
+cd ml && python -m pytest   # 27 tests (no data leakage, metrics, backtests on synthetic data)
 cd e2e && npm ci && npx playwright install chromium && npx playwright test
 ```
 
@@ -287,7 +306,7 @@ For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behin
 - The Ctrl+K product search only looks at the first 100 products.
 - Messages that come from the server (most validation errors, the price label on an order line) are still in English, and so is the demo data.
 - Customers and orders are paginated in the browser, which is fine for a few thousand rows but won't scale forever.
-- The models are only as fresh as their last training run, and nothing schedules them for you. Products with no sales yet get no forecast and fall back to the reorder point. Risk scores are worked out as of the day each invoice was issued and don't update when the customer pays something else later.
+- The models are only as fresh as their last training run, and nothing schedules them for you. Products with no sales yet get no forecast and fall back to the reorder point. Risk scores are worked out as of the day each invoice was issued and don't update when the customer pays something else later. New customers get recommendations only after their first order.
 
 ## What I'd add next
 

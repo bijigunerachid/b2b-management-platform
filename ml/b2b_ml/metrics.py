@@ -96,3 +96,20 @@ def calibration(actual, probability, bins: int = 5) -> list[dict]:
         {"predicted": round(float(row.predicted), 4), "observed": round(float(row.observed), 4), "count": int(row.count)}
         for row in grouped.itertuples()
     ]
+
+
+# Ranking: a top-k list of recommendations against what the customer actually bought.
+
+def ranking_scores(recommended: list, relevant: set, k: int = 10) -> dict:
+    """recall@k, precision@k, hit rate@k and NDCG@k for one customer."""
+    top = list(recommended)[:k]
+    hits = [1.0 if item in relevant else 0.0 for item in top]
+    found = sum(hits)
+    dcg = sum(hit / np.log2(rank + 2) for rank, hit in enumerate(hits))
+    ideal = sum(1 / np.log2(rank + 2) for rank in range(min(len(relevant), k)))
+    return {
+        "recall": found / len(relevant) if relevant else float("nan"),
+        "precision": found / k,
+        "hit_rate": 1.0 if found else 0.0,
+        "ndcg": dcg / ideal if ideal else float("nan"),
+    }

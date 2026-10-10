@@ -3,7 +3,7 @@
 Offline training jobs for the platform. Each job reads from the app's MySQL database, trains and tests a model, and writes the results back to tables the API reads:
 
 - `ml_models`: one row per training run, with its test metrics (`metrics`) and the full backtest (`details`). Only the newest run per model name is active.
-- an output table per model: `demand_forecasts` (units per product) and `payment_risk_scores` (probability per open invoice, with the facts behind it).
+- an output table per model: `demand_forecasts` (units per product), `payment_risk_scores` (probability per open invoice, with the facts behind it) and `product_recommendations` (up to 10 products per customer, with the reason).
 
 The API never runs Python. If a job has never run, the app shows an empty state, reorder suggestions use the manual reorder points, and Receivables shows no risk column.
 
@@ -76,10 +76,37 @@ On the six test months, regularised logistic regression (C=0.1) beat gradient-bo
 
 The main score is the Brier score, because the app shows probabilities and they should be honest. AUC (ranking) and calibration by quintile are reported too. "Caught in the riskiest 20%" is near its ceiling for every useful method, because 38% of invoices are late, so it doesn't separate them much.
 
+## Product recommendations
+
+```bash
+python -m b2b_ml recommend --dry-run   # train, test and print the results; writes nothing
+python -m b2b_ml recommend             # same, then publish the suggestions
+```
+
+Suggests products each customer hasn't bought yet. "Buy again" is deliberately left out: B2B customers reorder the same items all the time, so suggesting those would look accurate and help no one.
+
+| File | What it does |
+|---|---|
+| `recommend/data.py` | One row per customer, product and order day |
+| `recommend/models.py` | The customer × product matrix, best sellers, popular-in-their-categories, item-to-item cosine, EASE, and the blend |
+| `recommend/pipeline.py` | Backtest, final training, the explanation for each suggestion, saving |
+
+### How it's tested
+
+Four 60-day periods. For each cutoff, every method sees only purchases before it, suggests 10 products per customer, and is scored on the products each customer bought for the first time in the next 60 days: recall@10 (the share of those found), hit rate (at least one found), NDCG@10 (found near the top) and precision@10. Customers whose first order came after the cutoff are skipped, because no method has anything to go on. So are products nobody had bought before the cutoff, because no method can learn about those.
+
+### Choosing the model
+
+EASE has one setting, the regularisation strength. 50 to 500 all scored about the same; I use 200. Blending in category popularity added about 2 points of recall, mostly for customers with only a few orders. I picked both settings on these test periods, so the margin over the simple rules is slightly optimistic.
+
+### Explanations
+
+The reason shown with a suggestion doesn't come from the model's weights: with a median of 6 products per customer, the weakest of those are noise, and "bought by people who buy Mechanical Keyboard" next to a filing cabinet would undermine trust. Instead the explanation is a counted fact: among the customer's past purchases, the one whose buyers most often also bought the suggested product, shown only if at least 3 customers bought both and the pair is at least twice as common as chance. Otherwise the reason is "popular in the categories you buy".
+
 ## Tests
 
 ```bash
 python -m pytest
 ```
 
-They use synthetic data and don't need a database: settlement and labels, leakage checks for both models, metrics, and small backtests where the model has to beat the simple rule.
+They use synthetic data and don't need a database: settlement and labels, leakage checks for both models, metrics, and small backtests where each model has to beat the simple rule.

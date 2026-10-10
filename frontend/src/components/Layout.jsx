@@ -20,6 +20,7 @@ const sections = [
       { label: "Reports", path: "/reports", icon: "revenue", permission: "reports.view" },
       { label: "Demand forecast", path: "/forecast", icon: "sparkles", permission: "reports.view" },
       { label: "Payment risk", path: "/payment-risk", icon: "alertCircle", permission: "reports.view" },
+      { label: "Recommendations", path: "/recommendations", icon: "gift", permission: "reports.view" },
     ],
   },
   {

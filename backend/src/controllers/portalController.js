@@ -9,6 +9,7 @@ const { HttpError, withTransaction } = require("../services/transaction");
 const { placeOrder } = require("../services/orderPlacement");
 const { loadCreditNote, serializeCreditNote } = require("../services/creditNotes");
 const { describePrice, loadPricingContext } = require("../pricing/pricing");
+const { loadRecommendations } = require("../ml/mlStore");
 const { priceItems } = require("./pricingController");
 const { allowedActions, canPerform, daysLeft, dateOnly, effectiveStatus, quoteNumber } = require("../quotes/quoteRules");
 
@@ -162,6 +163,32 @@ const getCatalog = async (req, res) => {
     } catch (error) {
         console.error("Portal catalog error:", error);
         return res.status(500).json({ success: false, message: "Could not load the catalog." });
+    }
+};
+
+// GET /api/portal/recommendations
+// Products this company hasn't bought yet but similar businesses do, at their prices.
+const getRecommendations = async (req, res) => {
+    try {
+        const items = await loadRecommendations(pool, req.user.customerId, 8);
+        const pricing = items.length ? await loadPricingContext(pool, req.user.customerId) : null;
+        return res.json({
+            success: true,
+            data: items.map((product) => ({
+                id: product.id,
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                ...yourPrice(pricing, product),
+                category_id: product.category_id,
+                category_name: product.category_name,
+                availability: availability(product),
+                reason: product.reason
+            }))
+        });
+    } catch (error) {
+        console.error("Portal recommendations error:", error);
+        return res.status(500).json({ success: false, message: "Could not load recommendations." });
     }
 };
 
@@ -405,6 +432,7 @@ module.exports = {
     priceCart,
     getOrder,
     getQuote,
+    getRecommendations,
     getSummary,
     listOrders,
     listQuotes,

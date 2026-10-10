@@ -48,3 +48,12 @@ def test_calibration_groups_compare_predicted_and_observed():
     assert [group["count"] for group in groups] == [5, 5]
     assert groups[0]["observed"] == pytest.approx(0.2)
     assert groups[1]["predicted"] == pytest.approx(0.9)
+
+
+def test_ranking_scores_reward_hits_near_the_top():
+    first = metrics.ranking_scores([1, 2, 3, 4], {1}, k=4)
+    last = metrics.ranking_scores([4, 3, 2, 1], {1}, k=4)
+    assert first["recall"] == last["recall"] == 1.0
+    assert first["precision"] == 0.25
+    assert first["ndcg"] == 1.0 and last["ndcg"] < first["ndcg"]
+    assert metrics.ranking_scores([5, 6], {1, 2}, k=2)["hit_rate"] == 0.0

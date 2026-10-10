@@ -5,12 +5,15 @@ import { Badge, Card, CardHeader, EmptyState, ErrorState, StatCard } from "../..
 import { compactMoney, formatDate, money, number, useResource } from "../../lib/api";
 import { paymentBadge } from "../../lib/billing";
 import { ORDER_STATUS } from "../../lib/orderStatus";
+import { ProductCard } from "./PortalCatalog";
 
 import { t } from "../../i18n";
 export default function PortalHome() {
   const { user } = useAuth();
   const { data, error, reload } = useResource("/portal/summary");
+  const { data: suggested } = useResource("/portal/recommendations");
   const summary = data?.data;
+  const recommendations = (suggested?.data ?? []).slice(0, 4);
 
   if (!summary) {
     return error ? (
@@ -64,6 +67,27 @@ export default function PortalHome() {
         <StatCard label={t("Orders in progress")} value={number(summary.orders_in_progress)} hint={t("Pending or processing")} icon="truck" tone="info" />
         <StatCard label={t("Quotes to review")} value={number(summary.quotes_awaiting)} hint={t("Waiting for your reply")} icon="fileText" tone="warning" />
       </div>
+
+      {recommendations.length > 0 && (
+        <section aria-labelledby="recommended-heading">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <h2 id="recommended-heading" className="text-base font-bold app-text">
+                {t("Recommended for you")}
+              </h2>
+              <p className="text-xs app-text-muted">{t("Products you haven't ordered yet that businesses like yours buy")}</p>
+            </div>
+            <Link to="/portal/catalog" className="text-sm font-semibold hover:underline" style={{ color: "var(--primary)" }}>
+              {t("Browse the catalog")}
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {recommendations.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <Card>
         <CardHeader

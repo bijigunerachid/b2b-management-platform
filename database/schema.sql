@@ -423,6 +423,25 @@ CREATE TABLE IF NOT EXISTS payment_risk_scores (
     UNIQUE KEY uq_payment_risk (model_id, order_id)
 );
 
+-- Product recommendations (written by the jobs in ml/)
+CREATE TABLE IF NOT EXISTS product_recommendations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    model_id INT NOT NULL,
+    customer_id INT NOT NULL,
+    product_id INT NOT NULL,
+    rank_position TINYINT NOT NULL,
+    score DOUBLE NOT NULL,
+    reason JSON NULL,
+    CONSTRAINT fk_recommendations_model
+        FOREIGN KEY (model_id) REFERENCES ml_models(id) ON DELETE CASCADE,
+    CONSTRAINT fk_recommendations_customer
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    CONSTRAINT fk_recommendations_product
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_recommendations (model_id, customer_id, product_id),
+    INDEX idx_recommendations_customer (customer_id, rank_position)
+);
+
 -- Verify tables and roles
 SHOW TABLES;
 

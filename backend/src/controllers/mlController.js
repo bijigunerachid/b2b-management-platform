@@ -1,5 +1,5 @@
 const pool = require("../config/database");
-const { listModels, productForecast } = require("../ml/mlStore");
+const { listModels, loadRecommendations, productForecast } = require("../ml/mlStore");
 
 // GET /api/ml/models
 const getModels = async (req, res) => {
@@ -28,4 +28,32 @@ const getProductForecast = async (req, res) => {
     }
 };
 
-module.exports = { getModels, getProductForecast };
+// GET /api/ml/recommendations/customers/:id
+const getCustomerRecommendations = async (req, res) => {
+    if (!/^\d{1,10}$/.test(req.params.id) || Number(req.params.id) <= 0) {
+        return res.status(400).json({ success: false, message: "Invalid customer id" });
+    }
+    const customerId = Number(req.params.id);
+
+    try {
+        const [customers] = await pool.query("SELECT id FROM customers WHERE id = ?", [customerId]);
+        if (!customers.length) return res.status(404).json({ success: false, message: "Customer not found" });
+        const items = await loadRecommendations(pool, customerId);
+        return res.json({
+            success: true,
+            data: items.map((item) => ({
+                id: item.id,
+                name: item.name,
+                category_name: item.category_name,
+                price: item.price,
+                stock: Number(item.stock),
+                reason: item.reason
+            }))
+        });
+    } catch (error) {
+        console.error("Recommendations error:", error);
+        return res.status(500).json({ success: false, message: "Failed to load recommendations" });
+    }
+};
+
+module.exports = { getCustomerRecommendations, getModels, getProductForecast };

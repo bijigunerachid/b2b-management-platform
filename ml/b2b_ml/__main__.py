@@ -2,12 +2,13 @@
 
     forecast   backtest + train the demand forecast, publish forecasts for the app
     risk       backtest + train the late-payment model, score open invoices
+    recommend  backtest + train product recommendations, publish them per customer
 """
 
 import argparse
 import json
 
-JOBS = ("forecast", "risk")
+JOBS = ("forecast", "risk", "recommend")
 
 
 def main() -> None:
@@ -24,6 +25,10 @@ def main() -> None:
         from .payment_risk.pipeline import run
 
         report_risk(run(write=not args.dry_run))
+    elif args.job == "recommend":
+        from .recommend.pipeline import run
+
+        report_recommend(run(write=not args.dry_run))
 
 
 def report_forecast(result: dict) -> None:
@@ -48,6 +53,16 @@ def report_risk(result: dict) -> None:
     print(f"vs {backtest['best_baseline']}: {backtest['improvement_vs_baseline']:+.1%} lower Brier score")
     print("calibration (predicted -> observed):", ", ".join(f"{b['predicted']:.2f}->{b['observed']:.2f}" for b in backtest["calibration"]))
     print(json.dumps({key: result["details"][key] for key in ("as_of", "invoices_scored", "training_rows")}))
+
+
+def report_recommend(result: dict) -> None:
+    backtest = result["details"]["backtest"]
+    print(f"{result['name']} {result['version']}: {backtest['folds']} folds, {backtest['rows']} customer windows, top {backtest['k']}")
+    print(f"{'method':<22}{'recall':>8}{'NDCG':>8}{'hit rate':>10}{'precision':>11}")
+    for method, values in backtest["methods"].items():
+        print(f"{method:<22}{values['recall']:>8.3f}{values['ndcg']:>8.3f}{values['hit_rate']:>10.1%}{values['precision']:>11.3f}")
+    print(f"vs {backtest['best_baseline']}: {backtest['improvement_vs_baseline']:+.1%} recall")
+    print(json.dumps({key: result["details"][key] for key in ("as_of", "customers", "recommendations")}))
 
 
 if __name__ == "__main__":

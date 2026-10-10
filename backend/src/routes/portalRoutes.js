@@ -11,6 +11,7 @@ const portalRouter = express.Router();
 portalRouter.use(protectCustomer);
 portalRouter.get("/summary", portal.getSummary);
 portalRouter.get("/catalog", portal.getCatalog);
+portalRouter.get("/recommendations", portal.getRecommendations);
 portalRouter.post("/cart/price", portal.priceCart);
 portalRouter.get("/orders", portal.listOrders);
 portalRouter.get("/orders/:id", portal.getOrder);

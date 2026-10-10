@@ -4,6 +4,7 @@ import Icon from "../../components/ui/Icon";
 import { useToast } from "../../components/ui/feedback";
 import { Badge, EmptyState, ErrorState, PageHeader, Pagination, SearchInput, toneStyle } from "../../components/ui/primitives";
 import { money, useResource } from "../../lib/api";
+import { recommendationReason } from "../../lib/ml";
 import { useCart } from "../CartContext";
 
 import { t } from "../../i18n";
@@ -13,7 +14,7 @@ const availabilityMeta = {
   out_of_stock: { label: "Out of stock", tone: "danger" },
 };
 
-function ProductCard({ product }) {
+export function ProductCard({ product }) {
   const cart = useCart();
   const toast = useToast();
   const [quantity, setQuantity] = useState(1);
@@ -43,6 +44,12 @@ function ProductCard({ product }) {
       </div>
       <h3 className="mt-3 line-clamp-2 min-h-10 text-sm font-semibold app-text">{product.name}</h3>
       <p className="mt-0.5 text-xs app-text-muted">{product.category_name}</p>
+      {product.reason && (
+        <p className="mt-2 flex items-start gap-1.5 text-xs app-text-secondary">
+          <Icon name="sparkles" size={13} className="mt-0.5 shrink-0" style={{ color: "var(--primary)" }} />
+          {recommendationReason(product.reason, "client")}
+        </p>
+      )}
       <div className="mt-3">
         {product.your_price < product.price && (
           <p className="text-xs tabular-nums app-text-muted">
