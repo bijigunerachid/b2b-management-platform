@@ -1,12 +1,13 @@
 """Command line: python -m b2b_ml <job> [--dry-run]
 
     forecast   backtest + train the demand forecast, publish forecasts for the app
+    risk       backtest + train the late-payment model, score open invoices
 """
 
 import argparse
 import json
 
-JOBS = ("forecast",)
+JOBS = ("forecast", "risk")
 
 
 def main() -> None:
@@ -18,11 +19,14 @@ def main() -> None:
     if args.job == "forecast":
         from .forecast.pipeline import run
 
-        result = run(write=not args.dry_run)
-        report(result)
+        report_forecast(run(write=not args.dry_run))
+    elif args.job == "risk":
+        from .payment_risk.pipeline import run
+
+        report_risk(run(write=not args.dry_run))
 
 
-def report(result: dict) -> None:
+def report_forecast(result: dict) -> None:
     backtest = result["details"]["backtest"]
     print(f"{result['name']} {result['version']}: {backtest['folds']} backtest folds, {backtest['rows']} product forecasts")
     print(f"{'method':<18}{'WAPE':>8}{'MAE':>8}{'RMSE':>8}{'bias':>8}")
@@ -32,6 +36,18 @@ def report(result: dict) -> None:
     model = backtest["methods"]["model"]
     print(f"80% interval coverage: {model['interval_coverage']:.1%}, above upper bound: {model['above_upper']:.1%} (target 10%)")
     print(json.dumps({key: result["details"][key] for key in ("origin_week", "products_scored", "training_rows")}))
+
+
+def report_risk(result: dict) -> None:
+    backtest = result["details"]["backtest"]
+    print(f"{result['name']} {result['version']}: {backtest['folds']} test months, {backtest['rows']} invoices, {backtest['late_rate']:.1%} paid late")
+    print(f"{'method':<18}{'AUC':>7}{'AP':>7}{'Brier':>8}{'logloss':>9}{'top 20%':>9}")
+    for method, values in backtest["methods"].items():
+        print(f"{method:<18}{values['auc']:>7.3f}{values['average_precision']:>7.3f}{values['brier']:>8.4f}"
+              f"{values['log_loss']:>9.4f}{values['capture_20']:>9.1%}")
+    print(f"vs {backtest['best_baseline']}: {backtest['improvement_vs_baseline']:+.1%} lower Brier score")
+    print("calibration (predicted -> observed):", ", ".join(f"{b['predicted']:.2f}->{b['observed']:.2f}" for b in backtest["calibration"]))
+    print(json.dumps({key: result["details"][key] for key in ("as_of", "invoices_scored", "training_rows")}))
 
 
 if __name__ == "__main__":

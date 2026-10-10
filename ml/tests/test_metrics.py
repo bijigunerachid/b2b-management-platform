@@ -25,3 +25,26 @@ def test_mae_and_rmse():
 
 def test_coverage_counts_bounds_as_inside():
     assert metrics.coverage([1, 5, 9, 10], [1, 1, 1, 1], [9, 9, 9, 9]) == pytest.approx(0.75)
+
+
+def test_auc_and_capture_rate_reward_good_ranking():
+    actual = [0, 0, 0, 1, 1]
+    assert metrics.roc_auc(actual, [0.1, 0.2, 0.3, 0.8, 0.9]) == pytest.approx(1.0)
+    assert metrics.roc_auc(actual, [0.9, 0.8, 0.3, 0.2, 0.1]) == pytest.approx(0.0)
+    # The riskiest 40% (2 of 5) holds both late invoices.
+    assert metrics.capture_rate(actual, [0.1, 0.2, 0.3, 0.8, 0.9], share=0.4) == pytest.approx(1.0)
+
+
+def test_brier_and_log_loss_punish_confident_mistakes():
+    assert metrics.brier([1, 0], [1.0, 0.0]) == pytest.approx(0.0)
+    assert metrics.brier([1, 0], [0.5, 0.5]) == pytest.approx(0.25)
+    assert metrics.log_loss([1], [0.01]) > metrics.log_loss([1], [0.4])
+
+
+def test_calibration_groups_compare_predicted_and_observed():
+    probability = [0.1] * 5 + [0.9] * 5
+    actual = [0, 0, 0, 0, 1] + [1, 1, 1, 1, 0]
+    groups = metrics.calibration(actual, probability, bins=2)
+    assert [group["count"] for group in groups] == [5, 5]
+    assert groups[0]["observed"] == pytest.approx(0.2)
+    assert groups[1]["predicted"] == pytest.approx(0.9)

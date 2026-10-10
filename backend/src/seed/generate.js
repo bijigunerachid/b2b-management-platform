@@ -392,63 +392,94 @@ function paymentReference(random, method, date) {
     return null;
 }
 
+// How each customer pays. Habits belong to the customer, not to the invoice:
+// some always pay early, some are always a few weeks late, a few are
+// unpredictable, and some slowly get worse (or better) over time. The
+// late-payment model in ml/ has to find these patterns from history alone.
+const PAYER_TYPES = [
+    // [name, weight, mean days after the due date, spread in days, chance of never paying]
+    ["early", 30, -9, 8, 0.001],
+    ["on_time", 35, -3, 9, 0.002],
+    ["slow", 25, 10, 13, 0.006],
+    ["erratic", 10, 5, 24, 0.015]
+];
+const MAX_DRIFT_DAYS = 25;
+// Any invoice can get stuck: a dispute, a lost invoice, a missing purchase order number.
+const DISPUTE_CHANCE = 0.07;
+
+/** A customer's payment habits, the same every time for the same customer key. */
+function payerProfile(customerKey) {
+    const random = createRandom(90210 + Number(customerKey) * 7919);
+    const [type, , mean, spread, neverPays] = random.weighted(PAYER_TYPES.map((entry) => [entry, entry[1]]));
+    // About one customer in six drifts: days later (or earlier) per year.
+    const drift = random.chance(0.17) ? random.weighted([[1, 70], [-1, 30]]) * (12 + random.next() * 18) : 0;
+    return { type, mean, spread, neverPays, drift };
+}
+
+/** Roughly normal noise (sum of uniforms), mean 0, standard deviation ~1. */
+function gaussian(random) {
+    return random.next() + random.next() + random.next() + random.next() - 2;
+}
+
 /**
  * Realistic payment history for orders. Each input order needs status,
- * total_amount (HT), and created_at; `key` is passed through to identify it.
- * Older invoices are mostly settled; recent ones are often still open.
+ * total_amount (HT), created_at, and customer_key (any stable id of the
+ * customer); `key` is passed through to identify it.
+ *
+ * Each invoice is paid around the customer's usual delay, later for large
+ * invoices and in August and December, earlier for small ones. Payments that
+ * would fall after `now` haven't happened yet, so recent invoices stay open
+ * and chronic late payers build up overdue balances.
  */
 function generatePayments(random, orders, now = new Date()) {
     const payments = [];
+    const origin = new Date(2024, 0, 1).getTime();
 
     for (const order of orders) {
         if (order.status === "Cancelled") continue;
 
+        const profile = payerProfile(order.customer_key ?? 0);
         const created = new Date(order.created_at);
         const { total } = invoiceTotals(order.total_amount);
         const due = new Date(created.getTime() + PAYMENT_TERMS_DAYS * DAY_MS);
-        const daysPastDue = (now - due) / DAY_MS;
 
-        // Collection gets more complete with age, as in a healthy business:
-        // almost nothing older than 90 days past due is still open.
-        const outcome =
-            daysPastDue > 90
-                ? random.weighted([["full", 985], ["partial", 10], ["none", 5]])
-                : daysPastDue > 30
-                  ? random.weighted([["full", 88], ["partial", 7], ["none", 5]])
-                  : daysPastDue > 0
-                  ? random.weighted([["full", 80], ["partial", 10], ["none", 10]])
-                  : random.weighted([["full", 28], ["partial", 14], ["none", 58]]);
+        if (random.chance(profile.neverPays)) continue;
 
-        if (outcome === "none") continue;
+        const yearsIn = (created.getTime() - origin) / (365 * DAY_MS);
+        const sizeEffect = Math.max(-4, Math.min(10, 4 * Math.log2(Math.max(total, 100) / 10000)));
+        const month = created.getMonth();
+        const seasonEffect = month === 7 || month === 11 ? 7 : 0; // August holidays, year-end closing
+        const disputeDelay = random.chance(DISPUTE_CHANCE) ? random.int(15, 60) : 0;
+        const driftEffect = Math.max(-MAX_DRIFT_DAYS, Math.min(MAX_DRIFT_DAYS, profile.drift * yearsIn));
+        // Reminders, calls, then a stop on deliveries: almost everyone pays within ~2-3 months of the due date.
+        const collectedBy = 60 + random.int(0, 30);
+        const delayDays = Math.min(
+            collectedBy,
+            profile.mean + driftEffect + sizeEffect + seasonEffect + disputeDelay + gaussian(random) * profile.spread
+        );
 
-        // When the customer paid: usually around the due date, sometimes late.
-        const latest = Math.min(now.getTime(), due.getTime() + random.int(0, 45) * DAY_MS);
-        const earliest = created.getTime() + DAY_MS;
-        const payDate = () => new Date(earliest + random.next() * Math.max(0, latest - earliest));
+        const finalDate = Math.max(created.getTime() + DAY_MS, due.getTime() + delayDays * DAY_MS);
 
-        let amounts;
-        if (outcome === "partial") {
-            amounts = [roundMoney(total * (0.25 + random.next() * 0.45))];
-        } else if (total > 5000 && random.chance(0.25)) {
+        // Big invoices are sometimes paid in two parts, the first one earlier.
+        const installments = total > 5000 && random.chance(0.25);
+        let plan = [[total, finalDate]];
+        if (installments) {
             const first = roundMoney(total * (0.4 + random.next() * 0.2));
-            amounts = [first, roundMoney(total - first)];
-        } else {
-            amounts = [total];
+            const firstDate = created.getTime() + (finalDate - created.getTime()) * (0.3 + random.next() * 0.4);
+            plan = [[first, firstDate], [roundMoney(total - first), finalDate]];
         }
 
-        const dates = amounts.map(payDate).sort((a, b) => a - b);
-
-        amounts.forEach((amount, index) => {
-            if (amount <= 0) return;
+        plan.forEach(([amount, time], index) => {
+            if (amount <= 0 || time > now.getTime()) return;
+            const paidAt = new Date(time);
             const method = random.weighted([["Bank transfer", 68], ["Cheque", 16], ["Card", 10], ["Cash", 6]]);
-            const paidAt = dates[index] > now ? now : dates[index];
             payments.push({
                 key: order.key,
                 amount,
                 method,
                 reference: paymentReference(random, method, paidAt),
                 paid_at: paidAt,
-                note: amounts.length > 1 ? `Installment ${index + 1} of ${amounts.length}` : null
+                note: plan.length > 1 ? `Installment ${index + 1} of ${plan.length}` : null
             });
         });
     }
@@ -467,7 +498,7 @@ function generateDataset({ seed = 2026, customers = 400, products = 350, orders 
     const userList = generateUsers(random, users);
     const paymentList = generatePayments(
         random,
-        orderList.map((order, index) => ({ ...order, key: index })),
+        orderList.map((order, index) => ({ ...order, key: index, customer_key: order.customerIndex })),
         now
     );
 
@@ -485,5 +516,6 @@ module.exports = {
     STATUSES,
     createRandom,
     generateDataset,
-    generatePayments
+    generatePayments,
+    payerProfile
 };

@@ -2,6 +2,7 @@ import { useState } from "react";
 import Button from "../components/ui/Button";
 import { Badge, Card, CardHeader, EmptyState, ErrorState, PageHeader, StatCard, TableHead, Th } from "../components/ui/primitives";
 import { formatDate, number, useResource } from "../lib/api";
+import { dayDate as weekDate, niceMax, pct } from "../lib/ml";
 
 import { t } from "../i18n";
 
@@ -18,24 +19,6 @@ const SERIES = [
   { key: "forecast", label: "Model", color: "var(--series-forecast)" },
   { key: "baseline", label: "Best simple method", color: "var(--series-baseline)" },
 ];
-
-function pct(value, signed = false) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "—";
-  const text = `${Math.abs(value * 100).toFixed(1)}%`;
-  if (!signed) return text;
-  // Isolated left-to-right so the sign stays in front in Arabic.
-  return `\u2066${value > 0 ? "+" : value < 0 ? "−" : ""}${text}\u2069`;
-}
-
-function niceMax(value) {
-  if (value <= 0) return 1;
-  const magnitude = 10 ** Math.floor(Math.log10(value));
-  return [1, 2, 2.5, 5, 10].find((step) => step * magnitude >= value) * magnitude;
-}
-
-function weekDate(week) {
-  return formatDate(`${week}T12:00:00`);
-}
 
 /** Total units per test period: what sold, what the model said, what the best simple method said. */
 function BacktestChart({ periods }) {

@@ -1,21 +1,11 @@
 import { useState } from "react";
 import { formatDate, number, useResource } from "../lib/api";
+import { dayDate as weekDate, niceMax } from "../lib/ml";
 
 import { t } from "../i18n";
 
-function niceMax(value) {
-  if (value <= 0) return 1;
-  const magnitude = 10 ** Math.floor(Math.log10(value));
-  return [1, 2, 2.5, 5, 10].find((step) => step * magnitude >= value) * magnitude;
-}
-
 function round(value) {
   return value >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
-}
-
-// Dates from the API are Mondays (YYYY-MM-DD); noon keeps them on the same day in every time zone.
-function weekDate(week) {
-  return formatDate(`${week}T12:00:00`);
 }
 
 function addWeeks(week, count) {

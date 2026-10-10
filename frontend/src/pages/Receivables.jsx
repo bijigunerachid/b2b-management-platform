@@ -23,8 +23,10 @@ import {
   Th,
 } from "../components/ui/primitives";
 import { RecordPaymentModal } from "../components/PaymentPanel";
+import RiskBadge from "../components/RiskBadge";
 import { can, compactMoney, exportCsv, formatDate, initials, money, number, useResource } from "../lib/api";
 import { AGEING_BUCKETS, paymentBadge } from "../lib/billing";
+import { LIKELY_LATE } from "../lib/ml";
 import useTable from "../lib/useTable";
 
 import { t } from "../i18n";
@@ -42,7 +44,10 @@ const accessors = {
   due: (invoice) => new Date(invoice.billing.due_date).getTime(),
   overdue: (invoice) => invoice.billing.days_overdue,
   balance: (invoice) => invoice.billing.balance,
+  risk: (invoice) => invoice.payment_risk?.probability ?? -1,
 };
+
+const isLikelyLate = (invoice) => (invoice.payment_risk?.probability ?? 0) >= LIKELY_LATE;
 
 function AgeingChart({ buckets, outstanding, selected, onSelect }) {
   const max = Math.max(...AGEING_BUCKETS.map(({ key }) => buckets[key]?.amount ?? 0), 1);
@@ -144,7 +149,7 @@ export default function Receivables() {
     const term = search.trim().toLowerCase().replace(/^#/, "");
     return invoices.filter(
       (invoice) =>
-        (bucket === "all" || invoice.billing.ageing_bucket === bucket) &&
+        (bucket === "all" || (bucket === "likely" ? isLikelyLate(invoice) : invoice.billing.ageing_bucket === bucket)) &&
         (!term || String(invoice.id).includes(term) || invoice.company_name.toLowerCase().includes(term))
     );
   }, [invoices, bucket, search]);
@@ -172,6 +177,7 @@ export default function Receivables() {
     ? Math.round(overdueInvoices.reduce((sum, invoice) => sum + invoice.billing.days_overdue, 0) / overdueInvoices.length)
     : 0;
   const canRecord = can(user, "payments.write");
+  const hasRisk = Boolean(report.risk);
 
   function handleExport() {
     exportCsv(
@@ -186,6 +192,7 @@ export default function Receivables() {
         [t("Paid (MAD)"), (i) => i.billing.amount_paid],
         [t("Balance (MAD)"), (i) => i.billing.balance],
         [t("Status"), (i) => t(i.billing.payment_status)],
+        ...(hasRisk ? [[t("Late risk (%)"), (i) => (i.payment_risk ? Math.round(i.payment_risk.probability * 100) : "")]] : []),
       ],
       table.sorted
     );
@@ -208,7 +215,7 @@ export default function Receivables() {
 
       {error && <ErrorState message={`${error} ${t("Showing the last loaded data.")}`} onRetry={reload} />}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className={`grid gap-4 sm:grid-cols-2 ${hasRisk ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
         <StatCard label={t("Outstanding")} value={compactMoney(report.outstanding)} hint={t("{count} open invoices incl. VAT", { count: number(invoices.length) })} icon="wallet" tone="primary" />
         <StatCard
           label={t("Overdue")}
@@ -220,6 +227,19 @@ export default function Receivables() {
         />
         <StatCard label={t("Overdue invoices")} value={number(report.overdue_count)} hint={t("Past their 30-day terms")} icon="receipt" tone="warning" />
         <StatCard label={t("Average delay")} value={t("{count} days", { count: averageDaysLate })} hint={t("Across overdue invoices")} icon="clock" tone="info" />
+        {hasRisk && (
+          <StatCard
+            label={t("Likely to pay late")}
+            value={compactMoney(report.risk.likely_late_amount)}
+            hint={t("{count} invoices not late yet, flagged by the model", { count: number(report.risk.likely_late_count) })}
+            icon="sparkles"
+            tone="warning"
+            onClick={() => {
+              setBucket("likely");
+              table.setPage(1);
+            }}
+          />
+        )}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-5">
@@ -243,6 +263,7 @@ export default function Receivables() {
             options={[
               { value: "all", label: t("All open"), count: invoices.length },
               ...AGEING_BUCKETS.map(({ key, label }) => ({ value: key, label, count: report.buckets[key]?.count ?? 0 })),
+              ...(hasRisk ? [{ value: "likely", label: t("Likely late"), count: report.risk.likely_late_count }] : []),
             ]}
           />
           <SearchInput
@@ -272,6 +293,7 @@ export default function Receivables() {
                 <SortHeader label={t("Customer")} column="customer" sort={table.sort} onSort={table.toggleSort} />
                 <SortHeader label={t("Due")} column="due" sort={table.sort} onSort={table.toggleSort} />
                 <SortHeader label={t("Status")} column="overdue" sort={table.sort} onSort={table.toggleSort} />
+                {hasRisk && <SortHeader label={t("Late risk")} column="risk" sort={table.sort} onSort={table.toggleSort} />}
                 <Th align="right" className="hidden 2xl:table-cell">{t("Invoice total")}</Th>
                 <SortHeader label={t("Balance")} column="balance" sort={table.sort} onSort={table.toggleSort} align="right" />
                 <Th align="right">{t("Actions")}</Th>
@@ -295,6 +317,11 @@ export default function Receivables() {
                         </Badge>
                         {badge.detail === "Partially paid" && <p className="mt-1 text-xs app-text-muted">{t("Partially paid")}</p>}
                       </td>
+                      {hasRisk && (
+                        <td className="px-5 py-3.5">
+                          {invoice.payment_risk ? <RiskBadge risk={invoice.payment_risk} align="left" /> : <span className="text-xs app-text-muted">—</span>}
+                        </td>
+                      )}
                       <td className="hidden whitespace-nowrap px-5 py-3.5 text-end tabular-nums app-text-secondary 2xl:table-cell">{money(invoice.billing.total_due)}</td>
                       <td className="whitespace-nowrap px-5 py-3.5 text-end font-semibold tabular-nums app-text">{money(invoice.billing.balance)}</td>
                       <td className="px-5 py-3.5">
