@@ -42,6 +42,14 @@ function validateEnv() {
         }
     }
 
+    if (process.env.DEMO_MODE === "true") {
+        const password = process.env.DEMO_PASSWORD ?? "";
+        if (password.length < 10 || !/[a-z]/i.test(password) || !/\d/.test(password)) {
+            throw new Error("DEMO_MODE needs DEMO_PASSWORD: at least 10 characters with a letter and a number. It is shown publicly on the login page.");
+        }
+        console.warn("Demo mode is on: the login page offers shared demo accounts. Never enable it on a real company's data.");
+    }
+
     // The bootstrap credentials are only needed while running createAdmin.
     if (process.env.ADMIN_PASSWORD) {
         console.warn(

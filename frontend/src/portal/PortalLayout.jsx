@@ -14,6 +14,7 @@ import company from "../config/company";
 import { hasDiscount, usePrices } from "../lib/pricing";
 import { CartProvider, useCart } from "./CartContext";
 import HelpAssistant from "../components/HelpAssistant";
+import { DemoBanner } from "../components/Demo";
 
 import { t } from "../i18n";
 const links = [
@@ -171,6 +172,7 @@ function Shell() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--app-bg)" }}>
+      <DemoBanner />
       <header
         className="sticky top-0 z-30 border-b backdrop-blur-md"
         style={{ backgroundColor: "color-mix(in srgb, var(--surface) 88%, transparent)", borderColor: "var(--border-color)" }}

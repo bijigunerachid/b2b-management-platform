@@ -94,6 +94,9 @@ export default [
   "Best sellers", "The same most popular products for everyone",
   "Best simple rule",
 
+  // Demo account descriptions (the staff ones are the role descriptions above)
+  "The client portal: order at their prices, download invoices, answer quotes.",
+
   // Help assistant notices
   "I couldn't find that in the help guide. Try other words, or ask someone on your team.",
   "The AI helper isn't available right now, so here's the matching page of the help guide.",

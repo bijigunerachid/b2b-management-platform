@@ -25,8 +25,21 @@ def _regressor(**options) -> HistGradientBoostingRegressor:
     )
 
 
+def _scale(frame: pd.DataFrame) -> pd.Series:
+    """Each product's usual 4-week sales (26-week average), plus one so new products aren't zero."""
+    return frame["mean_26"] + 1
+
+
 class DemandModel:
-    """Expected units (Poisson loss: counts, unbiased on average) plus 10% and 90% quantiles."""
+    """Expected units plus 10% and 90% quantiles.
+
+    The expected units are learned as a ratio to the product's usual level
+    (Poisson loss, weighted by that level): "this product will sell 1.3x its
+    normal amount". One model then works for best sellers and slow movers
+    alike; predicting raw units let the few best sellers dominate, and the
+    result swung from clearly better to clearly worse than a 13-week average
+    depending on the data.
+    """
 
     def __init__(self):
         self.point = _regressor(loss="poisson")
@@ -35,14 +48,15 @@ class DemandModel:
 
     def fit(self, frame: pd.DataFrame) -> "DemandModel":
         X, y = frame[FEATURES], frame["target"]
-        self.point.fit(X, y)
+        scale = _scale(frame)
+        self.point.fit(X, y / scale, sample_weight=scale)
         self.lower.fit(X, y)
         self.upper.fit(X, y)
         return self
 
     def predict(self, frame: pd.DataFrame) -> pd.DataFrame:
         X = frame[FEATURES]
-        point = np.clip(self.point.predict(X), 0, None)
+        point = np.clip(self.point.predict(X) * _scale(frame).to_numpy(), 0, None)
         lower = np.clip(self.lower.predict(X), 0, None)
         upper = np.clip(self.upper.predict(X), 0, None)
         # Quantile models are fitted separately, so keep the interval around the point.

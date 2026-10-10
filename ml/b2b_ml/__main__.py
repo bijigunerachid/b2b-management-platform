@@ -40,6 +40,7 @@ def report_forecast(result: dict) -> None:
     print(f"vs best baseline ({backtest['best_baseline']}): {backtest['improvement_vs_baseline']:+.1%} lower RMSE")
     model = backtest["methods"]["model"]
     print(f"80% interval coverage: {model['interval_coverage']:.1%}, above upper bound: {model['above_upper']:.1%} (target 10%)")
+    print(f"published: {result['details']['published_method']}")
     print(json.dumps({key: result["details"][key] for key in ("origin_week", "products_scored", "training_rows")}))
 
 

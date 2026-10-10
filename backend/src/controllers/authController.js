@@ -1,5 +1,6 @@
 const pool = require("../config/database");
 const { permissionsFor } = require("../config/permissions");
+const { isDemoMode } = require("../config/demo");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const {
@@ -170,11 +171,12 @@ const getCurrentUser = async (req, res) => {
 };
 
 // Always clears the cookie. When the token is still valid, it also revokes
-// every session for this user, not just this browser's cookie.
+// every session for this user, not just this browser's cookie (except in demo
+// mode, where many visitors share one account).
 const logout = async (req, res) => {
     const token = req.cookies?.token;
 
-    if (token) {
+    if (token && !isDemoMode()) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET, {
                 algorithms: ["HS256"]
