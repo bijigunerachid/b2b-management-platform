@@ -6,10 +6,13 @@ import LanguageMenu from "../components/LanguageMenu";
 import Icon from "../components/ui/Icon";
 import Button from "../components/ui/Button";
 import { InlineAlert } from "../components/ui/primitives";
+import { DemoAccounts } from "../components/Demo";
+import { useDemo } from "../lib/demo";
 
 import { t } from "../i18n";
 export default function Login() {
     const { user, login } = useAuth();
+    const demo = useDemo();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -31,6 +34,16 @@ export default function Login() {
 
     if (user) {
         return <Navigate to={redirectTo} replace />;
+    }
+
+    async function signInAs(demoEmail, demoPassword) {
+        setError("");
+        try {
+            const account = await login(demoEmail, demoPassword);
+            navigate(homeFor(account), { replace: true });
+        } catch (err) {
+            setError(err.message || t("Unable to sign in."));
+        }
     }
 
     async function handleSubmit(event) {
@@ -154,6 +167,8 @@ export default function Login() {
                     </form>
 
                     <p className="mt-6 text-xs app-text-muted">{t("Forgot your password? Ask your administrator to reset it.")}</p>
+
+                    {demo && <DemoAccounts demo={demo} onSignIn={signInAs} />}
                 </div>
             </section>
         </main>

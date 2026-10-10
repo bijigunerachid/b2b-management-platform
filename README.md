@@ -139,19 +139,20 @@ Three models trained on the company's own history help with stock, collections a
 
 Predicts how many units of each product will sell in the next 4 weeks, with an 80% range. Purchasing uses it: a product is suggested for reordering when its stock plus what's on order falls below the expected sales during the supplier's lead time, plus safety stock taken from the upper end of the range. The manual reorder point stays as a minimum. Each product's stock drawer shows its recent weekly sales and the forecast.
 
-- **Model:** gradient-boosted trees (scikit-learn `HistGradientBoostingRegressor`) with a Poisson loss for the expected units, plus two quantile models for the 10% and 90% bounds.
+- **Model:** gradient-boosted trees (scikit-learn `HistGradientBoostingRegressor`). The expected units are learned as a ratio to each product's usual level ("1.3× its normal sales"), so one model works for best sellers and slow movers alike; two quantile models give the 10% and 90% bounds.
 - **Inputs:** each product's recent weekly sales, its 13/26/52-week averages, the same weeks last year, and its category's seasonal pattern pooled across all products in the category (single products sell too rarely to show a season on their own). Price and month are also used.
 - **Testing:** a rolling backtest. For each of the last six 4-week periods, the model is retrained only on data from before that period and compared with what actually sold.
+- **Safety check:** every training run compares the model with the simple methods on those recent weeks. If the model didn't win, the app publishes the best simple method's forecast instead and the Forecast page says so. Reorder suggestions never rest on a forecast that lost its own test.
 
-| Method (1,911 product forecasts) | WAPE | RMSE | Bias |
+| Method (1,952 product forecasts) | WAPE | RMSE | Bias |
 |---|---:|---:|---:|
-| **Model** | **67.8%** | **22.52** | +0.3% |
-| Yearly average × category season | 69.5% | 23.86 | −25.2% |
-| 13-week average | 71.9% | 25.05 | +3.7% |
-| Last 4 weeks again | 76.6% | 27.42 | −2.8% |
-| Same weeks last year | 80.7% | 28.61 | −23.5% |
+| **Model** | 73.6% | **22.36** | +12.0% |
+| 13-week average | 71.6% | 23.12 | +2.2% |
+| Yearly average × category season | 72.6% | 25.14 | −30.9% |
+| Last 4 weeks again | 78.3% | 26.53 | −5.7% |
+| Same weeks last year | 83.1% | 29.50 | −30.1% |
 
-The model has 5.6% lower RMSE than the best simple method and is almost unbiased. I rank by RMSE because the model predicts expected sales, which is what reordering needs. WAPE rewards forecasts that run low when demand is lumpy (more than half of all 4-week windows sell nothing for a given product): the seasonal average comes close on WAPE only by forecasting 25% too little, which would leave the warehouse short. 10.1% of actual sales landed above the upper bound, against a 10% target.
+On this data the model has 3.3% lower RMSE than the 13-week average, and 9.8% of actual sales landed above the upper bound (the target is 10%). It isn't a clear win everywhere: the 13-week average has a slightly better WAPE, and the model forecasts 12% too much on average, which means a little extra stock. I rank by RMSE because the model predicts expected sales, which is what reordering needs; WAPE rewards forecasts that run low when demand is lumpy (more than half of all 4-week windows sell nothing for a given product).
 
 ### Late-payment risk
 
@@ -161,14 +162,14 @@ For every open invoice that isn't late yet, estimates the probability it will be
 - **No leakage:** every input is computed as of the day the invoice was issued. An earlier invoice only counts as late or on time once its own deadline had passed, and a test rewrites later payments to check that nothing earlier changes.
 - **Testing:** for each of the last six complete months, the model is trained only on invoices whose outcome was known at the start of that month, then scores the invoices issued during it.
 
-| Method (1,386 invoices, 36.8% paid late) | Brier score | AUC | Log loss |
+| Method (1,410 invoices, 35.7% paid late) | Brier score | AUC | Log loss |
 |---|---:|---:|---:|
-| **Logistic regression** | **0.1129** | **0.903** | **0.361** |
-| Gradient-boosted trees | 0.1176 | 0.896 | 0.378 |
-| The customer's past late rate | 0.1207 | 0.883 | 0.384 |
-| Same rate for every invoice | 0.2327 | 0.491 | 0.658 |
+| **Logistic regression** | **0.1320** | **0.860** | **0.417** |
+| Gradient-boosted trees | 0.1375 | 0.849 | 0.429 |
+| The customer's past late rate | 0.1359 | 0.847 | 0.427 |
+| Same rate for every invoice | 0.2299 | 0.461 | 0.652 |
 
-The main score is the Brier score, because the app shows probabilities and they should mean what they say: the model's is 6.5% lower than the "how often did this customer pay late before" rule a credit controller would use. Split into five groups by predicted risk, the predicted and actual late rates match within 5 points (for example 21% predicted, 23% late).
+The main score is the Brier score, because the app shows probabilities and they should mean what they say: the model's is 2.8% lower than the "how often did this customer pay late before" rule a credit controller would use. Split into five groups by predicted risk, the predicted and actual late rates match within 4 points (for example 23% predicted, 20% late).
 
 ### Product recommendations
 
@@ -177,19 +178,33 @@ For each customer, up to 10 products they haven't bought yet but are likely to n
 - **Model:** EASE (Steck, 2019), a closed-form linear model that learns how much buying one product says about buying another, blended with the popularity of products in the categories the customer buys from. That part helps customers with a short history.
 - **Testing:** four 60-day periods. For each one, only purchases from before it are used to make 10 suggestions per customer, then the suggestions are compared with what each customer bought for the first time during the period. Products they already reorder don't count, because suggesting those is easy and useless.
 
-| Method (457 customer checks) | Found (recall@10) | At least one hit | NDCG@10 |
+| Method (486 customer checks) | Found (recall@10) | At least one hit | NDCG@10 |
 |---|---:|---:|---:|
-| **EASE + category popularity** | **30.9%** | **45.3%** | **0.205** |
-| EASE alone | 29.2% | 43.3% | 0.199 |
-| Popular in the customer's categories | 26.0% | 38.3% | 0.170 |
-| Best sellers for everyone | 25.7% | 39.2% | 0.166 |
-| Similar products (item-to-item cosine) | 22.4% | 34.1% | 0.151 |
+| **EASE + category popularity** | **34.2%** | **50.6%** | **0.223** |
+| EASE alone | 33.1% | 48.6% | 0.215 |
+| Popular in the customer's categories | 27.0% | 43.0% | 0.180 |
+| Similar products (item-to-item cosine) | 26.5% | 40.7% | 0.183 |
+| Best sellers for everyone | 24.0% | 39.5% | 0.166 |
 
-The model finds 19% more of the products customers went on to buy than the best simple rule, and 45% of customers bought at least one of their 10 suggestions within 60 days. Best sellers are a hard rule to beat here because a few products account for much of the demand.
+The model finds 27% more of the products customers went on to buy than the best simple rule, and half the customers bought at least one of their 10 suggestions within 60 days.
+
+### How stable are these results?
+
+The tables above come from the default demo data (`npm run seed:large`). To see whether they hold up, I regenerated the data with five other seeds and retrained everything. The margin over the best simple rule:
+
+| Seed | Demand forecast (RMSE) | Late-payment risk (Brier) | Recommendations (recall@10) |
+|---|---:|---:|---:|
+| 101 | +9.3% | +5.9% | +16.6% |
+| 202 | +8.3% | +7.1% | +15.9% |
+| 303 | −8.8%, simple method published | +6.3% | +13.2% |
+| 404 | −1.9%, simple method published | +2.9% | +5.0% |
+| 505 | +10.5% | +3.8% | +13.8% |
+
+The risk model and the recommendations beat their simple rules every time. The forecast wins clearly on three seeds out of five and loses on two, where the safety check publishes the simple method instead. Weekly sales of single products are noisy, so that's honest rather than a bug, and it's why the check exists. (The risk and recommendation columns were measured just before I last changed the forecast model; neither depends on it.)
 
 ### What these numbers mean
 
-All three models were tested on generated data, and I built the patterns into the generator: seasons per category, slow trends and an August slowdown for sales; for payments, each customer has habits (early, on time, slow or erratic, some getting worse over time), large invoices and August/December invoices are paid later, and 7% of invoices get stuck in a dispute; for buying, each customer has a line of business (office, IT, logistics, hospitality, facilities) that decides which categories they buy from, they reorder their usual products, and equipment is followed by what it uses (printers by toner, espresso machines by coffee). The results show the pipelines find patterns that are really there. They don't predict how well the models would do on a real company's data. I also chose the model settings on the same test periods, so the margins over the simple rules are slightly optimistic. The demo data is generated relative to today's date, so the exact numbers change a little each time you seed it: over several fresh seeds the forecast beat the best simple method by 4–9% (RMSE), the risk model by 6–7% (Brier score) and the recommendations by 13–19% (recall). The tables above are from one of those runs.
+All three models were tested on generated data, and I built the patterns into the generator: seasons per category, slow trends and an August slowdown for sales; for payments, each customer has habits (early, on time, slow or erratic, some getting worse over time), large invoices and August/December invoices are paid later, and 7% of invoices get stuck in a dispute; for buying, each customer has a line of business (office, IT, logistics, hospitality, facilities) that decides which categories they buy from, they reorder their usual products, and equipment is followed by what it uses (printers by toner, espresso machines by coffee). The results show the pipelines find patterns that are really there. They don't predict how well the models would do on a real company's data. I also chose the model settings while looking at these test periods, so the margins over the simple rules are slightly optimistic. The demo data is generated relative to today's date, so a fresh seed gives slightly different numbers.
 
 ### Training
 
@@ -281,6 +296,7 @@ Other options:
 - `npm run seed:large -- --orders=20000` to change the volumes
 - `npm run seed:large -- --reset` to wipe customers, products, orders and everything linked to them first (your real accounts are kept)
 - `npm run seed:payments`, `seed:quotes`, `seed:purchasing`, `seed:portal`, `seed:returns`, `seed:pricing`, `seed:roles` to add just one part to an existing database. Running them twice is safe.
+- `npm run seed:large -- --seed=101` to generate a different company (the results above use the default seed)
 
 ## Docker
 
@@ -314,12 +330,16 @@ docker compose --profile ml run --rm ml recommend
 
 On a server, a weekly cron entry does it, for example `0 3 * * 1 cd /srv/b2b && docker compose --profile ml run --rm ml forecast`.
 
+## Live demo
+
+The app has a demo mode for a public live demo: the login page offers one-click sign-in as each role and as a portal client, visitors can try everything, changes to passwords and staff accounts are turned off so the shared accounts keep working, and a nightly job resets the data and retrains the three models. [docs/live-demo.md](docs/live-demo.md) explains how to put it on a server, step by step.
+
 ## Tests
 
 ```bash
-cd backend && npm test      # 243 Jest tests (business rules, permissions, audit, security, help search)
+cd backend && npm test      # 254 Jest tests (business rules, permissions, audit, security, help search, demo mode)
 cd frontend && npm run lint
-cd ml && python -m pytest   # 27 tests (no data leakage, metrics, backtests on synthetic data)
+cd ml && python -m pytest   # 28 tests (no data leakage, metrics, backtests on synthetic data)
 cd e2e && npm ci && npx playwright install chromium && npx playwright test
 ```
 
@@ -355,7 +375,7 @@ For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behin
 
 - Server messages in French and Arabic too, picked from the request's `Accept-Language`
 - Emails: send quotes and invoices to clients, and remind them before an invoice falls due
-- A public demo with read-only accounts for each role
+- Put the live demo online (everything is ready: see [docs/live-demo.md](docs/live-demo.md))
 
 ## Author
 

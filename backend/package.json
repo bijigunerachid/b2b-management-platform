@@ -16,7 +16,8 @@
     "seed:portal": "node src/scripts/seedPortal.js",
     "seed:returns": "node src/scripts/seedReturns.js",
     "seed:pricing": "node src/scripts/seedPricing.js",
-    "seed:roles": "node src/scripts/seedRoles.js"
+    "seed:roles": "node src/scripts/seedRoles.js",
+    "demo:reset": "node src/scripts/demoReset.js"
   },
   "keywords": [],
   "author": "",

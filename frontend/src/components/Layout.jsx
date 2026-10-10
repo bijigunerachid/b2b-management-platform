@@ -7,6 +7,7 @@ import { Avatar, Popover } from "./ui/primitives";
 import { useConfirm, useToast } from "./ui/feedback";
 import CommandPalette from "./CommandPalette";
 import HelpAssistant from "./HelpAssistant";
+import { DemoBanner } from "./Demo";
 import LanguageMenu from "./LanguageMenu";
 import NotificationsMenu from "./NotificationsMenu";
 import { PageFallback } from "./PageFallback";
@@ -304,6 +305,7 @@ export default function Layout() {
           collapsed ? "lg:ps-20" : "lg:ps-[var(--sidebar-width)]"
         }`}
       >
+        <DemoBanner />
         <header
           className="sticky top-0 z-30 flex h-[68px] items-center gap-3 border-b px-4 backdrop-blur-md sm:px-6 lg:px-8"
           style={{

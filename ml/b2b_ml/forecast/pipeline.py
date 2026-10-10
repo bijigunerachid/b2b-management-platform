@@ -91,6 +91,12 @@ def backtest(frame: pd.DataFrame, folds: int = BACKTEST_FOLDS, horizon: int = HO
     }
 
 
+def published_method(evaluation: dict) -> str:
+    """"model" if it beat the best simple method on the backtest, else that method's name."""
+    methods, best = evaluation["methods"], evaluation["best_baseline"]
+    return "model" if methods["model"]["rmse"] < methods[best]["rmse"] else best
+
+
 def run(today: pd.Timestamp | None = None, write: bool = True) -> dict:
     """Full job: load, backtest, train on everything, score the next 4 weeks, save."""
     today = pd.Timestamp(today or datetime.now(timezone.utc).replace(tzinfo=None))
@@ -109,6 +115,17 @@ def run(today: pd.Timestamp | None = None, write: bool = True) -> dict:
         current = frame[(frame["week"] == origin) & frame["is_active"]]
         forecast = model.predict(current).assign(product_id=current["product_id"].values)
 
+        # Champion check: only publish the model's numbers if it beat the best
+        # simple method on the recent weeks it was tested on. Otherwise publish
+        # that method's forecast (keeping the model's range around it), so
+        # reorder suggestions never rest on a forecast that lost its own test.
+        published = published_method(evaluation)
+        if published != "model":
+            simple = baselines(current)[published].to_numpy()
+            forecast["units"] = simple
+            forecast["lower"] = np.minimum(forecast["lower"].to_numpy(), simple)
+            forecast["upper"] = np.maximum(forecast["upper"].to_numpy(), simple)
+
         trained_at = datetime.now(timezone.utc).replace(microsecond=0)
         version = trained_at.strftime("%Y%m%d-%H%M%S")
         details = {
@@ -118,7 +135,8 @@ def run(today: pd.Timestamp | None = None, write: bool = True) -> dict:
             "training_rows": int(len(training)),
             "products_scored": int(len(forecast)),
             "features": list(model.point.feature_names_in_),
-            "algorithm": "HistGradientBoostingRegressor (Poisson loss) + 10%/90% quantile models",
+            "algorithm": "HistGradientBoostingRegressor (Poisson loss on sales relative to each product's usual level) + 10%/90% quantile models",
+            "published_method": published,
             "backtest": evaluation,
         }
         result = {"name": MODEL_NAME, "version": version, "trained_at": trained_at.isoformat(), "details": details}
@@ -146,6 +164,7 @@ def save(connection, result: dict, forecast: pd.DataFrame, origin: pd.Timestamp)
         "baseline_bias": baseline["bias"],
         "improvement_vs_baseline": backtest["improvement_vs_baseline"],
         "interval_coverage": summary["interval_coverage"],
+        "published_method": result["details"]["published_method"],
         "above_upper": summary["above_upper"],
     }
     try:

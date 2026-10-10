@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Button from "../components/ui/Button";
-import { Badge, Card, CardHeader, EmptyState, ErrorState, PageHeader, StatCard, TableHead, Th } from "../components/ui/primitives";
+import { Badge, Card, CardHeader, EmptyState, ErrorState, InlineAlert, PageHeader, StatCard, TableHead, Th } from "../components/ui/primitives";
 import { formatDate, number, useResource } from "../lib/api";
 import { dayDate as weekDate, niceMax, pct } from "../lib/ml";
 
@@ -151,9 +151,20 @@ function DemandModel({ model }) {
   const backtest = details.backtest;
   const metrics = model.metrics;
   const best = backtest?.best_baseline ?? metrics.baseline;
+  // Older runs predate the champion check and always published the model.
+  const published = metrics.published_method ?? details.published_method ?? "model";
 
   return (
     <div className="space-y-6">
+      {published === "model" ? (
+        <InlineAlert tone="success">{t("In use: the model. It beat every simple method on the recent weeks it was tested on.")}</InlineAlert>
+      ) : (
+        <InlineAlert tone="warning">
+          {t("In use: {method}. On the recent weeks it was tested on, the model didn't beat this simple method, so reorder suggestions use it until the next training run.", {
+            method: t(METHODS[published]?.label ?? published).toLowerCase(),
+          })}
+        </InlineAlert>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label={t("Error vs best simple method")}
@@ -166,7 +177,15 @@ function DemandModel({ model }) {
         <StatCard
           label={t("Bias")}
           value={pct(metrics.bias, true)}
-          hint={metrics.bias < 0 ? t("Forecasts run slightly low") : t("Forecasts run slightly high")}
+          hint={
+            Math.abs(metrics.bias) < 0.05
+              ? metrics.bias < 0
+                ? t("Forecasts run slightly low")
+                : t("Forecasts run slightly high")
+              : metrics.bias < 0
+                ? t("Forecasts run low on average")
+                : t("Forecasts run high on average")
+          }
           icon="alert"
           tone="info"
         />

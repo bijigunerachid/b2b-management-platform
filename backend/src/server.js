@@ -22,6 +22,7 @@ const reportRoutes = require("./routes/reportRoutes");
 const auditRoutes = require("./routes/auditRoutes");
 const mlRoutes = require("./routes/mlRoutes");
 const assistantRoutes = require("./routes/assistantRoutes");
+const { demoGuard, demoInfo } = require("./config/demo");
 const { auditTrail } = require("./middleware/auditTrail");
 const { inventoryRouter, purchaseOrderRouter, supplierRouter } = require("./routes/purchasingRoutes");
 const { portalRouter, portalUserRouter } = require("./routes/portalRoutes");
@@ -85,7 +86,9 @@ app.get("/api/health", async (req, res) => {
 });
 
 app.use("/api", apiLimiter);
+app.use("/api", demoGuard);
 app.use("/api", auditTrail);
+app.get("/api/demo", demoInfo);
 
 // Health check
 app.get("/", (req, res) => {

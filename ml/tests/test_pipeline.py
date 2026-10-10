@@ -27,3 +27,12 @@ def test_predictions_are_ordered_and_non_negative(panel):
     assert (predicted["lower"] >= 0).all()
     assert (predicted["lower"] <= predicted["units"]).all()
     assert (predicted["units"] <= predicted["upper"]).all()
+
+
+def test_publishes_the_simple_method_when_the_model_loses():
+    from b2b_ml.forecast.pipeline import published_method
+
+    evaluation = {"best_baseline": "moving_average", "methods": {"model": {"rmse": 10.0}, "moving_average": {"rmse": 12.0}}}
+    assert published_method(evaluation) == "model"
+    evaluation["methods"]["model"]["rmse"] = 12.5
+    assert published_method(evaluation) == "moving_average"

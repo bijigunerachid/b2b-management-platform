@@ -34,7 +34,7 @@ It predicts units sold per product over the next 4 weeks, starting from the last
 |---|---|
 | `forecast/data.py` | Daily sales from MySQL turned into one row per product per week, with zero weeks filled in |
 | `forecast/features.py` | Inputs for each product and week, the target (units in the next 4 weeks), and the simple baseline methods |
-| `forecast/model.py` | Expected units (Poisson loss) plus 10% and 90% quantile models |
+| `forecast/model.py` | Expected units, learned as a ratio to each product's usual level (Poisson loss), plus 10% and 90% quantile models |
 | `forecast/pipeline.py` | Backtest, final training, scoring, saving to the database |
 | `metrics.py` | WAPE, MAE, RMSE, bias, interval coverage |
 
@@ -47,6 +47,14 @@ The main score is RMSE. The model predicts the expected number of units, and squ
 For the interval, the number to watch is the share of actual sales above the upper bound (target 10%), because safety stock is sized from it. Overall coverage runs above 80%: for most products the lower bound is 0, and sales can't fall below 0.
 
 `tests/test_features.py` checks for leakage: changing every week after a date must not change any input at or before that date.
+
+### Safety check
+
+Weekly sales of single products are noisy, and on some generated datasets the model loses to a simple method. So every run compares the model with the simple methods on the backtest and publishes the model's forecast only if it had the lowest RMSE. Otherwise it publishes the best simple method's forecast (keeping the model's range around it), records `published_method` with the run, and the Forecast page says which one is in use. Across five seeds the model won three times (by 8–10%) and the simple method twice (see the main README).
+
+### Why a ratio
+
+Predicting raw units let a handful of best sellers dominate the loss, and the margin over the 13-week average swung from −15% to +13% depending on the seed. Learning sales relative to each product's 26-week average (weighted by that average, which keeps the Poisson loss consistent) made it more stable and better on most seeds. It also tends to forecast a little high on average (about +12% bias on the default data), which shows up in the bias column.
 
 ### Tuning
 
