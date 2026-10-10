@@ -13,6 +13,7 @@ import { api, initials, money } from "../lib/api";
 import company from "../config/company";
 import { hasDiscount, usePrices } from "../lib/pricing";
 import { CartProvider, useCart } from "./CartContext";
+import HelpAssistant from "../components/HelpAssistant";
 
 import { t } from "../i18n";
 const links = [
@@ -301,6 +302,7 @@ function Shell() {
       </footer>
 
       <CartDrawer />
+      <HelpAssistant />
     </div>
   );
 }

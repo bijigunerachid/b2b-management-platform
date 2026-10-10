@@ -8,7 +8,7 @@ const SENSITIVE = /pass(word)?|token|secret|cookie/i;
 const MAX_DETAILS = 4000;
 
 // Requests that change nothing even though they are POSTs.
-const READ_ONLY = [/^\/api\/pricing\/preview$/, /^\/api\/portal\/cart\/price$/];
+const READ_ONLY = [/^\/api\/pricing\/preview$/, /^\/api\/portal\/cart\/price$/, /^\/api\/assistant\/ask$/];
 
 const name = (body, key) => (typeof body?.[key] === "string" && body[key].trim() ? body[key].trim() : null);
 const money = (value) => `${Number(value).toFixed(2)} MAD`;

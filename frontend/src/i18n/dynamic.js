@@ -93,4 +93,9 @@ export default [
   "Popular in their categories", "Best sellers in the categories the customer already buys from",
   "Best sellers", "The same most popular products for everyone",
   "Best simple rule",
+
+  // Help assistant notices
+  "I couldn't find that in the help guide. Try other words, or ask someone on your team.",
+  "The AI helper isn't available right now, so here's the matching page of the help guide.",
+  "The AI helper has reached its limit for now, so here's the matching page of the help guide.",
 ];
