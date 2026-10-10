@@ -12,7 +12,7 @@ const {
 } = require("../controllers/productController");
 
 const { protect } = require("../middleware/authMiddleware");
-const { authorize } = require("../middleware/roleMiddleware");
+const { requirePermission } = require("../middleware/roleMiddleware");
 const validate = require("../middleware/validate");
 
 const productRules = require("../validation/productRules");
@@ -22,26 +22,26 @@ router.use(protect);
 
 router.get(
     "/",
-    authorize("Admin", "Manager", "Employee"),
+    requirePermission("products.view"),
     getProducts
 );
 
 router.get(
     "/:id",
-    authorize("Admin", "Manager", "Employee"),
+    requirePermission("products.view"),
     getProductById
 );
 
 router.post(
     "/",
-    authorize("Admin", "Manager"),
+    requirePermission("products.write"),
     validate(productRules),
     createProduct
 );
 
 router.put(
     "/:id",
-    authorize("Admin", "Manager"),
+    requirePermission("products.write"),
     validate(productUpdateRules),
     updateProduct
 );
@@ -49,13 +49,13 @@ router.put(
 // Stock corrections with a reason, recorded in the ledger.
 router.post(
     "/:id/adjustments",
-    authorize("Admin", "Manager"),
+    requirePermission("inventory.adjust"),
     adjustStock
 );
 
 router.delete(
     "/:id",
-    authorize("Admin"),
+    requirePermission("products.delete"),
     deleteProduct
 );
 

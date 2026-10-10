@@ -2,7 +2,8 @@ const jwt = require("jsonwebtoken");
 const pool = require("../config/database");
 const { clearSessionCookie } = require("../config/security");
 
-const STAFF_ROLES = ["Admin", "Manager", "Employee"];
+// Staff roles are defined once, with their permissions, in config/permissions.js.
+const STAFF_ROLES = Object.keys(require("../config/permissions").STAFF_ROLES);
 
 function unauthorized(res, message) {
     clearSessionCookie(res);

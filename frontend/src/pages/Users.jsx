@@ -27,15 +27,71 @@ import {
 import { api, formatDate, initials, isActiveFlag, number, toList, useResource } from "../lib/api";
 import useTable from "../lib/useTable";
 
-const ROLES = [
-    { id: 1, name: "Admin", tone: "danger", icon: "users", description: "Full access, including user management." },
-    { id: 2, name: "Manager", tone: "primary", icon: "customers", description: "Manage customers, products, and orders." },
-    { id: 3, name: "Employee", tone: "neutral", icon: "eye", description: "Read-only access to business data." },
-];
+// Roles and what they may do come from the API (backend/src/config/permissions.js).
+const ROLE_STYLE = {
+    Admin: { tone: "danger", icon: "lock" },
+    Manager: { tone: "primary", icon: "customers" },
+    Accountant: { tone: "success", icon: "wallet" },
+    Warehouse: { tone: "warning", icon: "box" },
+    Employee: { tone: "neutral", icon: "eye" },
+};
 
-const roleByName = Object.fromEntries(ROLES.map((role) => [role.name, role]));
+const emptyForm = { first_name: "", last_name: "", email: "", password: "", role_id: "" };
 
-const emptyForm = { first_name: "", last_name: "", email: "", password: "", role_id: "3" };
+function PermissionMatrix({ roles, permissions }) {
+    const groups = [...new Set(permissions.map((permission) => permission.group))];
+    return (
+        <Card>
+            <div className="border-b p-4 text-sm app-text-secondary" style={{ borderColor: "var(--border-color)" }}>
+                What each role can do. The server checks these on every request; changing them is a code change, reviewed like any other.
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                    <thead>
+                        <tr style={{ backgroundColor: "var(--surface-muted)" }}>
+                            <th scope="col" className="px-5 py-3 text-xs font-semibold uppercase tracking-wide app-text-muted">Permission</th>
+                            {roles.map((role) => (
+                                <th key={role.id} scope="col" className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide app-text-muted">
+                                    {role.name}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    {groups.map((group) => (
+                        <tbody key={group}>
+                            <tr className="border-t" style={{ borderColor: "var(--border-color)" }}>
+                                <th scope="rowgroup" colSpan={roles.length + 1} className="px-5 pb-1.5 pt-4 text-xs font-bold app-text">
+                                    {group}
+                                </th>
+                            </tr>
+                            {permissions
+                                .filter((permission) => permission.group === group)
+                                .map((permission) => (
+                                    <tr key={permission.key} className="border-t" style={{ borderColor: "var(--border-color)" }}>
+                                        <th scope="row" className="px-5 py-2.5 font-normal app-text-secondary">
+                                            {permission.label}
+                                        </th>
+                                        {roles.map((role) => {
+                                            const allowed = role.permissions.includes(permission.key);
+                                            return (
+                                                <td key={role.id} className="px-3 py-2.5 text-center">
+                                                    {allowed ? (
+                                                        <Icon name="check" size={16} strokeWidth={2.4} className="mx-auto" style={{ color: "var(--success)" }} aria-label="Allowed" />
+                                                    ) : (
+                                                        <span className="app-text-muted" aria-label="Not allowed">–</span>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                        </tbody>
+                    ))}
+                </table>
+            </div>
+        </Card>
+    );
+}
 
 const accessors = {
     name: (user) => `${user.first_name} ${user.last_name}`,
@@ -74,6 +130,13 @@ export default function Users() {
 
     const { data, loading, error, reload } = useResource("/users");
     const users = useMemo(() => toList(data, "users"), [data]);
+    const rolesResource = useResource("/users/roles");
+    const ROLES = useMemo(
+        () => (rolesResource.data?.data?.roles ?? []).map((role) => ({ ...role, ...(ROLE_STYLE[role.name] ?? ROLE_STYLE.Employee) })),
+        [rolesResource.data]
+    );
+    const roleByName = useMemo(() => Object.fromEntries(ROLES.map((role) => [role.name, role])), [ROLES]);
+    const [tab, setTab] = useState("people");
 
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState("All");
@@ -102,7 +165,7 @@ export default function Users() {
 
     function openCreate() {
         setEditing(null);
-        setForm(emptyForm);
+        setForm({ ...emptyForm, role_id: String(roleByName.Employee?.id ?? "") });
         setShowPassword(false);
         setFormError("");
         setFormOpen(true);
@@ -115,7 +178,7 @@ export default function Users() {
             last_name: user.last_name ?? "",
             email: user.email ?? "",
             password: "",
-            role_id: String(user.role_id ?? roleByName[user.role]?.id ?? 3),
+            role_id: String(user.role_id ?? roleByName[user.role]?.id ?? ""),
         });
         setShowPassword(false);
         setFormError("");
@@ -150,7 +213,7 @@ export default function Users() {
             ...(form.password ? { password: form.password } : {}),
         };
 
-        if (isEditing && editing.id === currentUser?.id && payload.role_id !== 1) {
+        if (isEditing && editing.id === currentUser?.id && payload.role_id !== roleByName.Admin?.id) {
             const confirmed = await confirm({
                 title: "Remove your own admin access?",
                 message: "You will lose access to user management as soon as you save. Another admin would need to restore it.",
@@ -220,137 +283,150 @@ export default function Users() {
                 }
             />
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard label="Team members" value={number(users.length)} hint={`${number(activeCount)} active`} icon="customers" loading={loading && !data} />
-                {ROLES.map((role) => (
-                    <StatCard
-                        key={role.name}
-                        label={`${role.name}s`}
-                        value={number(roleCounts[role.name])}
-                        hint={role.description}
-                        icon={role.icon}
-                        tone={role.tone === "neutral" ? "info" : role.tone}
-                        loading={loading && !data}
-                        onClick={() => setRoleFilter(role.name)}
-                    />
-                ))}
+            <div className="grid gap-4 sm:grid-cols-3">
+                <StatCard label="Team members" value={number(users.length)} icon="customers" loading={loading && !data} />
+                <StatCard label="Active" value={number(activeCount)} icon="checkCircle" tone="success" loading={loading && !data} />
+                <StatCard label="Roles" value={number(ROLES.length)} hint={ROLES.map((role) => role.name).join(", ")} icon="lock" tone="info" loading={rolesResource.loading && !rolesResource.data} onClick={() => setTab("roles")} />
             </div>
 
-            {error && <ErrorState message={error} onRetry={reload} />}
+            <SegmentedControl
+                label="Users or roles"
+                value={tab}
+                onChange={setTab}
+                options={[
+                    { value: "people", label: "People", count: users.length },
+                    { value: "roles", label: "Roles & permissions" },
+                ]}
+            />
 
-            <Card>
-                <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center" style={{ borderColor: "var(--border-color)" }}>
-                    <SearchInput
-                        value={search}
-                        onChange={(value) => {
-                            setSearch(value);
-                            table.setPage(1);
-                        }}
-                        placeholder="Search name or email..."
-                        className="lg:w-80"
-                    />
-                    <SegmentedControl
-                        label="Filter by role"
-                        value={roleFilter}
-                        onChange={(value) => {
-                            setRoleFilter(value);
-                            table.setPage(1);
-                        }}
-                        options={[
-                            { value: "All", label: "All", count: users.length },
-                            ...ROLES.map((role) => ({ value: role.name, label: role.name, count: roleCounts[role.name] })),
-                        ]}
-                    />
-                    <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={`lg:ml-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
-                </div>
-
-                {loading && !data ? (
-                    <TableSkeleton columns={5} />
-                ) : filtered.length === 0 ? (
-                    <EmptyState
-                        icon="search"
-                        title="No matching users"
-                        description="Try another name, email, or role."
-                        action={
-                            <Button
-                                onClick={() => {
-                                    setSearch("");
-                                    setRoleFilter("All");
-                                }}
-                            >
-                                Clear filters
-                            </Button>
-                        }
-                    />
+            {tab === "roles" ? (
+                rolesResource.error ? (
+                    <ErrorState message={rolesResource.error} onRetry={rolesResource.reload} />
+                ) : !rolesResource.data ? (
+                    <TableSkeleton columns={6} />
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[760px] text-left text-sm">
-                            <TableHead>
-                                <SortHeader label="User" column="name" sort={table.sort} onSort={table.toggleSort} />
-                                <SortHeader label="Role" column="role" sort={table.sort} onSort={table.toggleSort} />
-                                <SortHeader label="Joined" column="created" sort={table.sort} onSort={table.toggleSort} />
-                                <SortHeader label="Active" column="status" sort={table.sort} onSort={table.toggleSort} />
-                                <Th align="right">Actions</Th>
-                            </TableHead>
-                            <tbody>
-                                {table.rows.map((user) => {
-                                    const active = isActiveFlag(user.is_active);
-                                    const isSelf = user.id === currentUser?.id;
-                                    const role = roleByName[user.role];
+                    <PermissionMatrix roles={ROLES} permissions={rolesResource.data.data.permissions} />
+                )
+            ) : (
+            <>
 
-                                    return (
-                                        <tr key={user.id} className="border-t transition-colors hover:bg-[var(--surface-hover)]" style={{ borderColor: "var(--border-color)" }}>
-                                            <td className="px-5 py-3.5">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="relative">
-                                                        <Avatar label={initials(user.first_name, user.last_name)} seed={user.id} rounded="rounded-full" />
-                                                        <span
-                                                            className="absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-[var(--surface)]"
-                                                            style={{ backgroundColor: active ? "var(--success)" : "var(--text-muted)" }}
-                                                            title={active ? "Active" : "Inactive"}
-                                                        />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className={`flex items-center gap-2 font-semibold ${active ? "app-text" : "app-text-muted"}`}>
-                                                            {user.first_name} {user.last_name}
-                                                            {isSelf && <Badge tone="primary" className="!px-2 !py-0 text-[10px]">You</Badge>}
-                                                        </p>
-                                                        <p className="truncate text-xs app-text-muted">{user.email}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-3.5">
-                                                <Badge tone={role?.tone} icon={role?.icon}>
-                                                    {user.role}
-                                                </Badge>
-                                            </td>
-                                            <td className="whitespace-nowrap px-5 py-3.5 app-text-secondary">{formatDate(user.created_at)}</td>
-                                            <td className="px-5 py-3.5">
-                                                <Switch
-                                                    size="sm"
-                                                    checked={active}
-                                                    disabled={isSelf || togglingId === user.id}
-                                                    onChange={(next) => toggleStatus(user, next)}
-                                                    label={isSelf ? "You can't deactivate your own account" : active ? `Deactivate ${user.first_name}` : `Activate ${user.first_name}`}
-                                                />
-                                            </td>
-                                            <td className="px-5 py-3.5">
-                                                <div className="flex justify-end">
-                                                    <IconAction icon="edit" label={`Edit ${user.first_name}`} onClick={() => openEdit(user)} />
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                {error && <ErrorState message={error} onRetry={reload} />}
+
+                <Card>
+                    <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center" style={{ borderColor: "var(--border-color)" }}>
+                        <SearchInput
+                            value={search}
+                            onChange={(value) => {
+                                setSearch(value);
+                                table.setPage(1);
+                            }}
+                            placeholder="Search name or email..."
+                            className="lg:w-80"
+                        />
+                        <SegmentedControl
+                            label="Filter by role"
+                            value={roleFilter}
+                            onChange={(value) => {
+                                setRoleFilter(value);
+                                table.setPage(1);
+                            }}
+                            options={[
+                                { value: "All", label: "All", count: users.length },
+                                ...ROLES.map((role) => ({ value: role.name, label: role.name, count: roleCounts[role.name] })),
+                            ]}
+                        />
+                        <Button size="icon" variant="ghost" icon="refresh" onClick={reload} aria-label="Refresh" title="Refresh" className={`lg:ml-auto ${loading ? "[&_svg]:animate-spin" : ""}`} />
                     </div>
-                )}
 
-                {filtered.length > 0 && (
-                    <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label="users" />
-                )}
-            </Card>
+                    {loading && !data ? (
+                        <TableSkeleton columns={5} />
+                    ) : filtered.length === 0 ? (
+                        <EmptyState
+                            icon="search"
+                            title="No matching users"
+                            description="Try another name, email, or role."
+                            action={
+                                <Button
+                                    onClick={() => {
+                                        setSearch("");
+                                        setRoleFilter("All");
+                                    }}
+                                >
+                                    Clear filters
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[760px] text-left text-sm">
+                                <TableHead>
+                                    <SortHeader label="User" column="name" sort={table.sort} onSort={table.toggleSort} />
+                                    <SortHeader label="Role" column="role" sort={table.sort} onSort={table.toggleSort} />
+                                    <SortHeader label="Joined" column="created" sort={table.sort} onSort={table.toggleSort} />
+                                    <SortHeader label="Active" column="status" sort={table.sort} onSort={table.toggleSort} />
+                                    <Th align="right">Actions</Th>
+                                </TableHead>
+                                <tbody>
+                                    {table.rows.map((user) => {
+                                        const active = isActiveFlag(user.is_active);
+                                        const isSelf = user.id === currentUser?.id;
+                                        const role = roleByName[user.role];
+
+                                        return (
+                                            <tr key={user.id} className="border-t transition-colors hover:bg-[var(--surface-hover)]" style={{ borderColor: "var(--border-color)" }}>
+                                                <td className="px-5 py-3.5">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="relative">
+                                                            <Avatar label={initials(user.first_name, user.last_name)} seed={user.id} rounded="rounded-full" />
+                                                            <span
+                                                                className="absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-[var(--surface)]"
+                                                                style={{ backgroundColor: active ? "var(--success)" : "var(--text-muted)" }}
+                                                                title={active ? "Active" : "Inactive"}
+                                                            />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className={`flex items-center gap-2 font-semibold ${active ? "app-text" : "app-text-muted"}`}>
+                                                                {user.first_name} {user.last_name}
+                                                                {isSelf && <Badge tone="primary" className="!px-2 !py-0 text-[10px]">You</Badge>}
+                                                            </p>
+                                                            <p className="truncate text-xs app-text-muted">{user.email}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-5 py-3.5">
+                                                    <Badge tone={role?.tone} icon={role?.icon}>
+                                                        {user.role}
+                                                    </Badge>
+                                                </td>
+                                                <td className="whitespace-nowrap px-5 py-3.5 app-text-secondary">{formatDate(user.created_at)}</td>
+                                                <td className="px-5 py-3.5">
+                                                    <Switch
+                                                        size="sm"
+                                                        checked={active}
+                                                        disabled={isSelf || togglingId === user.id}
+                                                        onChange={(next) => toggleStatus(user, next)}
+                                                        label={isSelf ? "You can't deactivate your own account" : active ? `Deactivate ${user.first_name}` : `Activate ${user.first_name}`}
+                                                    />
+                                                </td>
+                                                <td className="px-5 py-3.5">
+                                                    <div className="flex justify-end">
+                                                        <IconAction icon="edit" label={`Edit ${user.first_name}`} onClick={() => openEdit(user)} />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {filtered.length > 0 && (
+                        <Pagination page={table.page} totalPages={table.totalPages} total={table.total} pageSize={table.pageSize} onPageChange={table.setPage} label="users" />
+                    )}
+                </Card>
+            </>
+            )}
 
             <Modal
                 open={formOpen}
@@ -390,7 +466,7 @@ export default function Users() {
                         <legend className="mb-2 text-sm font-medium app-text">
                             Role <span style={{ color: "var(--danger)" }}>*</span>
                         </legend>
-                        <div className="grid gap-2 sm:grid-cols-3">
+                        <div className="grid gap-2 sm:grid-cols-2">
                             {ROLES.map((role) => {
                                 const selected = form.role_id === String(role.id);
                                 return (

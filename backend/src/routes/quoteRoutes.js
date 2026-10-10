@@ -14,10 +14,10 @@ const {
     updateQuote
 } = require("../controllers/quoteController");
 const { protect } = require("../middleware/authMiddleware");
-const { authorize } = require("../middleware/roleMiddleware");
+const { requirePermission } = require("../middleware/roleMiddleware");
 
-const read = authorize("Admin", "Manager", "Employee");
-const write = authorize("Admin", "Manager");
+const read = requirePermission("quotes.view");
+const write = requirePermission("quotes.write");
 
 router.use(protect);
 

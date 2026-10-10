@@ -3,8 +3,10 @@ import { useAuth } from "../context/AuthContext";
 import Icon from "./ui/Icon";
 import { Spinner } from "./ui/Button";
 import { EmptyState } from "./ui/primitives";
+import { can } from "../lib/api";
 
-export default function ProtectedRoute({ roles, area = "staff" }) {
+// With children it guards just that page; without, it guards the nested routes.
+export default function ProtectedRoute({ permission, area = "staff", children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -33,15 +35,15 @@ export default function ProtectedRoute({ roles, area = "staff" }) {
   if (area === "staff" && isClient) return <Navigate to="/portal" replace />;
   if (area === "portal" && !isClient) return <Navigate to="/" replace />;
 
-  if (roles && !roles.includes(user.role)) {
+  if (permission && !can(user, permission)) {
     return (
       <EmptyState
         icon="lock"
         title="You don't have access to this page"
-        description={`This area is restricted to ${roles.join(", ")} accounts. Ask an administrator if you need access.`}
+        description={`Your role (${user.role}) can't open it. Ask an administrator if you need access.`}
       />
     );
   }
 
-  return <Outlet />;
+  return children ?? <Outlet />;
 }

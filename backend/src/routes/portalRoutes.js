@@ -1,7 +1,7 @@
 const express = require("express");
 
 const { protect, protectCustomer } = require("../middleware/authMiddleware");
-const { authorize } = require("../middleware/roleMiddleware");
+const { requirePermission } = require("../middleware/roleMiddleware");
 const validate = require("../middleware/validate");
 const portal = require("../controllers/portalController");
 const access = require("../controllers/portalAccessController");
@@ -30,8 +30,8 @@ const inviteRules = [
 
 // Mounted inside the customers router (already authenticated as staff).
 function mountCustomerAccessRoutes(customerRouter) {
-    customerRouter.get("/:id/portal-users", authorize("Admin", "Manager", "Employee"), access.listPortalUsers);
-    customerRouter.post("/:id/portal-users", authorize("Admin", "Manager"), validate(inviteRules), access.invitePortalUser);
+    customerRouter.get("/:id/portal-users", requirePermission("customers.view"), access.listPortalUsers);
+    customerRouter.post("/:id/portal-users", requirePermission("portal.manage"), validate(inviteRules), access.invitePortalUser);
 }
 
 /* /api/portal-users/:id/status */
@@ -39,7 +39,7 @@ const portalUserRouter = express.Router();
 portalUserRouter.use(protect);
 portalUserRouter.patch(
     "/:id/status",
-    authorize("Admin", "Manager"),
+    requirePermission("portal.manage"),
     validate([{ field: "is_active", required: true, oneOf: [true, false] }]),
     access.setPortalUserStatus
 );

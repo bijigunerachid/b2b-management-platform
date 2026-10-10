@@ -1,5 +1,8 @@
 
 const pool = require("../config/database");
+const { can } = require("../config/permissions");
+const { recordChanges } = require("../middleware/auditTrail");
+const { diff } = require("../audit/describe");
 const { ADJUSTMENT_REASONS, InventoryError, recordMovement } = require("../services/inventory");
 
 /** Validates optional reorder_point / supplier_id; returns an error message or null. */
@@ -123,7 +126,7 @@ const getProducts = async (req, res, next) => {
         return res.status(200).json({
             success: true,
             // Costs are management information.
-            data: req.user.role === "Employee" ? products.map((product) => ({ ...product, average_cost: undefined })) : products,
+            data: can(req.user, "costs.view") ? products : products.map((product) => ({ ...product, average_cost: undefined })),
             pagination: {
                 page,
                 limit,
@@ -165,7 +168,7 @@ const getProductById = async (req, res) => {
 
         res.json({
             success: true,
-            data: req.user.role === "Employee" ? { ...products[0], average_cost: undefined } : products[0]
+            data: can(req.user, "costs.view") ? products[0] : { ...products[0], average_cost: undefined }
         });
     } catch (error) {
         console.error(error);
@@ -365,7 +368,7 @@ const updateProduct = async (req, res) => {
         await connection.beginTransaction();
 
         const [existing] = await connection.query(
-            "SELECT id, stock, supplier_id FROM products WHERE id = ? FOR UPDATE",
+            "SELECT id, name, description, price, category_id, is_active, reorder_point, supplier_id, average_cost, stock FROM products WHERE id = ? FOR UPDATE",
             [id]
         );
 
@@ -400,6 +403,17 @@ const updateProduct = async (req, res) => {
                 id
             ]
         );
+
+        recordChanges(req, diff(existing[0], {
+            name: name.trim(),
+            description: description || null,
+            price: parsedPrice,
+            category_id: parsedCategoryId,
+            is_active: is_active === undefined ? existing[0].is_active : Number(is_active),
+            reorder_point: reorder_point ?? existing[0].reorder_point,
+            supplier_id: supplier_id === undefined ? existing[0].supplier_id : supplier_id,
+            average_cost: req.body.average_cost === undefined ? existing[0].average_cost : req.body.average_cost
+        }, ["name", "description", "price", "category_id", "is_active", "reorder_point", "supplier_id", "average_cost"]));
 
         const delta = stock === undefined ? 0 : Number(stock) - Number(existing[0].stock);
 
@@ -464,6 +478,7 @@ const adjustStock = async (req, res) => {
         });
 
         await connection.commit();
+        recordChanges(req, [{ field: "stock", from: balance - quantity, to: balance }]);
         return res.status(201).json({ success: true, message: "Stock adjusted", data: { stock: balance } });
     } catch (error) {
         if (connection) await connection.rollback().catch(() => {});

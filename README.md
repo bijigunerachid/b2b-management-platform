@@ -19,11 +19,11 @@ On the staff side you can:
 - take back goods from a delivered order: the credit note lowers what the client owes (or records a refund if they already paid), and items in good condition go back into stock
 - track stock through a ledger: every sale, cancellation, delivery and correction is a separate entry with the resulting balance
 - order from suppliers, receive deliveries into stock, and get reorder suggestions based on recent sales
-- see sales and gross margin by month, product, customer and category for any date range, compared with the period before, and export each table to CSV. Every order line stores what the goods cost when they were sold (a weighted average updated on each delivery), so margins stay correct when costs change. Only Admins and Managers see costs and reports
+- see sales and gross margin by month, product, customer and category for any date range, compared with the period before, and export each table to CSV. Every order line stores what the goods cost when they were sold (a weighted average updated on each delivery), so margins stay correct when costs change. Costs and reports are only visible to roles allowed to see them
 
 Clients get their own login. They can browse the catalog at their own prices, place orders, download their invoices and credit notes, and accept or decline the quotes you send them. They only ever see their own company's data.
 
-There are four roles: Admin, Manager, Employee (read-only on most things) and Customer (portal only).
+Staff accounts have one of five roles: Admin, Manager, Accountant (payments, returns, reports, read-only elsewhere), Warehouse (stock, deliveries and moving orders along, no money) and Employee (read-only). Clients use the portal. Every change and every sign-in attempt goes into an audit log with who did it, when, and the old and new values of edited fields. Orders and customers show their own history.
 
 ## Screenshots
 
@@ -78,6 +78,8 @@ A few things I spent time on:
 - Totals are added up in cents, and VAT is calculated once per invoice the same way on the server and on the printed document. Statuses like "overdue" or "expired" are worked out from the dates each time instead of being stored, so they can't get out of date.
 - The default auth middleware only lets staff through, so every internal route rejects portal accounts without me having to remember it route by route. Portal queries always filter by the company stored in the session.
 - Logging out, changing a password or role, or being deactivated invalidates every session that user has, not just the current cookie.
+- Permissions are one table in `backend/src/config/permissions.js`. Routes check permissions (`requirePermission("orders.fulfil")`), never role names, and the signed-in user's list is sent to the frontend, so the menus and buttons can't disagree with the server.
+- The audit log is written by one middleware after a change succeeds, so a new endpoint is logged even if I forget about it. Controllers only add the old/new values. Passwords and tokens are stripped before anything is stored, and the API has no way to edit or delete entries.
 
 The billing, quote and purchasing rules live in plain modules with no database code, which made them easy to unit test.
 
@@ -140,7 +142,7 @@ Other options:
 
 - `npm run seed:large -- --orders=20000` to change the volumes
 - `npm run seed:large -- --reset` to wipe customers, products, orders and everything linked to them first (your real accounts are kept)
-- `npm run seed:payments`, `seed:quotes`, `seed:purchasing`, `seed:portal`, `seed:returns`, `seed:pricing` to add just one part to an existing database. Running them twice is safe.
+- `npm run seed:payments`, `seed:quotes`, `seed:purchasing`, `seed:portal`, `seed:returns`, `seed:pricing`, `seed:roles` to add just one part to an existing database. Running them twice is safe.
 
 ## Docker
 
@@ -180,6 +182,7 @@ GitHub Actions runs both on every push and pull request, along with `npm audit` 
 - The session is a JWT in an HttpOnly cookie that expires after an hour.
 - Write requests from other origins are rejected (CSRF), and nginx sends a strict Content Security Policy.
 - All SQL is parameterized, and request bodies are validated and size-limited.
+- Failed sign-ins are recorded in the audit log with the email that was tried.
 
 For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behind a proxy, `TRUST_PROXY`.
 

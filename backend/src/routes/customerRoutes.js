@@ -11,22 +11,22 @@ const {
 } = require("../controllers/customerController");
 
 const { protect } = require("../middleware/authMiddleware");
-const { authorize } = require("../middleware/roleMiddleware");
+const { requirePermission } = require("../middleware/roleMiddleware");
 
 const customerRules = require("../validation/customerRules");
 // All routes require authentication
 router.use(protect);
 
 // Read: Admin, Manager, Employee
-router.get("/", authorize("Admin", "Manager", "Employee"), getCustomers);
-router.get("/:id", authorize("Admin", "Manager", "Employee"), getCustomerById);
+router.get("/", requirePermission("customers.view"), getCustomers);
+router.get("/:id", requirePermission("customers.view"), getCustomerById);
 
 // Create and update: Admin, Manager
-router.post("/", authorize("Admin", "Manager"), validate(customerRules), createCustomer);
-router.put("/:id", authorize("Admin", "Manager"), validate(customerRules), updateCustomer);
+router.post("/", requirePermission("customers.write"), validate(customerRules), createCustomer);
+router.put("/:id", requirePermission("customers.write"), validate(customerRules), updateCustomer);
 
 // Delete: Admin only
-router.delete("/:id", authorize("Admin"), deleteCustomer);
+router.delete("/:id", requirePermission("customers.delete"), deleteCustomer);
 
 // Portal access for this customer's contacts.
 require("./portalRoutes").mountCustomerAccessRoutes(router);

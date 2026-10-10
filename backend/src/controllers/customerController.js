@@ -1,5 +1,7 @@
 
 const pool = require("../config/database");
+const { recordChanges } = require("../middleware/auditTrail");
+const { diff } = require("../audit/describe");
 
 // GET /api/customers
 const getCustomers = async (req, res) => {
@@ -152,6 +154,8 @@ const updateCustomer = async (req, res) => {
             });
         }
 
+        const [before] = await pool.query("SELECT * FROM customers WHERE id = ?", [id]);
+
         const [result] = await pool.query(
             `UPDATE customers
              SET company_name = ?,
@@ -180,6 +184,9 @@ const updateCustomer = async (req, res) => {
                 message: "Customer not found"
             });
         }
+
+        recordChanges(req, diff(before[0], { company_name: company_name.trim(), contact_name, email, phone, address, city, country: country || "Morocco" },
+            ["company_name", "contact_name", "email", "phone", "address", "city", "country"]));
 
         res.json({
             success: true,

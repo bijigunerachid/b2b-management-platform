@@ -1,9 +1,12 @@
 
 const pool = require("../config/database");
+const { recordChanges } = require("../middleware/auditTrail");
+const { diff } = require("../audit/describe");
 const { withBilling } = require("../billing/billing");
 const { ORDER_BILLING_COLUMNS, BILLING_JOINS } = require("../billing/queries");
 const { OrderPlacementError, placeOrder } = require("../services/orderPlacement");
 const { recordMovement } = require("../services/inventory");
+const { can } = require("../config/permissions");
 
 // GET /api/orders
 const getOrders = async (req, res) => {
@@ -263,6 +266,14 @@ const updateOrderStatus = async (req, res) => {
             });
         }
 
+        // The route allows fulfilment; cancelling also needs orders.write.
+        if (status === "Cancelled" && !can(req.user, "orders.write")) {
+            return res.status(403).json({
+                success: false,
+                message: "You do not have permission to cancel orders."
+            });
+        }
+
         connection = await pool.getConnection();
 
         await connection.beginTransaction();
@@ -362,6 +373,8 @@ const updateOrderStatus = async (req, res) => {
 
         await connection.commit();
         transactionStarted = false;
+
+        recordChanges(req, [{ field: "status", from: currentStatus, to: status }]);
 
         return res.json({
             success: true,

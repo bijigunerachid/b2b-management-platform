@@ -196,27 +196,9 @@ export function exportCsv(filename, columns, rows) {
   URL.revokeObjectURL(url);
 }
 
-const permissions = {
-  "customers.write": ["Admin", "Manager"],
-  "customers.delete": ["Admin"],
-  "products.write": ["Admin", "Manager"],
-  "products.delete": ["Admin"],
-  "categories.write": ["Admin", "Manager"],
-  "categories.delete": ["Admin"],
-  "orders.write": ["Admin", "Manager"],
-  "payments.write": ["Admin", "Manager"],
-  "returns.write": ["Admin", "Manager"],
-  "pricing.write": ["Admin", "Manager"],
-  "quotes.write": ["Admin", "Manager"],
-  "purchasing.write": ["Admin", "Manager"],
-  "inventory.adjust": ["Admin", "Manager"],
-  "suppliers.delete": ["Admin"],
-  "payments.void": ["Admin"],
-  "users.manage": ["Admin"],
-};
-
+// The server sends each user's permissions (backend/src/config/permissions.js).
 export function can(user, permission) {
-  return Boolean(user && permissions[permission]?.includes(user.role));
+  return Boolean(user?.permissions?.includes(permission));
 }
 
 // The API returns at most 100 products per page, so pickers load every page.

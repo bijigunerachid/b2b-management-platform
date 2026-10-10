@@ -30,7 +30,7 @@ export default function Suppliers() {
   const toast = useToast();
   const confirm = useConfirm();
   const [params, setParams] = useSearchParams();
-  const canWrite = can(user, "purchasing.write");
+  const canWrite = can(user, "suppliers.write");
   const canDelete = can(user, "suppliers.delete");
 
   const { data, loading, error, reload } = useResource("/suppliers");

@@ -97,7 +97,7 @@ export default function CommandPalette({ open, onClose, user, links, onLogout })
         label: "Create new order",
         run: go("/orders?new=1"),
       },
-      can(user, "categories.write") && {
+      can(user, "products.write") && {
         id: "new-category",
         icon: "categories",
         label: "Add new category",
