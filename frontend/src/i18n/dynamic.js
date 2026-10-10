@@ -74,4 +74,14 @@ export default [
   "Same weeks last year", "What sold in these weeks a year ago",
   "Yearly average × season", "The product's yearly average, scaled by its category's season",
   "Actual sales", "Model", "Best simple method",
+
+  // Payment risk: navigation, methods, inputs, levels and chart series
+  "Payment risk",
+  "Logistic regression", "Six inputs: payment history, recent delays, overdue invoices, invoice size, month, new customer",
+  "Gradient-boosted trees", "Every feature, more flexible: tried, and slightly worse on these tests",
+  "Customer's late rate", "How often this customer paid late before",
+  "Overall late rate", "The same probability for every invoice",
+  "Past late payments", "Recent payment delays", "Invoices already overdue", "Invoice size", "August or December", "New customer",
+  "Likely late", "Some risk", "Likely on time",
+  "Predicted", "Actually late",
 ];

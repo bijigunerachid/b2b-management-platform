@@ -15,10 +15,10 @@ On the staff side you can:
 - prepare quotes with negotiated prices, send them, and turn accepted ones into orders (the order keeps the quoted prices)
 - set prices per customer: price lists (Gold, −6%), volume discounts from a quantity, and fixed contract prices. Orders, quotes and the client portal all get the same price from one function, and each order line keeps the catalog price and the rule that was applied, so the invoice shows the discount
 - follow orders from pending to completed and print A4 invoices
-- record payments, including partial ones, and see who owes what in a receivables report grouped by how late it is
+- record payments, including partial ones, and see who owes what in a receivables report grouped by how late it is, with a model's estimate of which invoices will be paid late and why
 - take back goods from a delivered order: the credit note lowers what the client owes (or records a refund if they already paid), and items in good condition go back into stock
 - track stock through a ledger: every sale, cancellation, delivery and correction is a separate entry with the resulting balance
-- order from suppliers, receive deliveries into stock, and get reorder suggestions sized from a demand forecast (see [Demand forecast](#demand-forecast-machine-learning))
+- order from suppliers, receive deliveries into stock, and get reorder suggestions sized from a demand forecast (see [Machine learning](#machine-learning))
 - see sales and gross margin by month, product, customer and category for any date range, compared with the period before, and export each table to CSV. Every order line stores what the goods cost when they were sold (a weighted average updated on each delivery), so margins stay correct when costs change. Costs and reports are only visible to roles allowed to see them
 
 The whole interface, staff and client side, is available in English, French and Arabic, including the printed invoices, quotes and credit notes. Arabic uses a right-to-left layout and proper Arabic plural forms, and numbers, dates and amounts follow the language (Moroccan Arabic month names, Latin digits).
@@ -86,7 +86,7 @@ There's also a dark mode and a Ctrl+K search that jumps to any page or record:
 
 ## Stack
 
-React 19 with Vite and Tailwind on the frontend, Node.js 22 and Express 5 on the backend, MySQL 8 for the database. The demand forecast is trained in Python with pandas and scikit-learn. Tests use Jest, Supertest, pytest and Playwright, and everything runs in Docker for deployment (nginx in front, Caddy for HTTPS).
+React 19 with Vite and Tailwind on the frontend, Node.js 22 and Express 5 on the backend, MySQL 8 for the database. The two machine-learning models are trained in Python with pandas and scikit-learn. Tests use Jest, Supertest, pytest and Playwright, and everything runs in Docker for deployment (nginx in front, Caddy for HTTPS).
 
 ## How it's put together
 
@@ -111,42 +111,64 @@ A few things I spent time on:
 
 The billing, quote and purchasing rules live in plain modules with no database code, which made them easy to unit test.
 
-## Demand forecast (machine learning)
+## Machine learning
 
-A model predicts how many units of each product will sell in the next 4 weeks, with an 80% range. Purchasing uses it: a product is suggested for reordering when its stock plus what's on order falls below the expected sales during the supplier's lead time plus safety stock taken from the upper end of the range. The manual reorder point stays as a minimum. Managers see the test results on a Demand forecast page, and each product's stock drawer shows its recent weekly sales and the forecast.
+Two models trained on the company's own history help with stock and collections. Both are trained offline in Python (`ml/`), tested against simple rules on data they never saw, and write their results to MySQL. The API only reads those tables, so the app doesn't need Python and keeps working if a job has never run. Managers can see each model's test results in the app.
 
-The model is trained offline (`ml/`, Python) and writes its forecasts and test results to MySQL. The API only reads them, so the app doesn't depend on Python being installed and keeps working if the job never runs.
+### Demand forecast
+
+Predicts how many units of each product will sell in the next 4 weeks, with an 80% range. Purchasing uses it: a product is suggested for reordering when its stock plus what's on order falls below the expected sales during the supplier's lead time, plus safety stock taken from the upper end of the range. The manual reorder point stays as a minimum. Each product's stock drawer shows its recent weekly sales and the forecast.
 
 - **Model:** gradient-boosted trees (scikit-learn `HistGradientBoostingRegressor`) with a Poisson loss for the expected units, plus two quantile models for the 10% and 90% bounds.
 - **Inputs:** each product's recent weekly sales, its 13/26/52-week averages, the same weeks last year, and its category's seasonal pattern pooled across all products in the category (single products sell too rarely to show a season on their own). Price and month are also used.
-- **Testing:** a rolling backtest. For each of the last six 4-week periods, the model is retrained only on data from before that period and compared with what actually sold. A test checks that no input ever uses data from after the forecast date.
+- **Testing:** a rolling backtest. For each of the last six 4-week periods, the model is retrained only on data from before that period and compared with what actually sold.
 
-Results on the demo data (2,091 product forecasts):
-
-| Method | WAPE | RMSE | Bias |
+| Method (2,090 product forecasts) | WAPE | RMSE | Bias |
 |---|---:|---:|---:|
-| **Model** | **73.8%** | **19.12** | −7.5% |
-| 13-week average | 76.4% | 20.10 | −1.4% |
-| Yearly average × category season | 73.7% | 20.43 | −30.1% |
-| Same weeks last year | 84.4% | 23.19 | −29.2% |
-| Last 4 weeks again | 87.3% | 23.25 | −5.3% |
+| **Model** | **73.4%** | **18.82** | −3.0% |
+| 13-week average | 75.5% | 19.83 | −1.2% |
+| Yearly average × category season | 73.9% | 20.68 | −23.8% |
+| Same weeks last year | 86.1% | 23.84 | −24.1% |
+| Last 4 weeks again | 86.3% | 23.93 | −3.2% |
 
-The model has 4.9% lower RMSE than the best simple method and ties the best one on WAPE. I rank by RMSE because the model predicts expected sales, which is what reordering needs. WAPE rewards forecasts that run low when demand is lumpy (more than half of all 4-week windows sell nothing for a given product): the seasonal average matches the model on WAPE only by forecasting 30% too little, which would leave the warehouse short. 10.5% of actual sales landed above the upper bound, against a 10% target.
+The model has 5.1% lower RMSE than the best simple method. I rank by RMSE because the model predicts expected sales, which is what reordering needs. WAPE rewards forecasts that run low when demand is lumpy (more than half of all 4-week windows sell nothing for a given product): the seasonal average comes close on WAPE only by forecasting 24% too little, which would leave the warehouse short. 10.6% of actual sales landed above the upper bound, against a 10% target.
 
-These numbers come from generated data, and I built yearly seasons, slow trends and an August slowdown into the generator. They show the pipeline finds patterns that are really there. They don't predict how well it would do on a real company's sales. Single-product weekly demand is noisy, so a WAPE around 74% is expected at this level of detail.
+### Late-payment risk
 
-To train it (Python 3.11+):
+For every open invoice that isn't late yet, estimates the probability it will be paid more than 7 days after its due date. The Receivables page shows the score next to each invoice with the reasons in plain words ("paid late on 12 of 15 earlier invoices", "large invoice"), a filter for invoices that are likely to be late, and their total.
+
+- **Model:** logistic regression on six inputs: how often the customer paid late before, how late their recent payments were, how many of their invoices were already overdue, invoice size, whether it's August or December, and whether the customer is new. Gradient-boosted trees on all 18 features I computed scored slightly worse, and a linear model can explain each score exactly, so I kept it.
+- **No leakage:** every input is computed as of the day the invoice was issued. An earlier invoice only counts as late or on time once its own deadline had passed, and a test rewrites later payments to check that nothing earlier changes.
+- **Testing:** for each of the last six complete months, the model is trained only on invoices whose outcome was known at the start of that month, then scores the invoices issued during it.
+
+| Method (1,366 invoices, 37.5% paid late) | Brier score | AUC | Log loss |
+|---|---:|---:|---:|
+| **Logistic regression** | **0.1205** | **0.892** | 0.384 |
+| Gradient-boosted trees | 0.1218 | 0.889 | 0.385 |
+| The customer's past late rate | 0.1277 | 0.872 | 0.404 |
+| Same rate for every invoice | 0.2346 | 0.485 | 0.662 |
+
+The main score is the Brier score, because the app shows probabilities and they should mean what they say: the model's is 5.6% lower than the "how often did this customer pay late before" rule a credit controller would use. Split into five groups by predicted risk, the predicted and actual late rates match within 3 points (for example 24% predicted, 23% late).
+
+### What these numbers mean
+
+Both models were tested on generated data, and I built the patterns into the generator: seasons per category, slow trends and an August slowdown for sales; for payments, each customer has habits (early, on time, slow or erratic, some getting worse over time), large invoices and August/December invoices are paid later, and 7% of invoices get stuck in a dispute. The results show the pipelines find patterns that are really there. They don't predict how well the models would do on a real company's data. I also chose the model settings on the same test periods, so the margins over the simple rules are slightly optimistic.
+
+### Training
+
+Python 3.11 or newer:
 
 ```bash
 cd ml
 python -m venv .venv
 .venv/Scripts/activate        # Windows; on macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-python -m b2b_ml forecast --dry-run   # train and print the test results
-python -m b2b_ml forecast             # also publish forecasts to the app
+python -m b2b_ml forecast --dry-run   # train and print the test results only
+python -m b2b_ml forecast             # also publish the forecasts to the app
+python -m b2b_ml risk                 # same for the late-payment model
 ```
 
-It reads the database settings from `backend/.env`. In production you'd run it weekly from cron. More detail is in [ml/README.md](ml/README.md).
+The jobs read the database settings from `backend/.env`. In production you'd run them weekly from cron. More detail is in [ml/README.md](ml/README.md).
 
 ## Running it locally
 
@@ -201,7 +223,7 @@ cd backend
 npm run seed:large
 ```
 
-This fills the database with about 400 customers, 350 products and 5,000 orders over 24 months, with seasonal patterns per category (back-to-school office supplies, year-end electronics, a quiet August) so the forecast has something to learn. It also adds the matching payments, quotes, returns, price lists, suppliers, purchase orders, 24 staff accounts and 3 client logins (`buyer@<company>.portal.example`). They all share one password, which is printed at the end. You can set it yourself with `SEED_USER_PASSWORD` in `.env`.
+This fills the database with about 400 customers, 350 products and 5,000 orders over 24 months, with seasonal patterns per category (back-to-school office supplies, year-end electronics, a quiet August) and customers with their own payment habits, so the models have something to learn. It also adds the matching payments, quotes, returns, price lists, suppliers, purchase orders, 24 staff accounts and 3 client logins (`buyer@<company>.portal.example`). They all share one password, which is printed at the end. You can set it yourself with `SEED_USER_PASSWORD` in `.env`.
 
 Other options:
 
@@ -234,9 +256,9 @@ Caddy gets the certificate from Let's Encrypt and renews it automatically. Only 
 ## Tests
 
 ```bash
-cd backend && npm test      # 220 Jest tests (business rules, permissions, audit, security)
+cd backend && npm test      # 222 Jest tests (business rules, permissions, audit, security)
 cd frontend && npm run lint
-cd ml && python -m pytest   # 13 tests (no data leakage, metrics, backtest on synthetic data)
+cd ml && python -m pytest   # 21 tests (no data leakage, metrics, backtests on synthetic data)
 cd e2e && npm ci && npx playwright install chromium && npx playwright test
 ```
 
@@ -265,7 +287,7 @@ For production, set `NODE_ENV=production`, `CORS_ORIGIN` (https only) and, behin
 - The Ctrl+K product search only looks at the first 100 products.
 - Messages that come from the server (most validation errors, the price label on an order line) are still in English, and so is the demo data.
 - Customers and orders are paginated in the browser, which is fine for a few thousand rows but won't scale forever.
-- The forecast is only as fresh as the last training run, and nothing schedules it for you. Products with no sales yet get no forecast and fall back to the reorder point.
+- The models are only as fresh as their last training run, and nothing schedules them for you. Products with no sales yet get no forecast and fall back to the reorder point. Risk scores are worked out as of the day each invoice was issued and don't update when the customer pays something else later.
 
 ## What I'd add next
 

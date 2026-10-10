@@ -1,4 +1,4 @@
-const { fillWeeks, listModels, loadActiveForecasts, mondayOf } = require("../ml/mlStore");
+const { fillWeeks, listModels, loadActiveForecasts, loadRiskScores, mondayOf } = require("../ml/mlStore");
 
 describe("ML store", () => {
     test("mondayOf returns the Monday of the week in UTC", () => {
@@ -20,6 +20,15 @@ describe("ML store", () => {
         const connection = { query: jest.fn().mockRejectedValue(missing) };
         await expect(listModels(connection)).resolves.toEqual([]);
         await expect(loadActiveForecasts(connection)).resolves.toEqual(new Map());
+        await expect(loadRiskScores(connection)).resolves.toEqual(new Map());
+    });
+
+    test("risk scores come back as numbers with their facts parsed", async () => {
+        const connection = {
+            query: jest.fn().mockResolvedValue([[{ order_id: 12, probability: "0.7312", facts: '{"reasons":["history"],"late_invoices":4}' }]])
+        };
+        const scores = await loadRiskScores(connection);
+        expect(scores.get(12)).toEqual({ probability: 0.7312, facts: { reasons: ["history"], late_invoices: 4 } });
     });
 
     test("parses JSON metrics stored as text (MariaDB) and hides details of old versions", async () => {

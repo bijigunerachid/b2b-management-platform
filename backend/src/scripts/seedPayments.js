@@ -20,7 +20,7 @@ async function seedPayments() {
         await connection.beginTransaction();
 
         const [orders] = await connection.query(
-            `SELECT o.id AS \`key\`, o.status, o.total_amount, o.created_at
+            `SELECT o.id AS \`key\`, o.customer_id AS customer_key, o.status, o.total_amount, o.created_at
              FROM orders o
              WHERE o.status <> 'Cancelled'
                AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id)

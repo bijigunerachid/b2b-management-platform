@@ -4,6 +4,9 @@
 const { parseJson } = require("../services/json");
 
 const DEMAND_FORECAST = "demand_forecast";
+const PAYMENT_RISK = "payment_risk";
+// Probability of paying more than 7 days late from which an invoice counts as "likely late".
+const HIGH_RISK = 0.5;
 const HISTORY_WEEKS = 26;
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 
@@ -62,6 +65,19 @@ async function loadActiveForecasts(connection) {
     }, new Map());
 }
 
+/** Active late-payment scores as Map(order_id → { probability, facts }). */
+async function loadRiskScores(connection) {
+    return tolerateMissingTable(async () => {
+        const [rows] = await connection.query(
+            `SELECT s.order_id, s.probability, s.facts
+             FROM payment_risk_scores s
+             INNER JOIN ml_models m ON m.id = s.model_id AND m.is_active = 1 AND m.name = ?`,
+            [PAYMENT_RISK]
+        );
+        return new Map(rows.map((row) => [row.order_id, { probability: Number(row.probability), facts: parseJson(row.facts) }]));
+    }, new Map());
+}
+
 /** Monday 00:00 UTC of the week `date` falls in. */
 function mondayOf(date) {
     const day = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -114,4 +130,15 @@ async function productForecast(connection, productId, now = new Date()) {
     return { model, forecast, history: fillWeeks(rows, lastWeek) };
 }
 
-module.exports = { DEMAND_FORECAST, HISTORY_WEEKS, fillWeeks, listModels, loadActiveForecasts, mondayOf, productForecast };
+module.exports = {
+    DEMAND_FORECAST,
+    HIGH_RISK,
+    HISTORY_WEEKS,
+    PAYMENT_RISK,
+    fillWeeks,
+    listModels,
+    loadActiveForecasts,
+    loadRiskScores,
+    mondayOf,
+    productForecast
+};

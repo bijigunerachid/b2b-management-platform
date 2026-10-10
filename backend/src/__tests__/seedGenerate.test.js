@@ -103,4 +103,24 @@ describe("payment generator", () => {
         expect(settledShare((order) => ageDays(order) > 90)).toBeGreaterThan(0.8);
         expect(settledShare((order) => ageDays(order) < 20)).toBeLessThan(0.5);
     });
+
+    test("payment habits belong to the customer, so the past predicts the future", () => {
+        const { payerProfile } = require("../seed/generate");
+        expect(payerProfile(7)).toEqual(payerProfile(7));
+
+        // Days after the due date that each settled invoice was fully paid.
+        const delays = new Map();
+        data.orders.forEach((order, key) => {
+            const paid = data.payments.filter((payment) => payment.key === key);
+            const total = invoiceTotals(order.total_amount).total;
+            if (order.status === "Cancelled" || paid.reduce((sum, payment) => sum + payment.amount, 0) < total - 0.005) return;
+            const last = Math.max(...paid.map((payment) => payment.paid_at.getTime()));
+            const delay = (last - order.created_at.getTime()) / 86400000 - 30;
+            const type = payerProfile(order.customerIndex).type;
+            delays.set(type, [...(delays.get(type) ?? []), delay]);
+        });
+        const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+        expect(mean(delays.get("early"))).toBeLessThan(mean(delays.get("on_time")));
+        expect(mean(delays.get("on_time"))).toBeLessThan(mean(delays.get("slow")));
+    });
 });

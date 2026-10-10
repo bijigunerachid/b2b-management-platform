@@ -30,6 +30,7 @@ test.describe("warehouse role", () => {
         await expect(nav.getByRole("link", { name: "Receivables" })).toHaveCount(0);
         await expect(nav.getByRole("link", { name: "Reports" })).toHaveCount(0);
         await expect(nav.getByRole("link", { name: "Demand forecast" })).toHaveCount(0);
+        await expect(nav.getByRole("link", { name: "Payment risk" })).toHaveCount(0);
     });
 
     test("is stopped at the door of a money page", async ({ page }) => {
@@ -59,6 +60,17 @@ test.describe("manager role", () => {
         await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Demand forecast" }).click();
         await expect(page.getByRole("heading", { name: "Demand forecast" })).toBeVisible();
         await expect(page.getByText("No model trained yet")).toBeVisible();
+    });
+
+    test("opens the payment risk page, and receivables work without a trained model", async ({ page }) => {
+        await page.goto("/");
+        await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Payment risk" }).click();
+        await expect(page.getByRole("heading", { name: "Payment risk" })).toBeVisible();
+        await expect(page.getByText("No model trained yet")).toBeVisible();
+
+        await page.goto("/receivables");
+        await expect(page.getByRole("heading", { name: "Receivables", exact: true })).toBeVisible();
+        await expect(page.getByText("Likely to pay late")).toHaveCount(0);
     });
 });
 

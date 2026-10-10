@@ -6,6 +6,10 @@ const {
     withBilling
 } = require("../billing/billing");
 const { BILLING_JOINS, ORDER_BILLING_COLUMNS, loadOpenInvoices, loadOrderBilling } = require("../billing/queries");
+const { HIGH_RISK, loadRiskScores } = require("../ml/mlStore");
+
+// Risk only means something until the invoice is actually late (7 days' grace).
+const RISK_GRACE_DAYS = 7;
 
 function parseId(value) {
     const id = Number(value);
@@ -231,6 +235,11 @@ const getReceivables = async (req, res) => {
     try {
         const open = await loadOpenInvoices(pool);
         const report = ageingReport(open);
+        const scores = await loadRiskScores(pool);
+        const riskFor = (order) =>
+            order.billing.days_overdue <= RISK_GRACE_DAYS ? scores.get(order.id) ?? null : null;
+
+        const likelyLate = open.filter((order) => (riskFor(order)?.probability ?? 0) >= HIGH_RISK);
 
         open.sort(
             (a, b) =>
@@ -242,13 +251,21 @@ const getReceivables = async (req, res) => {
             success: true,
             data: {
                 ...report,
+                risk: scores.size
+                    ? {
+                          threshold: HIGH_RISK,
+                          likely_late_count: likelyLate.length,
+                          likely_late_amount: Math.round(likelyLate.reduce((sum, order) => sum + order.billing.balance, 0) * 100) / 100
+                      }
+                    : null,
                 invoices: open.map((order) => ({
                     id: order.id,
                     customer_id: order.customer_id,
                     company_name: order.company_name,
                     status: order.status,
                     created_at: order.created_at,
-                    billing: order.billing
+                    billing: order.billing,
+                    payment_risk: riskFor(order)
                 }))
             }
         });
